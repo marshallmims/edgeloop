@@ -7,7 +7,7 @@ credited by username.
 ## Unreleased
 
 ### Site
-- The footer links to the Discord server. The support address is no longer in the footer; it remains the private contact for reports that should not be posted in public.
+- The footer links to the Discord server and the GitHub repository. Every footer link uses the same color. The support address is no longer in the footer; it remains the private contact for reports that should not be posted in public.
 
 ### Games
 - **Edge Training** pulls you to the ceiling and treats a timed hold as the
