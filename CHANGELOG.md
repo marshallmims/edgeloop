@@ -4,9 +4,9 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
-## 1.2.0
+## 1.1.3
 
-Calibration, two climax numbers, and one card for the stroke and the goal. This is the number on dev.edgeloop.app. The same number ships to edgeloop.app when it is released. The footer DEV badge is the host, not a second version.
+Calibration, two climax numbers, and one card for the stroke and the goal. Shipped as the next number so it can be tested, the same way 1.1.2 was. This is the number on dev.edgeloop.app, and the same number ships to edgeloop.app when it is released. The footer DEV badge is the host, not a second version.
 
 ### Calibration
 - **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Resting heart rate is assumed at 70 and is no longer a field. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
