@@ -1174,30 +1174,30 @@ function renderCameEarlyButton() {
 }
 
 function calibrationHintText() {
+    const on = state.activeMode === 'calibrate' || state.gameMode === 'calibrate';
+    if (!on) return '';
     const saved = calibrationReading(advancedSettings.calibrationPrimaryHr);
     const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED';
-    if (state.activeMode === 'calibrate' && state.calibrationPass === 'dual') {
+    if (state.calibrationPass === 'dual') {
         return saved
             ? `Primary and secondary both on. The app / Finished me saves that heart rate as the dual max. The primary max stays ${saved}.`
             : 'Primary and secondary both on. The app / Finished me saves that heart rate as the dual max.';
     }
-    if (state.activeMode === 'calibrate' && state.calibrationPass === 'primary') {
-        return saved && !live
-            ? `Redo of the primary run. Leave the secondary off. The app / Finished me replaces ${saved}.`
-            : 'Primary device only. Leave the secondary off. When you orgasm, tap The app / Finished me.';
+    if (saved && !live) {
+        return `Redo of the primary run. Leave the secondary off. The app / Finished me replaces ${saved}.`;
     }
-    if (saved) {
-        return `Primary max is ${saved}. Tap Calibrate for the run with both devices, or to redo the primary run.`;
-    }
-    return 'Primary device first, secondary off. After a rest, run it again with both. Either number can be changed by hand. Resting heart rate is assumed at 70.';
+    return 'Primary device only. Leave the secondary off. When you orgasm, tap The app / Finished me.';
 }
 
 function renderCalibration() {
     const btn = document.getElementById('calibrateBtn');
     const hint = document.getElementById('calibrationHint');
-    if (hint) hint.textContent = calibrationHintText();
-    if (!btn) return;
     const on = state.activeMode === 'calibrate' || state.gameMode === 'calibrate';
+    if (hint) {
+        hint.textContent = calibrationHintText();
+        hint.classList.toggle('hidden', !on);
+    }
+    if (!btn) return;
     btn.textContent = on ? 'Calibrating' : 'Calibrate';
     btn.className = on
         ? 'px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-purple-950/40 border-purple-600 text-purple-200'
