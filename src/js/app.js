@@ -1178,18 +1178,18 @@ function calibrationHintText() {
     const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED';
     if (state.activeMode === 'calibrate' && state.calibrationPass === 'dual') {
         return saved
-            ? `Both toys on. Finished me saves that heart rate as the dual-stim max. Single-stim max stays ${saved}.`
-            : 'Both toys on. Finished me saves that heart rate as the dual-stim max.';
+            ? `Primary and secondary both on. The app / Finished me saves that heart rate as the dual max. The primary max stays ${saved}.`
+            : 'Primary and secondary both on. The app / Finished me saves that heart rate as the dual max.';
     }
     if (state.activeMode === 'calibrate' && state.calibrationPass === 'primary') {
         return saved && !live
-            ? `Redo of the single-stim run. Leave the second toy off. Finished me replaces ${saved}.`
-            : 'One toy only. Leave the second toy off. Finished me saves that heart rate as your single-stim max.';
+            ? `Redo of the primary run. Leave the secondary off. The app / Finished me replaces ${saved}.`
+            : 'Primary device only. Leave the secondary off. When you orgasm, tap The app / Finished me.';
     }
     if (saved) {
-        return `Single-stim max is ${saved}. Tap Calibrate for the both-toys run, or to redo the single-stim run.`;
+        return `Primary max is ${saved}. Tap Calibrate for the run with both devices, or to redo the primary run.`;
     }
-    return 'One toy first — The Handy, or your stroker. A later run with both toys saves a separate dual-stim max. Resting heart rate is assumed at 70.';
+    return 'Primary device first, secondary off. After a rest, run it again with both. Either number can be changed by hand. Resting heart rate is assumed at 70.';
 }
 
 function renderCalibration() {
@@ -2061,26 +2061,26 @@ function offerCalibration() {
     const { dual } = stimulationRoles();
     if (!saved) {
         if (dual) {
-            alert('Both toys are on. The first run is the stroker alone — The Handy, or whichever device is your primary. Turn the second toy off, then tap Calibrate again.');
+            alert('Both devices are on. The first run is your primary stimulation device alone. Turn the secondary off, then tap Calibrate again.');
             return false;
         }
-        const ok = confirm('First run: one toy only. Use The Handy, or whichever device is stroking, and leave the second toy off.\n\nWhen you come, tap Finished me. That heart rate becomes your single-stim max.\n\nA later Calibration run, with both toys on, saves a separate dual-stim max.\n\nArm the single-stim run? Press play when you are ready.');
+        const ok = confirm('Calibration matches the app to your body and your toys.\n\nFirst, use your primary stimulation device alone and leave the secondary off. It slowly pushes until you orgasm. When you do, tap the button labeled The app / Finished me. That sets your primary max.\n\nAfter a rest (about 24 hours), run it again with both primary and secondary connected. Tap that same button when you orgasm. That sets your dual max.\n\nYou can change either number by hand at any time.\n\nStart the primary run? Press play when you are ready.');
         if (!ok) return false;
         armCalibration('primary');
         return true;
     }
-    const dualOk = confirm(`Your single-stim max is ${saved} BPM.\n\nThis run uses both toys. Turn the second one on before you press play. Finished me saves the heart rate you finish at as the dual-stim max. The single-stim max stays ${saved}.\n\nArm the both-toys run?`);
+    const dualOk = confirm(`Your primary max is ${saved} BPM.\n\nThis run uses both your primary and secondary stimulation. Turn the secondary on before you press play. It slowly pushes until you orgasm. Tap The app / Finished me, and that sets your dual max. The primary max stays ${saved}. You can change either number by hand at any time.\n\nStart the run with both devices?`);
     if (dualOk) {
         if (!dual) {
-            alert('The second toy is not on yet. Turn it on, then tap Calibrate again.');
+            alert('The secondary is not on yet. Turn it on, then tap Calibrate again.');
             return false;
         }
         armCalibration('dual');
         return true;
     }
-    if (!confirm('Redo the primary run instead? Stroker only. The saved number stays until Finished me replaces it.')) return false;
+    if (!confirm('Redo the primary run instead? Primary device only. The saved number stays until The app / Finished me replaces it.')) return false;
     if (dual) {
-        alert('Turn the second toy off for the primary run, then tap Calibrate again.');
+        alert('Turn the secondary off for the primary run, then tap Calibrate again.');
         return false;
     }
     armCalibration('primary');
@@ -2101,7 +2101,7 @@ cameEarlyBtn?.addEventListener('click', () => {
         const pass = state.calibrationPass === 'dual' && saved ? 'dual' : 'primary';
         const { dual } = stimulationRoles();
         if (pass === 'dual' && !dual) {
-            const asPrimary = confirm(`The second toy is not on, so this is a single-stim reading. Save ${hr} as your single-stim max instead?`);
+            const asPrimary = confirm(`The secondary is not on, so this reading is from the primary device alone. Save ${hr} as your primary max instead?`);
             if (!asPrimary) return;
             savePrimaryClimax(hr);
             stopSession('Calibration', 'Saved. That heart rate is your max.');
@@ -2109,14 +2109,14 @@ cameEarlyBtn?.addEventListener('click', () => {
         }
         if (pass === 'dual') {
             const single = readHrLimits().maxHr;
-            const ok = confirm(`Set the dual-stim max to ${hr}? Your single-stim max stays ${single}. The toys stop, and a both-toys session uses ${hr}.`);
+            const ok = confirm(`Set the dual max to ${hr}? Your primary max stays ${single}. The toys stop. You can change this number by hand.`);
             if (!ok) return;
             saveDualClimax(hr);
             stopSession('Calibration', 'Saved. That heart rate is your dual-stim max.');
             return;
         }
         const typed = readHrLimits().maxHr;
-        const ok = confirm(`Set the single-stim max to ${hr}? This was one toy. Your typed max is ${typed}. The toys stop, and the next one-toy session uses ${hr}. A later Calibration run with both toys saves the dual-stim max on its own.`);
+        const ok = confirm(`Set the primary max to ${hr}? This was your primary device alone. Your typed max is ${typed}. The toys stop. You can change this number by hand. After a rest, a run with both devices sets the dual max.`);
         if (!ok) return;
         savePrimaryClimax(hr);
         stopSession('Calibration', 'Saved. That heart rate is your max.');
@@ -2229,7 +2229,7 @@ const MODE_DETAILS = {
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come. The stroke range is the tease mode you selected.',
-    calibrate: 'A climb of its own, separate from Survival. The first run is one toy, and Finished me saves that heart rate as the single-stim max. A later run with both toys saves the dual-stim max on its own. "At the ceiling" does not stop the toys or end the run.',
+    calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.'
 };
 
