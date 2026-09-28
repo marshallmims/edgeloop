@@ -35,7 +35,7 @@ EdgeLoop runs 100% locally in your web browser with zero accounts, zero subscrip
 
 ### Versions
 
-EdgeLoop uses semantic versions. **1.0.0** is the app as it stood when the footer started showing a number, which is the build that had been called 1.0. **1.1.0** is PATTERNS. **1.1.1** fixes sessions that were easing off before the heart-rate max. **1.1.2** is Survival, shipped as a patch so it can be tested. A bug fix bumps the last number. The next feature release bumps the middle number. The footer shows the number and a **Changelog** button that opens [CHANGELOG.md](CHANGELOG.md) in the app. That file is the same list on GitHub. Publishing a [GitHub Release](https://github.com/marshallmims/edgeloop/releases) for a version is what posts it to the Discord changelog channel.
+EdgeLoop uses semantic versions. **1.0.0** is the app as it stood when the footer started showing a number, which is the build that had been called 1.0. **1.1.0** is PATTERNS. **1.1.1** fixes sessions that were easing off before the heart-rate max. **1.1.2** is Survival, shipped as a patch so it can be tested. **1.2.0** is the current feature release: calibration, separate single and dual climax numbers, and the stroke and goal on one card. dev.edgeloop.app shows that same number; the DEV badge is the host. A bug fix bumps the last number. The next feature release bumps the middle number. The footer shows the number and a **Changelog** button that opens [CHANGELOG.md](CHANGELOG.md) in the app. That file is the same list on GitHub. Publishing a [GitHub Release](https://github.com/marshallmims/edgeloop/releases) for a version is what posts it to the Discord changelog channel.
 
 ---
 
