@@ -1,7 +1,7 @@
 // The version the footer shows. It matches package.json. 1.0.0 is the app
 // as it stood when numbers started appearing there. A new feature release
 // bumps the middle number. A bug fix bumps the last number.
-export const APP_VERSION = '1.1.2';
+export const APP_VERSION = '1.2.0';
 
 export const GITHUB_CHANGELOG_URL = 'https://github.com/marshallmims/edgeloop/blob/main/CHANGELOG.md';
 export const GITHUB_RELEASES_URL = 'https://github.com/marshallmims/edgeloop/releases';

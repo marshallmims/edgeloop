@@ -4,16 +4,19 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
-## Unreleased
+## 1.2.0
+
+Calibration, two climax numbers, and one card for the stroke and the goal. This is the number on dev.edgeloop.app. The same number ships to edgeloop.app when it is released. The footer DEV badge is the host, not a second version.
 
 ### Calibration
 - **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Resting heart rate is assumed at 70 and is no longer a field. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
+- **Calibration turns off.** While it is armed the button reads Calibrating, and that same button turns it off. Picking a stroke, Tease, or another goal also leaves it, and so do Stop and Reset. The accidental-release button comes back. It is not restored on a reload.
 
 ### Cockpit
 - **Stroke and goal on one card.** The Modes and Games tabs are gone. The stroke sits on the top row. The goal sits under it: Tease, Survival, Edge Training, and The Oracle. Tease means no game, so the stroke runs on its own. Edge Training's hold time and edge count stay on that card. Session Setup is unchanged.
 
 ### Site
-- **dev.edgeloop.app.** A separate copy for development. Pushes to the `dev` branch publish there. `main` still publishes edgeloop.app. The footer shows DEV on that host. Settings and pairings on the dev site are its own, not the live site's.
+- **dev.edgeloop.app.** A separate copy for development. Pushes to the `dev` branch publish there. `main` still publishes edgeloop.app. The footer shows DEV on that host. Settings and pairings on the dev site are its own, not the live site's. The version number is the release number, shared with production when this build ships.
 
 ## 1.1.2
 

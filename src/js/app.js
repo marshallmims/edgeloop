@@ -1156,8 +1156,8 @@ function renderCameEarlyButton() {
     label.textContent = finishing ? 'Finished me' : 'Came Early';
     cameEarlyBtn.title = calibrating
         ? (state.calibrationPass === 'dual'
-            ? 'Both toys finished you. This sets the dual-stim offset from the gap under your primary climax.'
-            : 'The primary toy finished you. This heart rate becomes your Climax HR.')
+            ? 'Both toys finished you. This heart rate becomes your dual-stim max.'
+            : 'The primary toy finished you. This heart rate becomes your single-stim max.')
         : finishing
             ? 'Survival finished you. This ends the run. Your Climax HR stays as typed.'
             : 'Log accidental release so local learning engine tightens limits next time.';
@@ -1197,11 +1197,27 @@ function renderCalibration() {
     const hint = document.getElementById('calibrationHint');
     if (hint) hint.textContent = calibrationHintText();
     if (!btn) return;
-    const on = state.activeMode === 'calibrate';
+    const on = state.activeMode === 'calibrate' || state.gameMode === 'calibrate';
+    btn.textContent = on ? 'Calibrating' : 'Calibrate';
     btn.className = on
         ? 'px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-purple-950/40 border-purple-600 text-purple-200'
         : 'px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200';
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+// Calibration is a climb you arm on purpose. It is not a goal card, so leaving
+// it has to be explicit: the button itself, a stroke, another goal, Stop, or
+// Reset. Otherwise the accidental-release button stays "The app / Finished me".
+function leaveCalibration() {
+    if (state.gameMode !== 'calibrate' && state.activeMode !== 'calibrate') return false;
+    if (state.gameMode === 'calibrate') state.gameMode = null;
+    state.calibrationPass = null;
+    if (state.activeMode === 'calibrate') state.activeMode = state.teaseMode;
+    highlightModeCard();
+    renderModeDetail();
+    renderCalibration();
+    updateEngine();
+    return true;
 }
 
 // Validate the Session Setup duration fields and flag any bad one in red.
@@ -1894,6 +1910,7 @@ function stopSession(outcome = "Stopped", voiceText = null) {
     } finally {
         resetSessionCounters();
         resetGameState();
+        leaveCalibration();
         updateWarmupBadge();
         showIdleTransport();
         // STOP silences every queued cue; the outcome is the one thing said.
@@ -1918,6 +1935,7 @@ resetBtn?.addEventListener('click', () => {
     clearHrSignalPause();
     resetSessionCounters();
     resetGameState();
+    leaveCalibration();
     updateWarmupBadge();
     cancelSpeech();
     setMindgamePrompt('', false);
@@ -2272,6 +2290,11 @@ function applyModeSelection(mode, enabled) {
             state.gameMode = mode;
         }
     } else {
+        // A stroke is not a way to keep Calibration running in the background.
+        if (state.gameMode === 'calibrate') {
+            state.gameMode = null;
+            state.calibrationPass = null;
+        }
         state.teaseMode = mode;
         state.ruinHoldSeconds = 0;
         state.ruinRideSeconds = 0;
@@ -2306,6 +2329,11 @@ document.getElementById('wizardCalibrateBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('calibrateBtn')?.addEventListener('click', () => {
+    if (state.activeMode === 'calibrate' || state.gameMode === 'calibrate') {
+        leaveCalibration();
+        syncTelemetry();
+        return;
+    }
     offerCalibration();
 });
 
