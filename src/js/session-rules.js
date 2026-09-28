@@ -47,6 +47,9 @@ export const DEFAULT_STALL_PAUSE_SECONDS = 8;
 
 export const DEFAULT_MIN_HR = 70;
 export const DEFAULT_MAX_HR = 140;
+// Both-toys climax, shown as its own number. 125 is the old 15 BPM
+// assumption made visible, so a fresh install behaves as before.
+export const DEFAULT_DUAL_MAX_HR = 125;
 
 function toInt(value) {
     if (value === '' || value === null || value === undefined) return null;
@@ -93,8 +96,7 @@ export function computeEffectiveCeiling({
     maxHr,
     learnedOffset = 0,
     dualStimActive = false,
-    dualDampening = false,
-    dualDampeningBpm = 15,
+    dualMaxHr = null,
     adaptiveDecay = false,
     edges = 0,
     decayEdgeCount = 2,
@@ -104,7 +106,10 @@ export function computeEffectiveCeiling({
     survivalOverdrive = 0
 }) {
     const min = Number.isFinite(minHr) ? minHr : DEFAULT_MIN_HR;
-    const typedMax = Number.isFinite(maxHr) ? maxHr : DEFAULT_MAX_HR;
+    const singleMax = Number.isFinite(maxHr) ? maxHr : DEFAULT_MAX_HR;
+    const dualTyped = Number.isFinite(dualMaxHr) ? dualMaxHr : singleMax;
+    const usingDual = Boolean(dualStimActive);
+    const typedMax = usingDual ? dualTyped : singleMax;
     let max = typedMax;
     // The lowest any offset may drag the ceiling. If the user typed a ceiling
     // that is already closer than the gap, the typed value wins (offsets are
@@ -113,11 +118,6 @@ export function computeEffectiveCeiling({
 
     const learned = Number.isFinite(learnedOffset) && learnedOffset > 0 ? learnedOffset : 0;
     if (learned > 0) max = Math.max(floorMax, max - learned);
-
-    const dual = (dualStimActive && dualDampening)
-        ? (Number.isFinite(dualDampeningBpm) && dualDampeningBpm > 0 ? dualDampeningBpm : 15)
-        : 0;
-    if (dual > 0) max = Math.max(floorMax, max - dual);
 
     let totalDecay = 0;
     let appliedDecay = 0;
@@ -152,7 +152,8 @@ export function computeEffectiveCeiling({
         maxHr: max,
         typedMaxHr: typedMax,
         learnedOffset: learned,
-        dualOffset: dual,
+        usingDual,
+        dualMaxHr: dualTyped,
         totalDecay,
         appliedDecay,
         decayFloored,
@@ -411,6 +412,17 @@ export function survivalDrive({ seconds = 0, edges = 0 } = {}) {
     return { floor, overdriveBpm };
 }
 
+// A climax heart rate Calibration is willing to store. Same window the
+// Finished me confirm already refused: a 0 or a 300 is not a max.
+export const CALIBRATION_HR_MIN = 40;
+export const CALIBRATION_HR_MAX = 220;
+
+export function calibrationReading(hr) {
+    const n = Math.round(Number(hr));
+    if (!Number.isFinite(n) || n < CALIBRATION_HR_MIN || n > CALIBRATION_HR_MAX) return null;
+    return n;
+}
+
 // Edge Training: climb to the pullback mark, hold there for holdGoal
 // seconds, repeat until edgesGoal successful holds, then finish.
 export const MIN_TRAIN_HOLD_SECONDS = 5;
@@ -565,14 +577,14 @@ export function describeGameNotice({
     trainEdgesGoal,
     survivalSpeedFloor = 0,
     survivalOverdrive = 0,
-    survivalCalibrating = false,
+    calibrationPass = 'primary',
     sessionSeconds = 0,
     minSeconds = 0,
     maxSeconds = 0,
     targetSeconds = 0,
     fixedLength = false
 } = {}) {
-    const isGame = activeMode === 'oracle' || activeMode === 'survival' || activeMode === 'edgetrain';
+    const isGame = activeMode === 'oracle' || activeMode === 'survival' || activeMode === 'edgetrain' || activeMode === 'calibrate';
     const live = sessionStatus === 'RUNNING' || sessionStatus === 'RAMPDOWN';
     if (!isGame || !live) return '';
 
@@ -597,11 +609,14 @@ export function describeGameNotice({
         return 'THE ORACLE: APPROACHING THE CEILING';
     }
 
-    if (activeMode === 'survival') {
+    if (activeMode === 'survival' || activeMode === 'calibrate') {
         const floor = Math.round(Number.isFinite(survivalSpeedFloor) ? survivalSpeedFloor : 0);
         const over = Math.max(0, Math.round(Number.isFinite(survivalOverdrive) ? survivalOverdrive : 0));
-        const mark = survivalCalibrating ? 'CALIBRATING — ' : '';
-        return `SURVIVAL: ${mark}FLOOR ${floor}% — +${over} BPM`;
+        if (activeMode === 'calibrate') {
+            const which = calibrationPass === 'dual' ? 'BOTH TOYS' : 'PRIMARY TOY';
+            return `CALIBRATION: ${which} — FLOOR ${floor}% — +${over} BPM`;
+        }
+        return `SURVIVAL: FLOOR ${floor}% — +${over} BPM`;
     }
 
     const need = clampTrainEdges(trainEdgesGoal);
@@ -634,7 +649,7 @@ export function describeStallPauseNotice({ mode, ceilingBehaviour } = {}) {
     // and the "At the ceiling" setting does not govern it either - so this
     // is asked BEFORE the Full Stop rule, which would otherwise promise a
     // 0% that Survival is not going to give.
-    if (mode === 'survival') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
+    if (mode === 'survival' || mode === 'calibrate') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
     if (resolveCeilingBehaviour(ceilingBehaviour) !== 'crawl') return `${halted} — FULL STOP HOLDS IT AT 0%`;
     return `${halted} — CRAWL RESUMES AFTER THE PAUSE`;
 }
@@ -674,6 +689,15 @@ export function sanitizeStoredHrLimits(rawMin, rawMax) {
     return { minHr: limits.minHr, maxHr: limits.maxHr };
 }
 
+// The both-toys climax, stored on its own. Missing or nonsense falls back
+// to the factory number. It does not have to sit under the single-stim max.
+export function sanitizeStoredDualMax(raw, fallback = DEFAULT_DUAL_MAX_HR) {
+    const n = toInt(raw);
+    const safe = Number.isFinite(fallback) ? fallback : DEFAULT_DUAL_MAX_HR;
+    if (n === null || n <= DEFAULT_MIN_HR || n > 250) return safe;
+    return n;
+}
+
 // The duration window, validated by the same parser the Session Setup fields
 // go through at START. A length that parser refuses falls back to the factory
 // one for that field; an unknown mode falls back to Mystery.
@@ -708,6 +732,7 @@ export function sanitizeStoredEndgame(value) {
 export function sanitizeSessionLimits(stored = {}) {
     return {
         ...sanitizeStoredHrLimits(stored.minHr, stored.maxHr),
+        dualMaxHr: sanitizeStoredDualMax(stored.dualMaxHr),
         ...sanitizeStoredDuration(stored),
         endgameType: sanitizeStoredEndgame(stored.endgameType)
     };

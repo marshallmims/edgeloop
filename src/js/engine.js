@@ -10,7 +10,7 @@ import { normalizeEnvelope } from './hardware/handy-protocol.js';
 import { teaseFrame, warmupShape, placeStroke, orgasmFrame } from './patterns.js';
 
 export const TEASE_MODES = ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
-export const GAME_MODES = ['oracle', 'survival', 'edgetrain'];
+export const GAME_MODES = ['oracle', 'survival', 'edgetrain', 'calibrate'];
 
 export function resolveTeaseMode(strokeMode, activeMode) {
     if (TEASE_MODES.includes(strokeMode)) return strokeMode;
@@ -27,8 +27,13 @@ export const ENGINE_MODES = [
     'ruin',
     'oracle',
     'survival',
-    'edgetrain'
+    'edgetrain',
+    'calibrate'
 ];
+
+function isUncappedClimb(mode) {
+    return mode === 'survival' || mode === 'calibrate';
+}
 
 // Hysteresis: once edged, the flag only clears when HR drops MORE than this
 // many BPM below the typed climax ceiling, so a reading hovering at the
@@ -128,7 +133,7 @@ export function resolveEngineMode(mode) {
 export function micBoostReachesMotors(activeMode, { edgeStrokeDepth = 100 } = {}) {
     const mode = resolveEngineMode(activeMode);
     if (mode === 'oracle' || mode === 'edgetrain') return false;
-    if (mode === 'survival') return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
+    if (isUncappedClimb(mode)) return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
     return true;
 }
 
@@ -319,7 +324,7 @@ export function calculateEngineOutputs({
         ruinHoldSeconds
     };
     const stroke = teaseFrame(teaseArgs);
-    const isGame = mode === 'oracle' || mode === 'survival' || mode === 'edgetrain';
+    const isGame = mode === 'oracle' || mode === 'edgetrain' || isUncappedClimb(mode);
 
     if (sessionStatus === 'RAMPDOWN') {
         const rampFactor = Math.max(0, rampLeft / 45);
@@ -329,7 +334,7 @@ export function calculateEngineOutputs({
         const oracle = applyOracle(oracleState, climbProgress, nextIsEdged, orgasmMode, seconds, crawlPercent);
         primaryPercent = oracle.primary;
         secondaryPercent = oracle.secondary;
-    } else if (mode === 'survival') {
+    } else if (isUncappedClimb(mode)) {
         const floor = clamp(finiteOr(survivalSpeedFloor, 30), 5, 100);
         // Force Orgasm ramps from this floor; it does not replace it with a flat 100.
         primaryPercent = floor;

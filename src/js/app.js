@@ -19,6 +19,8 @@ import {
     clampTrainHoldSeconds,
     clampTrainEdges,
     survivalDrive,
+    calibrationReading,
+    DEFAULT_MIN_HR,
     clampStallGuardSeconds,
     clampStallPauseSeconds,
     tickStallGuard,
@@ -153,6 +155,18 @@ if (storedSettings && typeof storedSettings === 'object' && !Array.isArray(store
             : 100;
         migrated = true;
     }
+    // The offset used to be a separate number. A file from that build gets
+    // a dual-stim max of (single max minus that offset) the first time it
+    // is opened, then the offset itself is dropped.
+    if (parsed.dualMaxHr == null || parsed.dualMaxHr === '') {
+        const max = Number(parsed.maxHr);
+        const base = Number.isFinite(max) ? max : 140;
+        const dampen = parsed.dualDampening === false ? 0 : (Number(parsed.dualDampeningBpm) || 15);
+        parsed.dualMaxHr = Math.max(DEFAULT_MIN_HR + 1, Math.round(base - dampen));
+        migrated = true;
+    }
+    delete parsed.dualDampening;
+    delete parsed.dualDampeningBpm;
     Object.assign(advancedSettings, parsed);
     if (migrated) persistSettings();
 }
@@ -286,6 +300,14 @@ function renderWizardStep() {
     const nextBtn = document.getElementById('wizardNextBtn');
     if (backBtn) backBtn.classList.toggle('hidden', wizardStepIndex === 0);
     if (nextBtn) nextBtn.textContent = wizardStepIndex >= 2 ? 'Get Started' : 'Next';
+    if (wizardStepIndex === 2) {
+        const single = document.getElementById('wizardSingleMax');
+        const dual = document.getElementById('wizardDualMax');
+        const max = document.getElementById('maxHr');
+        const dualMax = document.getElementById('dualMaxHr');
+        if (single && max) single.value = max.value;
+        if (dual && dualMax) dual.value = dualMax.value;
+    }
 }
 
 function openWizard() {
@@ -425,12 +447,24 @@ function markInputValidity(input, ok) {
 // parse keeps the last known-good value and is flagged, so garbage can never
 // raise the ceiling.
 function readHrLimits() {
-    const minInput = document.getElementById('minHr');
     const maxInput = document.getElementById('maxHr');
-    const limits = sanitizeHrLimits(minInput?.value, maxInput?.value, state.lastGoodHrLimits || {});
-    if (limits.valid) state.lastGoodHrLimits = { minHr: limits.minHr, maxHr: limits.maxHr };
-    markInputValidity(minInput, !limits.invalid.includes('min'));
+    const dualInput = document.getElementById('dualMaxHr');
+    // Resting heart rate is assumed. The cockpit does not ask for it.
+    const limits = sanitizeHrLimits(DEFAULT_MIN_HR, maxInput?.value, state.lastGoodHrLimits || {});
+    limits.minHr = DEFAULT_MIN_HR;
+    const dualRaw = parseInt(dualInput?.value, 10);
+    const dualFallback = Number.isFinite(state.lastGoodHrLimits?.dualMaxHr)
+        ? state.lastGoodHrLimits.dualMaxHr
+        : (advancedSettings.dualMaxHr || 125);
+    const dualOk = Number.isFinite(dualRaw) && dualRaw > DEFAULT_MIN_HR && dualRaw <= 250;
+    limits.dualMaxHr = dualOk ? dualRaw : dualFallback;
+    limits.invalid = limits.invalid.filter((name) => name !== 'min');
+    if (!dualOk && dualInput && String(dualInput.value).trim() !== '') limits.invalid.push('dual');
+    if (limits.valid && dualOk) {
+        state.lastGoodHrLimits = { minHr: DEFAULT_MIN_HR, maxHr: limits.maxHr, dualMaxHr: limits.dualMaxHr };
+    }
     markInputValidity(maxInput, !limits.invalid.includes('max'));
+    markInputValidity(dualInput, !limits.invalid.includes('dual'));
     return limits;
 }
 
@@ -729,30 +763,38 @@ function initHandyRoleUI() {
 // on so it cannot fight that climb. One place only, so the engine, the
 // cockpit badges and the Session Setup preview can never quote different
 // BPM at the wearer.
-function workingCeiling(minHr, typedMaxHr) {
-    // Dual Stimulation Offset Check: a stroker (primary) AND an internal toy
-    // (secondary) are both live. The Handy counts for whichever role it holds;
-    // Intiface and TCode axes count for the role they are assigned.
+// A stroker (primary) and an internal toy (secondary). The Handy counts for
+// whichever role it holds; Intiface and TCode axes count for the role they
+// are assigned.
+function stimulationRoles() {
     const intifaceHasRole = (role) => Array.from(intifaceDevices.values()).some(d => d.axes.some(a => a.role === role));
     const serialHasRole = (role) => isTCodeConnected() && tcodeHasRole(role);
     const hasPrimary = (handyConnected && state.handyRole === 'primary') || intifaceHasRole('primary') || serialHasRole('primary');
     const hasSecondary = (handyConnected && state.handyRole === 'secondary') || intifaceHasRole('secondary') || serialHasRole('secondary');
+    return { hasPrimary, hasSecondary, dual: hasPrimary && hasSecondary };
+}
+
+function isUncappedClimb(mode = state.activeMode) {
+    return mode === 'survival' || mode === 'calibrate';
+}
+
+function workingCeiling(minHr, typedMaxHr) {
+    const { dual } = stimulationRoles();
     return computeEffectiveCeiling({
         minHr,
         maxHr: typedMaxHr,
+        dualMaxHr: readHrLimits().dualMaxHr,
         learnedOffset: advancedSettings.learningProfile?.suggestedMaxHrOffset || 0,
-        dualStimActive: hasPrimary && hasSecondary,
-        dualDampening: Boolean(advancedSettings.dualDampening),
-        dualDampeningBpm: advancedSettings.dualDampeningBpm,
-        // Decay lowers the ceiling as edges pile up. Survival is climbing
-        // past the typed max, so that drop does not run during the game.
-        adaptiveDecay: state.activeMode === 'survival' ? false : Boolean(advancedSettings.adaptiveDecay),
+        dualStimActive: dual,
+        // Decay lowers the ceiling as edges pile up. The uncapped climbs
+        // push past the typed max, so that drop does not run during them.
+        adaptiveDecay: isUncappedClimb() ? false : Boolean(advancedSettings.adaptiveDecay),
         edges: state.edges,
         decayEdgeCount: advancedSettings.decayEdgeCount,
         decayBpm: advancedSettings.decayBpm,
         decayFloor: advancedSettings.decayFloor,
         orgasmBoost: state.orgasmMode ? state.orgasmBoost : 0,
-        survivalOverdrive: state.activeMode === 'survival' ? state.survivalOverdrive : 0
+        survivalOverdrive: isUncappedClimb() ? state.survivalOverdrive : 0
     });
 }
 
@@ -833,8 +875,8 @@ function updateEngine() {
 
     const dualBadge = document.getElementById('dualStimBadge');
     if (dualBadge) {
-        dualBadge.textContent = `DUAL STIM (-${ceiling.dualOffset} BPM)`;
-        dualBadge.classList.toggle('hidden', !(ceiling.dualOffset > 0));
+        dualBadge.textContent = `DUAL MAX ${ceiling.dualMaxHr}`;
+        dualBadge.classList.toggle('hidden', !ceiling.usingDual);
     }
 
     const decayBadge = document.getElementById('decayBadge');
@@ -848,7 +890,7 @@ function updateEngine() {
     const ceilingText = document.getElementById('effectiveCeilingText');
     if (ceilingLabel) {
         const raised = (state.orgasmMode && ceiling.orgasmBoost > 0)
-            || (state.activeMode === 'survival' && (state.survivalOverdrive || 0) > 0);
+            || (isUncappedClimb() && (state.survivalOverdrive || 0) > 0);
         ceilingLabel.textContent = raised ? 'OVERDRIVE CEILING' : 'CEILING';
     }
     if (ceilingText) ceilingText.textContent = max;
@@ -1088,7 +1130,7 @@ function updateGameNotice() {
         trainEdgesGoal: advancedSettings.trainEdges,
         survivalSpeedFloor: state.survivalSpeedFloor,
         survivalOverdrive: state.survivalOverdrive,
-        survivalCalibrating: Boolean(advancedSettings.survivalCalibrating),
+        calibrationPass: state.calibrationPass,
         sessionSeconds: state.sessionSeconds,
         minSeconds: state.durationMinSeconds,
         maxSeconds: state.durationMaxSeconds,
@@ -1098,34 +1140,68 @@ function updateGameNotice() {
     notice.textContent = text || 'GAME MODE ACTIVE';
     notice.classList.toggle('hidden', !text);
     renderCameEarlyButton();
+    renderCalibration();
 }
 
-// Came Early is an accidental release in every other mode. Survival is the
-// climb that is supposed to finish you, so that same button changes its
-// words while the game is selected and, during the run, saves the heart rate.
+// Came Early is an accidental release in the tease modes. Survival and
+// Calibration are climbs that are supposed to finish you, so that same
+// button changes its words while either is selected.
 function renderCameEarlyButton() {
     const kicker = document.getElementById('cameEarlyKicker');
     const label = document.getElementById('cameEarlyLabel');
     if (!cameEarlyBtn || !kicker || !label) return;
-    const survival = !isRemotePage && state.activeMode === 'survival';
-    const calibrating = survival && Boolean(advancedSettings.survivalCalibrating);
-    kicker.textContent = survival ? 'The app' : 'Accidental';
-    label.textContent = survival ? 'Finished me' : 'Came Early';
+    const finishing = !isRemotePage && (state.activeMode === 'survival' || state.activeMode === 'calibrate');
+    const calibrating = state.activeMode === 'calibrate';
+    kicker.textContent = finishing ? 'The app' : 'Accidental';
+    label.textContent = finishing ? 'Finished me' : 'Came Early';
     cameEarlyBtn.title = calibrating
-        ? 'This calibration run sets your Climax HR to the heart rate Survival pushed you to.'
-        : survival
-            ? 'Survival finished you. Check Calibration on the card if this heart rate should become your max.'
+        ? (state.calibrationPass === 'dual'
+            ? 'Both toys finished you. This sets the dual-stim offset from the gap under your primary climax.'
+            : 'The primary toy finished you. This heart rate becomes your Climax HR.')
+        : finishing
+            ? 'Survival finished you. This ends the run. Your Climax HR stays as typed.'
             : 'Log accidental release so local learning engine tightens limits next time.';
-    kicker.classList.toggle('text-rose-300', survival);
-    kicker.classList.toggle('text-amber-400', !survival);
-    cameEarlyBtn.classList.toggle('bg-rose-950/60', survival);
-    cameEarlyBtn.classList.toggle('hover:bg-rose-900', survival);
-    cameEarlyBtn.classList.toggle('border-rose-800', survival);
-    cameEarlyBtn.classList.toggle('text-rose-300', survival);
-    cameEarlyBtn.classList.toggle('bg-amber-950/60', !survival);
-    cameEarlyBtn.classList.toggle('hover:bg-amber-900', !survival);
-    cameEarlyBtn.classList.toggle('border-amber-800', !survival);
-    cameEarlyBtn.classList.toggle('text-amber-300', !survival);
+    kicker.classList.toggle('text-rose-300', finishing);
+    kicker.classList.toggle('text-amber-400', !finishing);
+    cameEarlyBtn.classList.toggle('bg-rose-950/60', finishing);
+    cameEarlyBtn.classList.toggle('hover:bg-rose-900', finishing);
+    cameEarlyBtn.classList.toggle('border-rose-800', finishing);
+    cameEarlyBtn.classList.toggle('text-rose-300', finishing);
+    cameEarlyBtn.classList.toggle('bg-amber-950/60', !finishing);
+    cameEarlyBtn.classList.toggle('hover:bg-amber-900', !finishing);
+    cameEarlyBtn.classList.toggle('border-amber-800', !finishing);
+    cameEarlyBtn.classList.toggle('text-amber-300', !finishing);
+}
+
+function calibrationHintText() {
+    const saved = calibrationReading(advancedSettings.calibrationPrimaryHr);
+    const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED';
+    if (state.activeMode === 'calibrate' && state.calibrationPass === 'dual') {
+        return saved
+            ? `Both toys on. Finished me saves that heart rate as the dual-stim max. Single-stim max stays ${saved}.`
+            : 'Both toys on. Finished me saves that heart rate as the dual-stim max.';
+    }
+    if (state.activeMode === 'calibrate' && state.calibrationPass === 'primary') {
+        return saved && !live
+            ? `Redo of the single-stim run. Leave the second toy off. Finished me replaces ${saved}.`
+            : 'One toy only. Leave the second toy off. Finished me saves that heart rate as your single-stim max.';
+    }
+    if (saved) {
+        return `Single-stim max is ${saved}. Tap Calibrate for the both-toys run, or to redo the single-stim run.`;
+    }
+    return 'One toy first — The Handy, or your stroker. A later run with both toys saves a separate dual-stim max. Resting heart rate is assumed at 70.';
+}
+
+function renderCalibration() {
+    const btn = document.getElementById('calibrateBtn');
+    const hint = document.getElementById('calibrationHint');
+    if (hint) hint.textContent = calibrationHintText();
+    if (!btn) return;
+    const on = state.activeMode === 'calibrate';
+    btn.className = on
+        ? 'px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-purple-950/40 border-purple-600 text-purple-200'
+        : 'px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200';
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 
 // Validate the Session Setup duration fields and flag any bad one in red.
@@ -1212,6 +1288,7 @@ function resetGameState() {
     state.survivalBreachTicks = 0;
     state.survivalLastReadingAt = null;
     state.trainState = 'climb';
+    state.calibrationPass = null;
     state.trainHoldSeconds = 0;
     state.trainEdgesDone = 0;
     state.edgeStallSeconds = 0;
@@ -1262,7 +1339,7 @@ function tickSessionGuardsAndGames() {
     // at the ceiling.
     const crawlAtCeiling = advancedSettings.ceilingBehaviour !== 'stop';
     const guardArmed = Boolean(advancedSettings.stallGuard) && crawlAtCeiling && !state.orgasmMode
-        && state.activeMode !== 'oracle' && state.activeMode !== 'survival' && state.activeMode !== 'edgetrain';
+        && state.activeMode !== 'oracle' && !isUncappedClimb() && state.activeMode !== 'edgetrain';
     const guard = tickStallGuard(
         { holdSeconds: state.edgeStallSeconds, pauseSeconds: state.stallPauseElapsed, engaged: state.stallGuardEngaged },
         {
@@ -1380,7 +1457,7 @@ function tickSessionGuardsAndGames() {
                 cueVoice('oracleReset');
             }
         }
-    } else if (state.activeMode === 'survival') {
+    } else if (isUncappedClimb()) {
         // Edges counted before this game was switched on are ignored. Each
         // new one raises the mark 1 BPM and the speed a step. The clock is
         // slow on purpose: half an hour of it is still a build, not a finish.
@@ -1744,7 +1821,10 @@ function startOrResumeSession() {
         resetSessionCounters();
         setOrgasmMode(false);
         funscriptSessionStart = Date.now();
+        // Play resets the climb clock. The pass was chosen before play.
+        const pass = state.calibrationPass;
         resetGameState();
+        state.calibrationPass = pass;
         state.chosenTargetSeconds = pickSessionTargetSeconds();
         updateTimerDisplay();
         cueVoice('sessionStart');
@@ -1878,6 +1958,7 @@ function persistSessionLimits(immediate = false) {
     Object.assign(advancedSettings, sanitizeSessionLimits({
         minHr: limits.minHr,
         maxHr: limits.maxHr,
+        dualMaxHr: limits.dualMaxHr,
         durationMode: state.durationMode,
         durationFixedMinutes: document.getElementById('paramFixedInput')?.value,
         durationMinMinutes: document.getElementById('paramMinInput')?.value,
@@ -1906,35 +1987,132 @@ function renderLearningStatus() {
     updateEngine();
 }
 
+function finishHr() {
+    const now = Number.isFinite(state.sensorHr) ? state.sensorHr : state.hrCurrent;
+    const peak = Number.isFinite(state.peakHr) ? state.peakHr : now;
+    return calibrationReading(Math.max(Number(now) || 0, Number(peak) || 0));
+}
+
+function savePrimaryClimax(hr) {
+    advancedSettings.calibrationPrimaryHr = hr;
+    const input = document.getElementById('maxHr');
+    if (input) {
+        input.value = String(hr);
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+        persistSettings();
+    }
+    const wizard = document.getElementById('wizardSingleMax');
+    if (wizard) wizard.value = String(hr);
+}
+
+function saveDualClimax(hr) {
+    const input = document.getElementById('dualMaxHr');
+    if (input) {
+        input.value = String(hr);
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+        advancedSettings.dualMaxHr = hr;
+        persistSettings();
+    }
+    const wizard = document.getElementById('wizardDualMax');
+    if (wizard) wizard.value = String(hr);
+}
+
+function armCalibration(pass) {
+    const kept = pass === 'dual' ? 'dual' : 'primary';
+    resetGameState();
+    state.calibrationPass = kept;
+    state.gameMode = 'calibrate';
+    state.activeMode = 'calibrate';
+    highlightModeCard();
+    renderModeDetail();
+    renderCalibration();
+    updateEngine();
+    syncTelemetry();
+}
+
+// Returns true when a pass was armed. The wizard closes only then.
+function offerCalibration() {
+    if (isRemotePage || isRemoteViewer) return false;
+    if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN') {
+        alert('Stop the session before starting Calibration.');
+        return false;
+    }
+    const saved = calibrationReading(advancedSettings.calibrationPrimaryHr);
+    const { dual } = stimulationRoles();
+    if (!saved) {
+        if (dual) {
+            alert('Both toys are on. The first run is the stroker alone — The Handy, or whichever device is your primary. Turn the second toy off, then tap Calibrate again.');
+            return false;
+        }
+        const ok = confirm('First run: one toy only. Use The Handy, or whichever device is stroking, and leave the second toy off.\n\nWhen you come, tap Finished me. That heart rate becomes your single-stim max.\n\nA later Calibration run, with both toys on, saves a separate dual-stim max.\n\nArm the single-stim run? Press play when you are ready.');
+        if (!ok) return false;
+        armCalibration('primary');
+        return true;
+    }
+    const dualOk = confirm(`Your single-stim max is ${saved} BPM.\n\nThis run uses both toys. Turn the second one on before you press play. Finished me saves the heart rate you finish at as the dual-stim max. The single-stim max stays ${saved}.\n\nArm the both-toys run?`);
+    if (dualOk) {
+        if (!dual) {
+            alert('The second toy is not on yet. Turn it on, then tap Calibrate again.');
+            return false;
+        }
+        armCalibration('dual');
+        return true;
+    }
+    if (!confirm('Redo the primary run instead? Stroker only. The saved number stays until Finished me replaces it.')) return false;
+    if (dual) {
+        alert('Turn the second toy off for the primary run, then tap Calibrate again.');
+        return false;
+    }
+    armCalibration('primary');
+    return true;
+}
+
 cameEarlyBtn?.addEventListener('click', () => {
     // The learning profile and the typed max belong to the host.
     if (isRemotePage || isRemoteViewer) return;
-    if (state.activeMode === 'survival') {
+    if (state.activeMode === 'calibrate') {
         if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'PAUSED') {
-            confirm(advancedSettings.survivalCalibrating
-                ? 'Start Survival first. Once it is running, Finished me saves the heart rate the climb pushed you to.'
-                : 'Start Survival first. Check Calibration on the card if Finished me should save your heart rate.');
+            confirm('Press play first. Finished me saves the heart rate once Calibration is running.');
+            return;
+        }
+        const hr = finishHr();
+        if (hr === null) return;
+        const saved = calibrationReading(advancedSettings.calibrationPrimaryHr);
+        const pass = state.calibrationPass === 'dual' && saved ? 'dual' : 'primary';
+        const { dual } = stimulationRoles();
+        if (pass === 'dual' && !dual) {
+            const asPrimary = confirm(`The second toy is not on, so this is a single-stim reading. Save ${hr} as your single-stim max instead?`);
+            if (!asPrimary) return;
+            savePrimaryClimax(hr);
+            stopSession('Calibration', 'Saved. That heart rate is your max.');
+            return;
+        }
+        if (pass === 'dual') {
+            const single = readHrLimits().maxHr;
+            const ok = confirm(`Set the dual-stim max to ${hr}? Your single-stim max stays ${single}. The toys stop, and a both-toys session uses ${hr}.`);
+            if (!ok) return;
+            saveDualClimax(hr);
+            stopSession('Calibration', 'Saved. That heart rate is your dual-stim max.');
             return;
         }
         const typed = readHrLimits().maxHr;
-        if (!advancedSettings.survivalCalibrating) {
-            if (confirm(`End the run? Your Climax HR stays ${typed}. Check Calibration on the Survival card first if you want this heart rate saved.`)) {
-                stopSession('Survival');
-            }
+        const ok = confirm(`Set the single-stim max to ${hr}? This was one toy. Your typed max is ${typed}. The toys stop, and the next one-toy session uses ${hr}. A later Calibration run with both toys saves the dual-stim max on its own.`);
+        if (!ok) return;
+        savePrimaryClimax(hr);
+        stopSession('Calibration', 'Saved. That heart rate is your max.');
+        return;
+    }
+    if (state.activeMode === 'survival') {
+        if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'PAUSED') {
+            confirm('Start Survival first. Finished me ends the run. Your Climax HR stays as typed.');
             return;
         }
-        const now = Number.isFinite(state.sensorHr) ? state.sensorHr : state.hrCurrent;
-        const peak = Number.isFinite(state.peakHr) ? state.peakHr : now;
-        const hr = Math.round(Math.max(Number(now) || 0, Number(peak) || 0));
-        if (!Number.isFinite(hr) || hr < 40 || hr > 220) return;
-        const ok = confirm(`Set Climax HR to ${hr}? Survival pushed you there. Your typed max is ${typed}. The toys stop, and the next session uses ${hr}.`);
-        if (!ok) return;
-        const input = document.getElementById('maxHr');
-        if (input) {
-            input.value = String(hr);
-            input.dispatchEvent(new Event('change', { bubbles: true }));
+        const typed = readHrLimits().maxHr;
+        if (confirm(`End the run? Your Climax HR stays ${typed}.`)) {
+            stopSession('Survival');
         }
-        stopSession('Survival calibration', 'Saved. That heart rate is your max.');
         return;
     }
     if (confirm("Log an accidental release? EdgeLoop will lower your working climax ceiling on this and future sessions.")) {
@@ -2001,8 +2179,8 @@ orgasmBtn?.addEventListener('click', () => {
 });
 
 // Typed HR limits take effect immediately (and are validated) rather than on
-// the next clock tick.
-['minHr', 'maxHr'].forEach((id) => {
+// the next clock tick. Resting heart rate is assumed and has no field.
+['maxHr', 'dualMaxHr'].forEach((id) => {
     const input = document.getElementById(id);
     // Persisted on every edit, not only on blur: a wearer who lowers the
     // ceiling mid-session and never leaves the field used to lose it on the
@@ -2018,31 +2196,9 @@ orgasmBtn?.addEventListener('click', () => {
     input?.addEventListener('change', () => edited(true));
 });
 
-// Experience Modes vs Games Tab Switching
-const expTabBioBtn = document.getElementById('expTabBioBtn');
-const expTabGameBtn = document.getElementById('expTabGameBtn');
-const bioProfilesGrid = document.getElementById('bioProfilesGrid');
-const gameModesGrid = document.getElementById('gameModesGrid');
-
-expTabBioBtn?.addEventListener('click', () => {
-    expTabBioBtn.className = "px-2.5 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer";
-    if (expTabGameBtn) expTabGameBtn.className = "px-2.5 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer";
-    bioProfilesGrid?.classList.remove('hidden');
-    gameModesGrid?.classList.add('hidden');
-    renderModeDetail();
-});
-
-expTabGameBtn?.addEventListener('click', () => {
-    expTabGameBtn.className = "px-2.5 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer";
-    if (expTabBioBtn) expTabBioBtn.className = "px-2.5 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer";
-    gameModesGrid?.classList.remove('hidden');
-    bioProfilesGrid?.classList.add('hidden');
-    renderModeDetail();
-});
-
-// Experience Mode Selection. A tease mode owns the stroke. A game, while
-// selected, owns the speeds and uses that stroke. Clicking the selected
-// game again turns the game off and leaves the tease mode running.
+// Stroke and goal sit on the same card. A tease mode owns the stroke. A
+// goal, while selected, owns the speeds and uses that stroke. Tease is the
+// goal with no game. Clicking the selected goal again also turns it off.
 const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain'];
 const modeCards = document.querySelectorAll('.mode-card');
 
@@ -2054,24 +2210,26 @@ const MODE_DETAILS = {
     ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Stops and short bursts wait until your pulse is close to the heart rate you set. The internal toy follows the same chapters.',
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
-    survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Check Calibration when this run should set your Climax HR, then tap Finished me when you come. The stroke range is the tease mode you selected.',
+    survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come. The stroke range is the tease mode you selected.',
+    calibrate: 'A climb of its own, separate from Survival. The first run is one toy, and Finished me saves that heart rate as the single-stim max. A later run with both toys saves the dual-stim max on its own. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.'
 };
 
-// The paragraph above the cards follows the card you are looking at.
-// On Modes it is the tease mode. On Games it is the game, when one is on.
+// The paragraph above the cards follows the goal when one is on, including
+// Calibration, and the stroke otherwise.
 function renderModeDetail() {
     const el = document.getElementById('modeDetail');
     if (!el) return;
-    const gamesVisible = gameModesGrid && !gameModesGrid.classList.contains('hidden');
-    const mode = (gamesVisible && state.gameMode) ? state.gameMode : state.teaseMode;
+    const mode = state.gameMode || state.teaseMode;
     el.textContent = MODE_DETAILS[mode] || '';
 }
 
 function highlightModeCard() {
     modeCards.forEach(c => {
         const mode = c.getAttribute('data-mode');
-        const on = mode === state.teaseMode || mode === state.gameMode;
+        const on = mode === 'goal-off'
+            ? !state.gameMode
+            : (mode === state.teaseMode || mode === state.gameMode);
         const check = c.querySelector('.mode-check');
         const title = c.querySelector('.font-bold');
         if (on) {
@@ -2087,6 +2245,23 @@ function highlightModeCard() {
 }
 
 function applyModeSelection(mode, enabled) {
+    // Calibration is armed only from its own button, which explains the
+    // primary run and the later both-toys run. A mode command must not
+    // skip that.
+    if (mode === 'calibrate') return;
+    // Tease clears the goal. It is not a stroke, so it must not land in the
+    // tease-mode branch (that would store a mode the engine does not run).
+    if (mode === 'goal-off') {
+        if (state.gameMode) {
+            state.gameMode = null;
+            resetGameState();
+        }
+        state.activeMode = state.teaseMode;
+        highlightModeCard();
+        renderModeDetail();
+        updateEngine();
+        return;
+    }
     if (GAME_CARD_MODES.includes(mode)) {
         const turnOn = enabled !== undefined ? enabled : state.gameMode !== mode;
         if (!turnOn) {
@@ -2108,14 +2283,30 @@ function applyModeSelection(mode, enabled) {
 }
 
 document.getElementById('wizardCalibrateBtn')?.addEventListener('click', () => {
-    if (isRemotePage || isRemoteViewer) return;
-    advancedSettings.survivalCalibrating = true;
-    const box = document.getElementById('survivalCalibrateToggle');
-    if (box) box.checked = true;
-    persistSettings();
-    document.getElementById('expTabGameBtn')?.click();
-    applyModeSelection('survival', true);
+    if (!offerCalibration()) return;
     closeWizard();
+});
+
+['wizardSingleMax', 'wizardDualMax'].forEach((id) => {
+    const from = document.getElementById(id);
+    const toId = id === 'wizardDualMax' ? 'dualMaxHr' : 'maxHr';
+    const push = () => {
+        const to = document.getElementById(toId);
+        if (!from || !to) return;
+        to.value = from.value;
+        to.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    from?.addEventListener('input', push);
+    from?.addEventListener('change', () => {
+        const to = document.getElementById(toId);
+        if (!from || !to) return;
+        to.value = from.value;
+        to.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+});
+
+document.getElementById('calibrateBtn')?.addEventListener('click', () => {
+    offerCalibration();
 });
 
 modeCards.forEach(card => {
@@ -2151,14 +2342,6 @@ if (!isRemotePage) {
         const el = document.getElementById(id);
         el?.addEventListener('click', (e) => e.stopPropagation());
         el?.addEventListener('change', persistTrainSettings);
-    });
-    const calibrate = document.getElementById('survivalCalibrateToggle');
-    document.querySelector('[data-survival-calibrate]')?.addEventListener('click', (e) => e.stopPropagation());
-    calibrate?.addEventListener('change', () => {
-        advancedSettings.survivalCalibrating = Boolean(calibrate.checked);
-        persistSettings();
-        if (calibrate.checked && state.gameMode !== 'survival') applyModeSelection('survival', true);
-        else updateGameNotice();
     });
 }
 
@@ -2402,16 +2585,13 @@ function syncParamsUI() {
     // and a remote page shows the host's, so none of them may be supplied
     // out of the partner's own browser.
     if (!isRemotePage) {
-        const minInput = document.getElementById('minHr');
+        // Seeded here, and only here: a remote page keeps the factory pair
+        // until the host's telemetry arrives.
+        state.lastGoodHrLimits = { minHr: DEFAULT_MIN_HR, maxHr: advancedSettings.maxHr, dualMaxHr: advancedSettings.dualMaxHr };
         const maxInput = document.getElementById('maxHr');
-        if (minInput) minInput.value = String(advancedSettings.minHr);
+        const dualMaxInput = document.getElementById('dualMaxHr');
         if (maxInput) maxInput.value = String(advancedSettings.maxHr);
-        // The fallback pair readHrLimits falls back to when a field is
-        // half-typed, seeded from the same numbers that were just painted
-        // into those fields. A remote page keeps the factory 70 / 140: its
-        // two HR fields mirror the HOST's limits, so this device's stored
-        // pair must never stand in for them before the first telemetry.
-        state.lastGoodHrLimits = { minHr: advancedSettings.minHr, maxHr: advancedSettings.maxHr };
+        if (dualMaxInput) dualMaxInput.value = String(advancedSettings.dualMaxHr || 125);
         const fixedInput = document.getElementById('paramFixedInput');
         const rangeMinInput = document.getElementById('paramMinInput');
         const rangeMaxInput = document.getElementById('paramMaxInput');
@@ -2432,8 +2612,6 @@ function syncParamsUI() {
     setDurationMode(state.durationMode);
     const stallToggle = document.getElementById('stallGuardToggle');
     const stallSec = document.getElementById('stallGuardSecondsInput');
-    const dualToggle = document.getElementById('dualDampeningToggle');
-    const dualBpm = document.getElementById('dualDampeningOffsetInput');
     const decayToggle = document.getElementById('adaptiveDecayToggle');
     const decayCount = document.getElementById('decayEdgeCountInput');
     const decayBpm = document.getElementById('decayBpmInput');
@@ -2459,14 +2637,11 @@ function syncParamsUI() {
     // as wrong. They stay blank until telemetry carries the host's numbers.
     if (trainHold) trainHold.value = isRemotePage ? '' : clampTrainHoldSeconds(advancedSettings.trainHoldSeconds);
     if (trainEdges) trainEdges.value = isRemotePage ? '' : clampTrainEdges(advancedSettings.trainEdges);
-    const calibrate = document.getElementById('survivalCalibrateToggle');
-    if (calibrate) calibrate.checked = !isRemotePage && Boolean(advancedSettings.survivalCalibrating);
+    renderCalibration();
     if (isRemotePage) {
         if (trainHold) trainHold.placeholder = '--';
         if (trainEdges) trainEdges.placeholder = '--';
     }
-    if (dualToggle) dualToggle.checked = Boolean(advancedSettings.dualDampening);
-    if (dualBpm) dualBpm.value = advancedSettings.dualDampeningBpm || 15;
     if (decayToggle) decayToggle.checked = Boolean(advancedSettings.adaptiveDecay);
     if (decayCount) decayCount.value = advancedSettings.decayEdgeCount || 2;
     if (decayBpm) decayBpm.value = advancedSettings.decayBpm || 2;
@@ -2904,8 +3079,6 @@ document.getElementById('applyParamsBtn')?.addEventListener('click', async () =>
     advancedSettings.stallPauseSeconds = clampStallPauseSeconds(document.getElementById('stallPauseSecondsInput')?.value);
     advancedSettings.ceilingBehaviour = document.getElementById('ceilingBehaviourSelect')?.value === 'stop' ? 'stop' : 'crawl';
     advancedSettings.edgeHoldPercent = clampEdgeHoldPercent(document.getElementById('edgeHoldPercentInput')?.value);
-    advancedSettings.dualDampening = document.getElementById('dualDampeningToggle')?.checked ?? true;
-    advancedSettings.dualDampeningBpm = parseInt(document.getElementById('dualDampeningOffsetInput')?.value, 10) || 15;
     advancedSettings.adaptiveDecay = document.getElementById('adaptiveDecayToggle')?.checked ?? true;
     advancedSettings.decayEdgeCount = parseInt(document.getElementById('decayEdgeCountInput')?.value, 10) || 2;
     advancedSettings.decayBpm = parseInt(document.getElementById('decayBpmInput')?.value, 10) || 2;
@@ -4063,7 +4236,7 @@ const VIEWER_LOCKED_IDS = [
     'partnerShareBtn', 'historyBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardTCode',
     // Nested in the Edge Training card: a disabled ancestor does not stop a
     // browser from focusing and editing them, so they are disabled themselves.
-    'trainHoldSecondsInput', 'trainEdgesInput', 'survivalCalibrateToggle'
+    'trainHoldSecondsInput', 'trainEdgesInput', 'calibrateBtn'
 ];
 function lockElement(el) {
     if (!el) return;
@@ -4085,7 +4258,7 @@ const CONTROLLER_LOCKED_IDS = [
     'partnerShareBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardTCode',
     // The mode cards stay live (MODE_CHANGE is a legal command), but the two
     // Edge Training numbers inside one of them are host-only settings.
-    'trainHoldSecondsInput', 'trainEdgesInput', 'survivalCalibrateToggle'
+    'trainHoldSecondsInput', 'trainEdgesInput', 'calibrateBtn'
 ];
 function lockControllerControls() {
     CONTROLLER_LOCKED_IDS.forEach((id) => lockElement(document.getElementById(id)));
@@ -4100,7 +4273,7 @@ function lockRemoteControls() {
 // The typed limits belong to the host: on a remote page the inputs only
 // mirror what the host reports.
 function lockRemoteLimitInputs() {
-    ['minHr', 'maxHr'].forEach((id) => {
+    ['maxHr', 'dualMaxHr'].forEach((id) => {
         const input = document.getElementById(id);
         if (!input) return;
         input.disabled = true;
@@ -4174,9 +4347,13 @@ function applyRemoteTelemetry(data) {
     if (data.gameMode === 'off') state.gameMode = null;
     else if (data.gameMode !== undefined) state.gameMode = data.gameMode;
     if (data.activeMode !== undefined) state.activeMode = data.activeMode;
-    if (data.teaseMode !== undefined || data.gameMode !== undefined || data.activeMode !== undefined) {
+    if (data.calibrationPass === 'primary' || data.calibrationPass === 'dual') state.calibrationPass = data.calibrationPass;
+    else if (data.calibrationPass === 'off') state.calibrationPass = null;
+    if (data.teaseMode !== undefined || data.gameMode !== undefined || data.activeMode !== undefined || data.calibrationPass !== undefined) {
         highlightModeCard();
         renderModeDetail();
+        renderCalibration();
+        renderCameEarlyButton();
     }
     if (data.orgasmMode !== undefined && data.orgasmMode !== state.orgasmMode) setOrgasmMode(data.orgasmMode);
     if (data.ready !== undefined) state.remoteHostReady = data.ready;
@@ -4194,9 +4371,7 @@ function applyRemoteTelemetry(data) {
 
     const hrDisplay = document.getElementById('hrDisplay');
     if (hrDisplay) hrDisplay.textContent = state.hrCurrent;
-    const minInput = document.getElementById('minHr');
     const maxInput = document.getElementById('maxHr');
-    if (minInput) minInput.value = state.effectiveMinHr;
     if (maxInput) maxInput.value = state.effectiveMaxHr;
     const strokerVal = document.getElementById('strokerVal');
     const strokerBar = document.getElementById('strokerBar');
@@ -4247,6 +4422,7 @@ function syncTelemetry() {
         activeMode: state.activeMode,
         teaseMode: state.teaseMode,
         gameMode: state.gameMode || 'off',
+        calibrationPass: state.calibrationPass === 'dual' ? 'dual' : state.calibrationPass === 'primary' ? 'primary' : 'off',
         // The host's game settings. A remote page holds its own persisted
         // copies of these; without them on the wire the Edge Training card a
         // partner is reading quotes THEIR numbers for the wearer's session.

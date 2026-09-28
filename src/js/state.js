@@ -98,6 +98,8 @@ export const state = {
     // across ticks by a slow source counts as one breach reading.
     survivalLastReadingAt: null,
     trainState: 'climb',
+    // Which Calibration run is armed: 'primary', 'dual', or null.
+    calibrationPass: null,
     trainHoldSeconds: 0,
     trainEdgesDone: 0,
     lastSpokenPrompt: '',
@@ -172,15 +174,14 @@ export const advancedSettings = {
     edgeHoldPercent: 100,
     trainHoldSeconds: 15,
     trainEdges: 5,
-    // Survival can be marked as the run that finds your top heart rate.
-    // Off by default; the first-run wizard offers to turn it on.
-    survivalCalibrating: false,
+    // The single-stim climax Calibration saved. Null until that run is saved.
+    calibrationPrimaryHr: null,
     // Heart-rate signal-loss timeout (seconds, 3-20) and whether a session
     // the watchdog paused resumes by itself once readings return.
     hrStaleSeconds: 8,
     hrAutoResume: true,
-    dualDampening: true,
-    dualDampeningBpm: 15,
+    // Both-toys climax. Independent of the single-stim max.
+    dualMaxHr: 125,
     adaptiveDecay: true,
     decayEdgeCount: 2,
     decayBpm: 2,
