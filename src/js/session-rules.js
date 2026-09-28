@@ -47,6 +47,9 @@ export const DEFAULT_STALL_PAUSE_SECONDS = 8;
 
 export const DEFAULT_MIN_HR = 70;
 export const DEFAULT_MAX_HR = 140;
+// Both-toys climax, shown as its own number. 125 is the old 15 BPM
+// assumption made visible, so a fresh install behaves as before.
+export const DEFAULT_DUAL_MAX_HR = 125;
 
 function toInt(value) {
     if (value === '' || value === null || value === undefined) return null;
@@ -93,8 +96,7 @@ export function computeEffectiveCeiling({
     maxHr,
     learnedOffset = 0,
     dualStimActive = false,
-    dualDampening = false,
-    dualDampeningBpm = 15,
+    dualMaxHr = null,
     adaptiveDecay = false,
     edges = 0,
     decayEdgeCount = 2,
@@ -104,7 +106,10 @@ export function computeEffectiveCeiling({
     survivalOverdrive = 0
 }) {
     const min = Number.isFinite(minHr) ? minHr : DEFAULT_MIN_HR;
-    const typedMax = Number.isFinite(maxHr) ? maxHr : DEFAULT_MAX_HR;
+    const singleMax = Number.isFinite(maxHr) ? maxHr : DEFAULT_MAX_HR;
+    const dualTyped = Number.isFinite(dualMaxHr) ? dualMaxHr : singleMax;
+    const usingDual = Boolean(dualStimActive);
+    const typedMax = usingDual ? dualTyped : singleMax;
     let max = typedMax;
     // The lowest any offset may drag the ceiling. If the user typed a ceiling
     // that is already closer than the gap, the typed value wins (offsets are
@@ -113,11 +118,6 @@ export function computeEffectiveCeiling({
 
     const learned = Number.isFinite(learnedOffset) && learnedOffset > 0 ? learnedOffset : 0;
     if (learned > 0) max = Math.max(floorMax, max - learned);
-
-    const dual = (dualStimActive && dualDampening)
-        ? (Number.isFinite(dualDampeningBpm) && dualDampeningBpm > 0 ? dualDampeningBpm : 15)
-        : 0;
-    if (dual > 0) max = Math.max(floorMax, max - dual);
 
     let totalDecay = 0;
     let appliedDecay = 0;
@@ -152,7 +152,8 @@ export function computeEffectiveCeiling({
         maxHr: max,
         typedMaxHr: typedMax,
         learnedOffset: learned,
-        dualOffset: dual,
+        usingDual,
+        dualMaxHr: dualTyped,
         totalDecay,
         appliedDecay,
         decayFloored,
@@ -422,18 +423,6 @@ export function calibrationReading(hr) {
     return n;
 }
 
-// How far under the primary climax a both-toys finish landed. The dual-stim
-// control only stores 5–30, so a smaller gap is not a number it can keep
-// and a larger one caps at 30. Null means leave the offset alone.
-export function calibrationDualOffset(primaryHr, finishHr) {
-    const primary = calibrationReading(primaryHr);
-    const finish = calibrationReading(finishHr);
-    if (primary === null || finish === null) return null;
-    const gap = primary - finish;
-    if (gap < 5) return null;
-    return Math.min(30, gap);
-}
-
 // Edge Training: climb to the pullback mark, hold there for holdGoal
 // seconds, repeat until edgesGoal successful holds, then finish.
 export const MIN_TRAIN_HOLD_SECONDS = 5;
@@ -700,6 +689,15 @@ export function sanitizeStoredHrLimits(rawMin, rawMax) {
     return { minHr: limits.minHr, maxHr: limits.maxHr };
 }
 
+// The both-toys climax, stored on its own. Missing or nonsense falls back
+// to the factory number. It does not have to sit under the single-stim max.
+export function sanitizeStoredDualMax(raw, fallback = DEFAULT_DUAL_MAX_HR) {
+    const n = toInt(raw);
+    const safe = Number.isFinite(fallback) ? fallback : DEFAULT_DUAL_MAX_HR;
+    if (n === null || n <= DEFAULT_MIN_HR || n > 250) return safe;
+    return n;
+}
+
 // The duration window, validated by the same parser the Session Setup fields
 // go through at START. A length that parser refuses falls back to the factory
 // one for that field; an unknown mode falls back to Mystery.
@@ -734,6 +732,7 @@ export function sanitizeStoredEndgame(value) {
 export function sanitizeSessionLimits(stored = {}) {
     return {
         ...sanitizeStoredHrLimits(stored.minHr, stored.maxHr),
+        dualMaxHr: sanitizeStoredDualMax(stored.dualMaxHr),
         ...sanitizeStoredDuration(stored),
         endgameType: sanitizeStoredEndgame(stored.endgameType)
     };

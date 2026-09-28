@@ -174,15 +174,14 @@ export const advancedSettings = {
     edgeHoldPercent: 100,
     trainHoldSeconds: 15,
     trainEdges: 5,
-    // The primary-toy climax from Calibration. Null until that run is saved.
-    // The both-toys run reads it and does not overwrite Climax HR.
+    // The single-stim climax Calibration saved. Null until that run is saved.
     calibrationPrimaryHr: null,
     // Heart-rate signal-loss timeout (seconds, 3-20) and whether a session
     // the watchdog paused resumes by itself once readings return.
     hrStaleSeconds: 8,
     hrAutoResume: true,
-    dualDampening: true,
-    dualDampeningBpm: 15,
+    // Both-toys climax. Independent of the single-stim max.
+    dualMaxHr: 125,
     adaptiveDecay: true,
     decayEdgeCount: 2,
     decayBpm: 2,

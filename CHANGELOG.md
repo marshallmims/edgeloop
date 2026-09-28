@@ -7,7 +7,7 @@ credited by username.
 ## Unreleased
 
 ### Calibration
-- **Calibration is its own button.** It sits next to Climax HR, separate from Survival. Starting it asks for the primary toy first — The Handy, or whichever device is stroking — and says a later run with both toys sets the dual-stim offset. Finished me on the primary run saves that heart rate as Climax HR. Finished me on the both-toys run sets Dual Stimulation Dampening from the gap under that primary number (5–30 BPM) and leaves Climax HR alone. Survival's Finished me still ends that game and does not change the typed max.
+- **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Resting heart rate is assumed at 70 and is no longer a field. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
 
 ### Site
 - **dev.edgeloop.app.** A separate copy for development. Pushes to the `dev` branch publish there. `main` still publishes edgeloop.app. The footer shows DEV on that host. Settings and pairings on the dev site are its own, not the live site's.

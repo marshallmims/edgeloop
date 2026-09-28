@@ -20,7 +20,7 @@ import {
     clampTrainEdges,
     survivalDrive,
     calibrationReading,
-    calibrationDualOffset,
+    DEFAULT_MIN_HR,
     clampStallGuardSeconds,
     clampStallPauseSeconds,
     tickStallGuard,
@@ -155,6 +155,18 @@ if (storedSettings && typeof storedSettings === 'object' && !Array.isArray(store
             : 100;
         migrated = true;
     }
+    // The offset used to be a separate number. A file from that build gets
+    // a dual-stim max of (single max minus that offset) the first time it
+    // is opened, then the offset itself is dropped.
+    if (parsed.dualMaxHr == null || parsed.dualMaxHr === '') {
+        const max = Number(parsed.maxHr);
+        const base = Number.isFinite(max) ? max : 140;
+        const dampen = parsed.dualDampening === false ? 0 : (Number(parsed.dualDampeningBpm) || 15);
+        parsed.dualMaxHr = Math.max(DEFAULT_MIN_HR + 1, Math.round(base - dampen));
+        migrated = true;
+    }
+    delete parsed.dualDampening;
+    delete parsed.dualDampeningBpm;
     Object.assign(advancedSettings, parsed);
     if (migrated) persistSettings();
 }
@@ -288,6 +300,14 @@ function renderWizardStep() {
     const nextBtn = document.getElementById('wizardNextBtn');
     if (backBtn) backBtn.classList.toggle('hidden', wizardStepIndex === 0);
     if (nextBtn) nextBtn.textContent = wizardStepIndex >= 2 ? 'Get Started' : 'Next';
+    if (wizardStepIndex === 2) {
+        const single = document.getElementById('wizardSingleMax');
+        const dual = document.getElementById('wizardDualMax');
+        const max = document.getElementById('maxHr');
+        const dualMax = document.getElementById('dualMaxHr');
+        if (single && max) single.value = max.value;
+        if (dual && dualMax) dual.value = dualMax.value;
+    }
 }
 
 function openWizard() {
@@ -427,12 +447,24 @@ function markInputValidity(input, ok) {
 // parse keeps the last known-good value and is flagged, so garbage can never
 // raise the ceiling.
 function readHrLimits() {
-    const minInput = document.getElementById('minHr');
     const maxInput = document.getElementById('maxHr');
-    const limits = sanitizeHrLimits(minInput?.value, maxInput?.value, state.lastGoodHrLimits || {});
-    if (limits.valid) state.lastGoodHrLimits = { minHr: limits.minHr, maxHr: limits.maxHr };
-    markInputValidity(minInput, !limits.invalid.includes('min'));
+    const dualInput = document.getElementById('dualMaxHr');
+    // Resting heart rate is assumed. The cockpit does not ask for it.
+    const limits = sanitizeHrLimits(DEFAULT_MIN_HR, maxInput?.value, state.lastGoodHrLimits || {});
+    limits.minHr = DEFAULT_MIN_HR;
+    const dualRaw = parseInt(dualInput?.value, 10);
+    const dualFallback = Number.isFinite(state.lastGoodHrLimits?.dualMaxHr)
+        ? state.lastGoodHrLimits.dualMaxHr
+        : (advancedSettings.dualMaxHr || 125);
+    const dualOk = Number.isFinite(dualRaw) && dualRaw > DEFAULT_MIN_HR && dualRaw <= 250;
+    limits.dualMaxHr = dualOk ? dualRaw : dualFallback;
+    limits.invalid = limits.invalid.filter((name) => name !== 'min');
+    if (!dualOk && dualInput && String(dualInput.value).trim() !== '') limits.invalid.push('dual');
+    if (limits.valid && dualOk) {
+        state.lastGoodHrLimits = { minHr: DEFAULT_MIN_HR, maxHr: limits.maxHr, dualMaxHr: limits.dualMaxHr };
+    }
     markInputValidity(maxInput, !limits.invalid.includes('max'));
+    markInputValidity(dualInput, !limits.invalid.includes('dual'));
     return limits;
 }
 
@@ -751,10 +783,9 @@ function workingCeiling(minHr, typedMaxHr) {
     return computeEffectiveCeiling({
         minHr,
         maxHr: typedMaxHr,
+        dualMaxHr: readHrLimits().dualMaxHr,
         learnedOffset: advancedSettings.learningProfile?.suggestedMaxHrOffset || 0,
         dualStimActive: dual,
-        dualDampening: Boolean(advancedSettings.dualDampening),
-        dualDampeningBpm: advancedSettings.dualDampeningBpm,
         // Decay lowers the ceiling as edges pile up. The uncapped climbs
         // push past the typed max, so that drop does not run during them.
         adaptiveDecay: isUncappedClimb() ? false : Boolean(advancedSettings.adaptiveDecay),
@@ -844,8 +875,8 @@ function updateEngine() {
 
     const dualBadge = document.getElementById('dualStimBadge');
     if (dualBadge) {
-        dualBadge.textContent = `DUAL STIM (-${ceiling.dualOffset} BPM)`;
-        dualBadge.classList.toggle('hidden', !(ceiling.dualOffset > 0));
+        dualBadge.textContent = `DUAL MAX ${ceiling.dualMaxHr}`;
+        dualBadge.classList.toggle('hidden', !ceiling.usingDual);
     }
 
     const decayBadge = document.getElementById('decayBadge');
@@ -1147,18 +1178,18 @@ function calibrationHintText() {
     const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED';
     if (state.activeMode === 'calibrate' && state.calibrationPass === 'dual') {
         return saved
-            ? `Both toys on. Finished me sets the dual-stim offset from the gap under ${saved}. Climax HR stays ${saved}.`
-            : 'Both toys on. Finished me sets the dual-stim offset.';
+            ? `Both toys on. Finished me saves that heart rate as the dual-stim max. Single-stim max stays ${saved}.`
+            : 'Both toys on. Finished me saves that heart rate as the dual-stim max.';
     }
     if (state.activeMode === 'calibrate' && state.calibrationPass === 'primary') {
         return saved && !live
-            ? `Redo of the primary run. Leave the second toy off. Finished me replaces ${saved}.`
-            : 'Primary toy only. Leave the second toy off. Finished me saves that heart rate as your Climax HR.';
+            ? `Redo of the single-stim run. Leave the second toy off. Finished me replaces ${saved}.`
+            : 'One toy only. Leave the second toy off. Finished me saves that heart rate as your single-stim max.';
     }
     if (saved) {
-        return `Primary climax is ${saved}. Tap Calibrate for the both-toys run, or to redo the primary.`;
+        return `Single-stim max is ${saved}. Tap Calibrate for the both-toys run, or to redo the single-stim run.`;
     }
-    return 'Primary toy first — The Handy, or your stroker. A later run with both toys sets the dual-stim offset.';
+    return 'One toy first — The Handy, or your stroker. A later run with both toys saves a separate dual-stim max. Resting heart rate is assumed at 70.';
 }
 
 function renderCalibration() {
@@ -1927,6 +1958,7 @@ function persistSessionLimits(immediate = false) {
     Object.assign(advancedSettings, sanitizeSessionLimits({
         minHr: limits.minHr,
         maxHr: limits.maxHr,
+        dualMaxHr: limits.dualMaxHr,
         durationMode: state.durationMode,
         durationFixedMinutes: document.getElementById('paramFixedInput')?.value,
         durationMinMinutes: document.getElementById('paramMinInput')?.value,
@@ -1970,16 +2002,21 @@ function savePrimaryClimax(hr) {
     } else {
         persistSettings();
     }
+    const wizard = document.getElementById('wizardSingleMax');
+    if (wizard) wizard.value = String(hr);
 }
 
-function saveDualOffset(bpm) {
-    advancedSettings.dualDampening = true;
-    advancedSettings.dualDampeningBpm = bpm;
-    const toggle = document.getElementById('dualDampeningToggle');
-    const input = document.getElementById('dualDampeningOffsetInput');
-    if (toggle) toggle.checked = true;
-    if (input) input.value = String(bpm);
-    persistSettings();
+function saveDualClimax(hr) {
+    const input = document.getElementById('dualMaxHr');
+    if (input) {
+        input.value = String(hr);
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+        advancedSettings.dualMaxHr = hr;
+        persistSettings();
+    }
+    const wizard = document.getElementById('wizardDualMax');
+    if (wizard) wizard.value = String(hr);
 }
 
 function armCalibration(pass) {
@@ -2009,12 +2046,12 @@ function offerCalibration() {
             alert('Both toys are on. The first run is the stroker alone — The Handy, or whichever device is your primary. Turn the second toy off, then tap Calibrate again.');
             return false;
         }
-        const ok = confirm('First run: primary toy only. Use The Handy, or whichever device is stroking, and leave the second toy off.\n\nWhen you come, tap Finished me. That heart rate becomes your Climax HR.\n\nA later Calibration run, with both toys on, sets the dual-stim offset from the gap.\n\nArm the primary run? Press play when you are ready.');
+        const ok = confirm('First run: one toy only. Use The Handy, or whichever device is stroking, and leave the second toy off.\n\nWhen you come, tap Finished me. That heart rate becomes your single-stim max.\n\nA later Calibration run, with both toys on, saves a separate dual-stim max.\n\nArm the single-stim run? Press play when you are ready.');
         if (!ok) return false;
         armCalibration('primary');
         return true;
     }
-    const dualOk = confirm(`Your primary climax is ${saved} BPM.\n\nThis run uses both toys. Turn the second one on before you press play. Finished me sets the dual-stim offset to how far under ${saved} you finish. Climax HR stays ${saved}.\n\nArm the both-toys run?`);
+    const dualOk = confirm(`Your single-stim max is ${saved} BPM.\n\nThis run uses both toys. Turn the second one on before you press play. Finished me saves the heart rate you finish at as the dual-stim max. The single-stim max stays ${saved}.\n\nArm the both-toys run?`);
     if (dualOk) {
         if (!dual) {
             alert('The second toy is not on yet. Turn it on, then tap Calibrate again.');
@@ -2046,29 +2083,22 @@ cameEarlyBtn?.addEventListener('click', () => {
         const pass = state.calibrationPass === 'dual' && saved ? 'dual' : 'primary';
         const { dual } = stimulationRoles();
         if (pass === 'dual' && !dual) {
-            const asPrimary = confirm(`The second toy is not on, so this cannot set the dual-stim offset. Save ${hr} as your primary Climax HR instead?`);
+            const asPrimary = confirm(`The second toy is not on, so this is a single-stim reading. Save ${hr} as your single-stim max instead?`);
             if (!asPrimary) return;
             savePrimaryClimax(hr);
             stopSession('Calibration', 'Saved. That heart rate is your max.');
             return;
         }
         if (pass === 'dual') {
-            const offset = calibrationDualOffset(saved, hr);
-            if (offset === null) {
-                alert(`You finished at ${hr}. That is not at least 5 BPM under the primary ${saved}, so the dual-stim offset stays ${advancedSettings.dualDampeningBpm}. The toys stop.`);
-                stopSession('Calibration');
-                return;
-            }
-            const gap = saved - hr;
-            const capped = gap > 30 ? ` The gap is ${gap} BPM, and the offset caps at 30.` : '';
-            const ok = confirm(`You finished at ${hr}. Primary was ${saved}. Set the dual-stim offset to ${offset} BPM?${capped} Climax HR stays ${saved}. The toys stop.`);
+            const single = readHrLimits().maxHr;
+            const ok = confirm(`Set the dual-stim max to ${hr}? Your single-stim max stays ${single}. The toys stop, and a both-toys session uses ${hr}.`);
             if (!ok) return;
-            saveDualOffset(offset);
-            stopSession('Calibration', `Saved. Dual-stim offset is ${offset}.`);
+            saveDualClimax(hr);
+            stopSession('Calibration', 'Saved. That heart rate is your dual-stim max.');
             return;
         }
         const typed = readHrLimits().maxHr;
-        const ok = confirm(`Set Climax HR to ${hr}? This was the primary toy. Your typed max is ${typed}. The toys stop, and the next session uses ${hr}. A later Calibration run with both toys sets the dual-stim offset.`);
+        const ok = confirm(`Set the single-stim max to ${hr}? This was one toy. Your typed max is ${typed}. The toys stop, and the next one-toy session uses ${hr}. A later Calibration run with both toys saves the dual-stim max on its own.`);
         if (!ok) return;
         savePrimaryClimax(hr);
         stopSession('Calibration', 'Saved. That heart rate is your max.');
@@ -2149,8 +2179,8 @@ orgasmBtn?.addEventListener('click', () => {
 });
 
 // Typed HR limits take effect immediately (and are validated) rather than on
-// the next clock tick.
-['minHr', 'maxHr'].forEach((id) => {
+// the next clock tick. Resting heart rate is assumed and has no field.
+['maxHr', 'dualMaxHr'].forEach((id) => {
     const input = document.getElementById(id);
     // Persisted on every edit, not only on blur: a wearer who lowers the
     // ceiling mid-session and never leaves the field used to lose it on the
@@ -2203,7 +2233,7 @@ const MODE_DETAILS = {
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come. The stroke range is the tease mode you selected.',
-    calibrate: 'A climb of its own, separate from Survival. The first run is your primary toy only, and Finished me saves that heart rate as Climax HR. A later run with both toys on sets the dual-stim offset from the gap. "At the ceiling" does not stop the toys or end the run.',
+    calibrate: 'A climb of its own, separate from Survival. The first run is one toy, and Finished me saves that heart rate as the single-stim max. A later run with both toys saves the dual-stim max on its own. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.'
 };
 
@@ -2267,6 +2297,24 @@ function applyModeSelection(mode, enabled) {
 document.getElementById('wizardCalibrateBtn')?.addEventListener('click', () => {
     if (!offerCalibration()) return;
     closeWizard();
+});
+
+['wizardSingleMax', 'wizardDualMax'].forEach((id) => {
+    const from = document.getElementById(id);
+    const toId = id === 'wizardDualMax' ? 'dualMaxHr' : 'maxHr';
+    const push = () => {
+        const to = document.getElementById(toId);
+        if (!from || !to) return;
+        to.value = from.value;
+        to.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    from?.addEventListener('input', push);
+    from?.addEventListener('change', () => {
+        const to = document.getElementById(toId);
+        if (!from || !to) return;
+        to.value = from.value;
+        to.dispatchEvent(new Event('change', { bubbles: true }));
+    });
 });
 
 document.getElementById('calibrateBtn')?.addEventListener('click', () => {
@@ -2549,16 +2597,13 @@ function syncParamsUI() {
     // and a remote page shows the host's, so none of them may be supplied
     // out of the partner's own browser.
     if (!isRemotePage) {
-        const minInput = document.getElementById('minHr');
+        // Seeded here, and only here: a remote page keeps the factory pair
+        // until the host's telemetry arrives.
+        state.lastGoodHrLimits = { minHr: DEFAULT_MIN_HR, maxHr: advancedSettings.maxHr, dualMaxHr: advancedSettings.dualMaxHr };
         const maxInput = document.getElementById('maxHr');
-        if (minInput) minInput.value = String(advancedSettings.minHr);
+        const dualMaxInput = document.getElementById('dualMaxHr');
         if (maxInput) maxInput.value = String(advancedSettings.maxHr);
-        // The fallback pair readHrLimits falls back to when a field is
-        // half-typed, seeded from the same numbers that were just painted
-        // into those fields. A remote page keeps the factory 70 / 140: its
-        // two HR fields mirror the HOST's limits, so this device's stored
-        // pair must never stand in for them before the first telemetry.
-        state.lastGoodHrLimits = { minHr: advancedSettings.minHr, maxHr: advancedSettings.maxHr };
+        if (dualMaxInput) dualMaxInput.value = String(advancedSettings.dualMaxHr || 125);
         const fixedInput = document.getElementById('paramFixedInput');
         const rangeMinInput = document.getElementById('paramMinInput');
         const rangeMaxInput = document.getElementById('paramMaxInput');
@@ -2579,8 +2624,6 @@ function syncParamsUI() {
     setDurationMode(state.durationMode);
     const stallToggle = document.getElementById('stallGuardToggle');
     const stallSec = document.getElementById('stallGuardSecondsInput');
-    const dualToggle = document.getElementById('dualDampeningToggle');
-    const dualBpm = document.getElementById('dualDampeningOffsetInput');
     const decayToggle = document.getElementById('adaptiveDecayToggle');
     const decayCount = document.getElementById('decayEdgeCountInput');
     const decayBpm = document.getElementById('decayBpmInput');
@@ -2611,8 +2654,6 @@ function syncParamsUI() {
         if (trainHold) trainHold.placeholder = '--';
         if (trainEdges) trainEdges.placeholder = '--';
     }
-    if (dualToggle) dualToggle.checked = Boolean(advancedSettings.dualDampening);
-    if (dualBpm) dualBpm.value = advancedSettings.dualDampeningBpm || 15;
     if (decayToggle) decayToggle.checked = Boolean(advancedSettings.adaptiveDecay);
     if (decayCount) decayCount.value = advancedSettings.decayEdgeCount || 2;
     if (decayBpm) decayBpm.value = advancedSettings.decayBpm || 2;
@@ -3050,8 +3091,6 @@ document.getElementById('applyParamsBtn')?.addEventListener('click', async () =>
     advancedSettings.stallPauseSeconds = clampStallPauseSeconds(document.getElementById('stallPauseSecondsInput')?.value);
     advancedSettings.ceilingBehaviour = document.getElementById('ceilingBehaviourSelect')?.value === 'stop' ? 'stop' : 'crawl';
     advancedSettings.edgeHoldPercent = clampEdgeHoldPercent(document.getElementById('edgeHoldPercentInput')?.value);
-    advancedSettings.dualDampening = document.getElementById('dualDampeningToggle')?.checked ?? true;
-    advancedSettings.dualDampeningBpm = parseInt(document.getElementById('dualDampeningOffsetInput')?.value, 10) || 15;
     advancedSettings.adaptiveDecay = document.getElementById('adaptiveDecayToggle')?.checked ?? true;
     advancedSettings.decayEdgeCount = parseInt(document.getElementById('decayEdgeCountInput')?.value, 10) || 2;
     advancedSettings.decayBpm = parseInt(document.getElementById('decayBpmInput')?.value, 10) || 2;
@@ -4246,7 +4285,7 @@ function lockRemoteControls() {
 // The typed limits belong to the host: on a remote page the inputs only
 // mirror what the host reports.
 function lockRemoteLimitInputs() {
-    ['minHr', 'maxHr'].forEach((id) => {
+    ['maxHr', 'dualMaxHr'].forEach((id) => {
         const input = document.getElementById(id);
         if (!input) return;
         input.disabled = true;
@@ -4344,9 +4383,7 @@ function applyRemoteTelemetry(data) {
 
     const hrDisplay = document.getElementById('hrDisplay');
     if (hrDisplay) hrDisplay.textContent = state.hrCurrent;
-    const minInput = document.getElementById('minHr');
     const maxInput = document.getElementById('maxHr');
-    if (minInput) minInput.value = state.effectiveMinHr;
     if (maxInput) maxInput.value = state.effectiveMaxHr;
     const strokerVal = document.getElementById('strokerVal');
     const strokerBar = document.getElementById('strokerBar');

@@ -106,7 +106,7 @@
               <span id="hrHoldHint" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300 ml-1" title="No fresh reading yet; the last valid pulse is kept until the signal-loss timeout.">HOLDING LAST READING</span>
               <span id="hrSignalBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 ml-1">SIGNAL RESTORED</span>
               <span id="warmupBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-700 text-amber-300 ml-1">WARM-UP: <span id="warmupRemainingText">5:00</span></span>
-              <span id="dualStimBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1">DUAL STIM (-15 BPM)</span>
+              <span id="dualStimBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1">DUAL MAX 125</span>
               <span id="decayBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-700 text-sky-300 ml-1">DECAY: -<span id="decayAmountText">0</span> BPM</span>
               <span id="learnBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 ml-1">LEARNED -<span id="learnAmountText">0</span> BPM</span>
               <span id="effectiveCeilingBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-950/80 border border-rose-700 text-rose-300 ml-1" title="The climax ceiling the engine is using right now, after every offset"><span id="effectiveCeilingLabel">CEILING</span> <span id="effectiveCeilingText">140</span> BPM</span>
@@ -115,20 +115,20 @@
               <button id="micReenableBtn" type="button" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 hover:bg-amber-900 ml-1 cursor-pointer" title="Browsers only grant the microphone after a tap">Tap to re-enable microphone</button>
             </div>
 
-            <!-- BPM Limits -->
+            <!-- BPM Limits. Resting heart rate is assumed at 70. -->
             <div class="flex items-center gap-2.5 text-xs">
               <div class="flex items-center gap-1">
-                <span class="text-[10px] text-teal-400 font-semibold">Resting HR:</span>
-                <input id="minHr" type="number" value="70" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-teal-500">
+                <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
+                <input id="maxHr" type="number" value="140" min="71" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
               </div>
               <div class="flex items-center gap-1">
-                <span class="text-[10px] text-rose-400 font-semibold">Climax HR:</span>
-                <input id="maxHr" type="number" value="140" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500">
+                <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
+                <input id="dualMaxHr" type="number" value="125" min="71" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
               </div>
               <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
             </div>
           </div>
-          <p id="calibrationHint" class="text-[9px] text-slate-400 leading-snug">Primary toy first — The Handy, or your stroker. A later run with both toys sets the dual-stim offset.</p>
+          <p id="calibrationHint" class="text-[9px] text-slate-400 leading-snug">One toy first — The Handy, or your stroker. A later run with both toys saves a separate dual-stim max. Resting heart rate is assumed at 70.</p>
 
           <!-- 60-Second Real-Time Canvas -->
           <div class="relative">
@@ -810,7 +810,7 @@
               </div>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">
-              100% is the Climax HR you typed; 95% pulls back early. It never goes above 100%: your Climax HR is a hard ceiling. The percentage is taken from the working ceiling, so dual-stim dampening, decay and the learned offset move the mark down with it (the preview below and the cockpit HOLD TO badge show where it sits right now). Crawl / Full Stop and the stall timers start at this mark, and it is always kept far enough above your Resting HR to leave a release band. The edge releases 5 BPM below the mark.
+              100% is the climax heart rate for the toys that are on (single max, or dual max when both are live); 95% pulls back early. It never goes above 100%. Decay and the learned offset move the mark down with it (the preview below and the cockpit HOLD TO badge show where it sits right now). Crawl / Full Stop and the stall timers start at this mark, and it is always kept far enough above the assumed resting heart rate of 70 to leave a release band. The edge releases 5 BPM below the mark.
             </p>
             <p id="edgeHoldPreview" class="text-[10px] font-mono text-purple-300">Pullback at 140 BPM (100% of 140)</p>
           </div>
@@ -866,26 +866,6 @@
                 <input id="hrAutoResumeToggle" type="checkbox" checked class="sr-only peer">
                 <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
-            </div>
-          </div>
-
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <div class="flex justify-between items-center">
-              <label class="text-xs font-bold text-slate-200">Dual Stimulation Dampening</label>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input id="dualDampeningToggle" type="checkbox" checked class="sr-only peer">
-                <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
-              </label>
-            </div>
-            <p class="text-[9px] text-slate-400 leading-snug">
-              Offsets the ceiling down when a secondary toy is active with the stroker. Calibration's both-toys run can set this number from the gap under your primary climax. The offset stays between 5 and 30 BPM.
-            </p>
-            <div class="flex items-center justify-between pt-1 border-t border-slate-900 text-xs">
-              <span class="text-[9px] text-slate-400 font-semibold">Ceiling Offset:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="dualDampeningOffsetInput" type="number" min="5" max="30" value="15" class="w-12 bg-slate-900 border border-slate-700 rounded-lg py-0.5 text-xs text-center text-purple-400 font-bold outline-none">
-                <span class="text-slate-500 text-[10px]">BPM</span>
-              </div>
             </div>
           </div>
 
@@ -1158,9 +1138,17 @@
       <div id="wizardStep2" class="wizard-pane space-y-2 text-center hidden">
         <p class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Step 3 of 3</p>
         <h3 class="text-base font-bold text-white">Set your ceiling and start</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">Enter Resting HR and Climax HR, then open <strong class="text-slate-200">Session Setup</strong> for duration, warm-up, and guards. If you do not know your top heart rate yet, use <strong class="text-slate-200">Calibration</strong>. It climbs past the number you typed until you come.</p>
-        <p class="text-[10px] text-slate-500 leading-relaxed">The first run is your primary toy only. Tap <strong>Finished me</strong> and that heart rate becomes your Climax HR. A later run with both toys on sets the dual-stim offset. After you know the number, Came Early still lowers the ceiling for an accidental release. The signal-loss timeout pauses the motors when readings stop, and auto-resume picks the session back up.</p>
-        <button type="button" id="wizardCalibrateBtn" class="w-full bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold py-2.5 rounded-xl text-xs cursor-pointer">Start calibration</button>
+        <p class="text-xs text-slate-400 leading-relaxed">Resting heart rate is assumed at 70. Set the heart rate where you climax with one toy, and the heart rate where you climax with both. Open <strong class="text-slate-200">Session Setup</strong> for duration, warm-up, and guards.</p>
+        <div class="flex justify-center gap-3 text-xs">
+          <label class="flex items-center gap-1 text-rose-300 font-semibold">Single
+            <input id="wizardSingleMax" type="number" min="71" max="250" value="140" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500">
+          </label>
+          <label class="flex items-center gap-1 text-purple-300 font-semibold">Dual
+            <input id="wizardDualMax" type="number" min="71" max="250" value="125" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500">
+          </label>
+        </div>
+        <p class="text-[10px] text-slate-500 leading-relaxed">If you do not know those numbers, start <strong class="text-slate-200">Calibration</strong>. The first run is one toy. Tap <strong>Finished me</strong> and that heart rate becomes the single max. A later run with both toys saves the dual max on its own. After you know the numbers, Came Early still lowers the ceiling for an accidental release.</p>
+        <button type="button" id="wizardCalibrateBtn" class="w-full bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold py-2.5 rounded-xl text-xs cursor-pointer">Start single-stim calibration</button>
       </div>
 
       <div class="flex gap-2 pt-1">
