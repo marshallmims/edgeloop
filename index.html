@@ -309,18 +309,13 @@
               </button>
             </div>
 
-            <!-- Profiles vs Games Switcher -->
-            <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
-              <button id="expTabBioBtn" class="px-2.5 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Modes</button>
-              <button id="expTabGameBtn" class="px-2.5 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Games</button>
-            </div>
           </div>
 
-          <p class="text-[9px] text-slate-500 leading-snug">Games keep the stroke of the mode you pick.</p>
           <p id="modeDetail" class="text-[10px] text-slate-300 leading-snug">Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical, then Crawl or Full Stop at the ceiling.</p>
 
           <div id="customCardsContainer" class="space-y-1.5 hidden"></div>
 
+          <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Stroke</p>
           <!-- Built-In Modes -->
           <div id="bioProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <button type="button" data-mode="classic" class="mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
@@ -396,23 +391,24 @@
             </button>
           </div>
 
-          <!-- Game Modes Grid -->
-          <div id="gameModesGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            <button type="button" data-mode="oracle" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
-              <div class="font-bold text-[11px] text-fuchsia-300 flex justify-between items-center gap-1">
-                <span>The Oracle</span>
+          <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Goal</p>
+          <!-- Goal row. Tease means the stroke runs with no game on top. -->
+          <div id="gameModesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <button type="button" data-mode="goal-off" class="mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1">
+                <span>Tease</span>
                 <span class="flex items-center gap-1">
-                  <span class="mode-check hidden text-fuchsia-400">●</span>
+                  <span class="mode-check text-purple-400">●</span>
                 </span>
               </div>
               <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
-                Holds the edge, then decides how you finish.
+                No game. The stroke you picked runs on its own.
               </p>
             </button>
 
             <button type="button" data-mode="survival" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
               <div class="font-bold text-[11px] text-rose-300 flex justify-between items-center gap-1">
-                <span>Survival Mode</span>
+                <span>Survival</span>
                 <span class="flex items-center gap-1">
                   <span class="mode-check hidden text-rose-400">●</span>
                 </span>
@@ -422,8 +418,7 @@
               </p>
             </button>
 
-            <div class="sm:col-span-2">
-            <button type="button" data-mode="edgetrain" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between w-full">
+            <button type="button" data-mode="edgetrain" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
               <div class="font-bold text-[11px] text-amber-300 flex justify-between items-center gap-1">
                 <span>Edge Training</span>
                 <span class="flex items-center gap-1">
@@ -445,7 +440,18 @@
                 </label>
               </div>
             </button>
-            </div>
+
+            <button type="button" data-mode="oracle" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-fuchsia-300 flex justify-between items-center gap-1">
+                <span>The Oracle</span>
+                <span class="flex items-center gap-1">
+                  <span class="mode-check hidden text-fuchsia-400">●</span>
+                </span>
+              </div>
+              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
+                Holds the edge, then decides how you finish.
+              </p>
+            </button>
           </div>
         </div>
 

@@ -9,6 +9,9 @@ credited by username.
 ### Calibration
 - **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Resting heart rate is assumed at 70 and is no longer a field. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
 
+### Cockpit
+- **Stroke and goal on one card.** The Modes and Games tabs are gone. The stroke sits on the top row. The goal sits under it: Tease, Survival, Edge Training, and The Oracle. Tease means no game, so the stroke runs on its own. Edge Training's hold time and edge count stay on that card. Session Setup is unchanged.
+
 ### Site
 - **dev.edgeloop.app.** A separate copy for development. Pushes to the `dev` branch publish there. `main` still publishes edgeloop.app. The footer shows DEV on that host. Settings and pairings on the dev site are its own, not the live site's.
 

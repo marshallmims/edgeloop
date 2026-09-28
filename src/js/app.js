@@ -2196,31 +2196,9 @@ orgasmBtn?.addEventListener('click', () => {
     input?.addEventListener('change', () => edited(true));
 });
 
-// Experience Modes vs Games Tab Switching
-const expTabBioBtn = document.getElementById('expTabBioBtn');
-const expTabGameBtn = document.getElementById('expTabGameBtn');
-const bioProfilesGrid = document.getElementById('bioProfilesGrid');
-const gameModesGrid = document.getElementById('gameModesGrid');
-
-expTabBioBtn?.addEventListener('click', () => {
-    expTabBioBtn.className = "px-2.5 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer";
-    if (expTabGameBtn) expTabGameBtn.className = "px-2.5 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer";
-    bioProfilesGrid?.classList.remove('hidden');
-    gameModesGrid?.classList.add('hidden');
-    renderModeDetail();
-});
-
-expTabGameBtn?.addEventListener('click', () => {
-    expTabGameBtn.className = "px-2.5 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer";
-    if (expTabBioBtn) expTabBioBtn.className = "px-2.5 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer";
-    gameModesGrid?.classList.remove('hidden');
-    bioProfilesGrid?.classList.add('hidden');
-    renderModeDetail();
-});
-
-// Experience Mode Selection. A tease mode owns the stroke. A game, while
-// selected, owns the speeds and uses that stroke. Clicking the selected
-// game again turns the game off and leaves the tease mode running.
+// Stroke and goal sit on the same card. A tease mode owns the stroke. A
+// goal, while selected, owns the speeds and uses that stroke. Tease is the
+// goal with no game. Clicking the selected goal again also turns it off.
 const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain'];
 const modeCards = document.querySelectorAll('.mode-card');
 
@@ -2237,24 +2215,21 @@ const MODE_DETAILS = {
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.'
 };
 
-// The paragraph above the cards follows the card you are looking at.
-// On Modes it is the tease mode. On Games it is the game, when one is on.
+// The paragraph above the cards follows the goal when one is on, including
+// Calibration, and the stroke otherwise.
 function renderModeDetail() {
     const el = document.getElementById('modeDetail');
     if (!el) return;
-    if (state.gameMode === 'calibrate') {
-        el.textContent = MODE_DETAILS.calibrate;
-        return;
-    }
-    const gamesVisible = gameModesGrid && !gameModesGrid.classList.contains('hidden');
-    const mode = (gamesVisible && state.gameMode) ? state.gameMode : state.teaseMode;
+    const mode = state.gameMode || state.teaseMode;
     el.textContent = MODE_DETAILS[mode] || '';
 }
 
 function highlightModeCard() {
     modeCards.forEach(c => {
         const mode = c.getAttribute('data-mode');
-        const on = mode === state.teaseMode || mode === state.gameMode;
+        const on = mode === 'goal-off'
+            ? !state.gameMode
+            : (mode === state.teaseMode || mode === state.gameMode);
         const check = c.querySelector('.mode-check');
         const title = c.querySelector('.font-bold');
         if (on) {
@@ -2274,6 +2249,19 @@ function applyModeSelection(mode, enabled) {
     // primary run and the later both-toys run. A mode command must not
     // skip that.
     if (mode === 'calibrate') return;
+    // Tease clears the goal. It is not a stroke, so it must not land in the
+    // tease-mode branch (that would store a mode the engine does not run).
+    if (mode === 'goal-off') {
+        if (state.gameMode) {
+            state.gameMode = null;
+            resetGameState();
+        }
+        state.activeMode = state.teaseMode;
+        highlightModeCard();
+        renderModeDetail();
+        updateEngine();
+        return;
+    }
     if (GAME_CARD_MODES.includes(mode)) {
         const turnOn = enabled !== undefined ? enabled : state.gameMode !== mode;
         if (!turnOn) {
