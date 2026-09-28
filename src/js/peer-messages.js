@@ -97,6 +97,7 @@ export function sanitizeTelemetry(raw) {
     out.activeMode = oneOf(raw.activeMode, ENGINE_MODES);
     out.teaseMode = oneOf(raw.teaseMode, TEASE_MODES);
     out.gameMode = raw.gameMode === 'off' ? 'off' : oneOf(raw.gameMode, GAME_MODES);
+    out.calibrationPass = raw.calibrationPass === 'dual' ? 'dual' : raw.calibrationPass === 'primary' ? 'primary' : 'off';
     // The host's own game settings. A remote page has its own persisted
     // copies of these, and showing those would quote the PARTNER's numbers
     // back at them while they pace the wearer's session by them.

@@ -161,7 +161,14 @@ export const SETTING_SANITIZERS = {
     edgeHoldPercent: (value) => clampEdgeHoldPercent(value),
     trainHoldSeconds: (value) => clampTrainHoldSeconds(value),
     trainEdges: (value) => clampTrainEdges(value),
-    survivalCalibrating: boolean('survivalCalibrating'),
+    calibrationPrimaryHr: (value) => {
+        if (value === null || value === undefined || value === '') return null;
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+        if (!Number.isFinite(n)) return null;
+        const rounded = Math.round(n);
+        if (rounded < 40 || rounded > 220) return null;
+        return rounded;
+    },
 
     hrStaleSeconds: (value) => clampStaleSeconds(value),
     hrAutoResume: boolean('hrAutoResume'),

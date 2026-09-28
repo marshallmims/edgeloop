@@ -411,6 +411,29 @@ export function survivalDrive({ seconds = 0, edges = 0 } = {}) {
     return { floor, overdriveBpm };
 }
 
+// A climax heart rate Calibration is willing to store. Same window the
+// Finished me confirm already refused: a 0 or a 300 is not a max.
+export const CALIBRATION_HR_MIN = 40;
+export const CALIBRATION_HR_MAX = 220;
+
+export function calibrationReading(hr) {
+    const n = Math.round(Number(hr));
+    if (!Number.isFinite(n) || n < CALIBRATION_HR_MIN || n > CALIBRATION_HR_MAX) return null;
+    return n;
+}
+
+// How far under the primary climax a both-toys finish landed. The dual-stim
+// control only stores 5–30, so a smaller gap is not a number it can keep
+// and a larger one caps at 30. Null means leave the offset alone.
+export function calibrationDualOffset(primaryHr, finishHr) {
+    const primary = calibrationReading(primaryHr);
+    const finish = calibrationReading(finishHr);
+    if (primary === null || finish === null) return null;
+    const gap = primary - finish;
+    if (gap < 5) return null;
+    return Math.min(30, gap);
+}
+
 // Edge Training: climb to the pullback mark, hold there for holdGoal
 // seconds, repeat until edgesGoal successful holds, then finish.
 export const MIN_TRAIN_HOLD_SECONDS = 5;
@@ -565,14 +588,14 @@ export function describeGameNotice({
     trainEdgesGoal,
     survivalSpeedFloor = 0,
     survivalOverdrive = 0,
-    survivalCalibrating = false,
+    calibrationPass = 'primary',
     sessionSeconds = 0,
     minSeconds = 0,
     maxSeconds = 0,
     targetSeconds = 0,
     fixedLength = false
 } = {}) {
-    const isGame = activeMode === 'oracle' || activeMode === 'survival' || activeMode === 'edgetrain';
+    const isGame = activeMode === 'oracle' || activeMode === 'survival' || activeMode === 'edgetrain' || activeMode === 'calibrate';
     const live = sessionStatus === 'RUNNING' || sessionStatus === 'RAMPDOWN';
     if (!isGame || !live) return '';
 
@@ -597,11 +620,14 @@ export function describeGameNotice({
         return 'THE ORACLE: APPROACHING THE CEILING';
     }
 
-    if (activeMode === 'survival') {
+    if (activeMode === 'survival' || activeMode === 'calibrate') {
         const floor = Math.round(Number.isFinite(survivalSpeedFloor) ? survivalSpeedFloor : 0);
         const over = Math.max(0, Math.round(Number.isFinite(survivalOverdrive) ? survivalOverdrive : 0));
-        const mark = survivalCalibrating ? 'CALIBRATING — ' : '';
-        return `SURVIVAL: ${mark}FLOOR ${floor}% — +${over} BPM`;
+        if (activeMode === 'calibrate') {
+            const which = calibrationPass === 'dual' ? 'BOTH TOYS' : 'PRIMARY TOY';
+            return `CALIBRATION: ${which} — FLOOR ${floor}% — +${over} BPM`;
+        }
+        return `SURVIVAL: FLOOR ${floor}% — +${over} BPM`;
     }
 
     const need = clampTrainEdges(trainEdgesGoal);
@@ -634,7 +660,7 @@ export function describeStallPauseNotice({ mode, ceilingBehaviour } = {}) {
     // and the "At the ceiling" setting does not govern it either - so this
     // is asked BEFORE the Full Stop rule, which would otherwise promise a
     // 0% that Survival is not going to give.
-    if (mode === 'survival') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
+    if (mode === 'survival' || mode === 'calibrate') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
     if (resolveCeilingBehaviour(ceilingBehaviour) !== 'crawl') return `${halted} — FULL STOP HOLDS IT AT 0%`;
     return `${halted} — CRAWL RESUMES AFTER THE PAUSE`;
 }

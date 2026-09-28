@@ -22,6 +22,8 @@ import {
     countSurvivalBreach,
     isSurvivalDefeated,
     survivalDrive,
+    calibrationReading,
+    calibrationDualOffset,
     SURVIVAL_START_FLOOR,
     SURVIVAL_OVERDRIVE_CAP,
     SURVIVAL_EDGE_BPM,
@@ -414,22 +416,45 @@ describe('survival climb', () => {
         assert.equal(src.includes('isSurvivalDefeated'), false);
     });
 
-    it('saves the run peak from the Came Early button only after the wearer confirms', () => {
+    it('saves a primary calibration from Finished me, and a both-toys gap as the offset', () => {
         const src = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
         const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
         assert.equal(html.includes('survivalCameBtn'), false);
+        assert.equal(html.includes('survivalCalibrateToggle'), false);
         assert.match(html, /id="cameEarlyLabel"[^>]*>Came Early</);
-        assert.match(html, /id="survivalCalibrateToggle"/);
+        assert.match(html, /id="calibrateBtn"/);
         assert.match(html, /id="wizardCalibrateBtn"/);
         assert.match(src, /Finished me/);
-        assert.match(src, /survivalCalibrating/);
-        const handler = src.match(/cameEarlyBtn\?\.addEventListener\([\s\S]*?stopSession\('Survival calibration'/);
+        const handler = src.match(/cameEarlyBtn\?\.addEventListener\([\s\S]*?stopSession\("Premature Release"/);
         assert.ok(handler, 'Finished me has no handler on the Came Early button');
+        assert.match(handler[0], /activeMode === 'calibrate'/);
         assert.match(handler[0], /activeMode === 'survival'/);
+        assert.match(handler[0], /calibrationDualOffset/);
+        assert.match(handler[0], /savePrimaryClimax/);
         assert.match(handler[0], /confirm\(/);
-        assert.equal(handler[0].includes('suggestedMaxHrOffset'), false);
+        const calibrateBranch = handler[0].split("activeMode === 'survival'")[0];
+        assert.equal(calibrateBranch.includes('suggestedMaxHrOffset'), false);
         assert.match(handler[0], /isRemotePage/);
         assert.match(src, /suggestedMaxHrOffset/);
+    });
+});
+
+describe('calibration readings', () => {
+    it('keeps a climax heart rate and refuses anything outside 40–220', () => {
+        assert.equal(calibrationReading(135.4), 135);
+        assert.equal(calibrationReading(40), 40);
+        assert.equal(calibrationReading(220), 220);
+        assert.equal(calibrationReading(39), null);
+        assert.equal(calibrationReading(221), null);
+        assert.equal(calibrationReading(NaN), null);
+    });
+
+    it('turns the gap under the primary climax into a dual-stim offset', () => {
+        assert.equal(calibrationDualOffset(150, 135), 15);
+        assert.equal(calibrationDualOffset(160, 120), 30);
+        assert.equal(calibrationDualOffset(140, 137), null);
+        assert.equal(calibrationDualOffset(135, 150), null);
+        assert.equal(calibrationDualOffset(null, 120), null);
     });
 });
 
@@ -710,13 +735,13 @@ describe('the cockpit game banner', () => {
             describeGameNotice({ activeMode: 'survival', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4 }),
             /SURVIVAL: FLOOR 42%/
         );
-        assert.equal(
-            describeGameNotice({ activeMode: 'survival', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4 }).includes('CALIBRATING'),
-            false
+        assert.match(
+            describeGameNotice({ activeMode: 'calibrate', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4, calibrationPass: 'primary' }),
+            /CALIBRATION: PRIMARY TOY — FLOOR 42%/
         );
         assert.match(
-            describeGameNotice({ activeMode: 'survival', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4, survivalCalibrating: true }),
-            /SURVIVAL: CALIBRATING — FLOOR 42%/
+            describeGameNotice({ activeMode: 'calibrate', sessionStatus: 'RUNNING', survivalSpeedFloor: 18, calibrationPass: 'dual', survivalOverdrive: 3 }),
+            /CALIBRATION: BOTH TOYS — FLOOR 18% — \+3 BPM/
         );
     });
 
@@ -732,7 +757,8 @@ describe('the cockpit game banner', () => {
             { ...oracle, sessionStatus: 'RAMPDOWN', oracleState: 'RAMPDOWN' },
             { ...train, sessionStatus: 'RAMPDOWN', trainState: 'climb', trainEdgesGoal: 5 },
             { ...train, sessionStatus: 'RAMPDOWN', trainState: 'hold', trainHoldSeconds: 3 },
-            { activeMode: 'survival', sessionStatus: 'RAMPDOWN', survivalSpeedFloor: 42 }
+            { activeMode: 'survival', sessionStatus: 'RAMPDOWN', survivalSpeedFloor: 42 },
+            { activeMode: 'calibrate', sessionStatus: 'RAMPDOWN', survivalSpeedFloor: 42, calibrationPass: 'dual' }
         ];
         for (const landing of landings) {
             const text = describeGameNotice(landing);
@@ -864,16 +890,18 @@ describe('describeStallPauseNotice', () => {
         }
     });
 
-    it('says the speed comes back in Survival, which never parks on the mark', () => {
-        // Survival ignores the "At the ceiling" setting the way Ruin & Leak
+    it('says the speed comes back in Survival and Calibration, which never park on the mark', () => {
+        // Those climbs ignore the "At the ceiling" setting the way Ruin & Leak
         // does - the speed climbs on its own clock - so Full Stop must not
-        // make this sentence promise a 0% Survival is not going to give.
-        for (const behaviour of ['crawl', 'stop', undefined]) {
-            assert.equal(
-                describeStallPauseNotice({ mode: 'survival', ceilingBehaviour: behaviour }),
-                'STALL PAUSE: PRIMARY HALTED — SPEED RESUMES AFTER THE PAUSE',
-                `Survival under ${behaviour}`
-            );
+        // make this sentence promise a 0% the climb is not going to give.
+        for (const mode of ['survival', 'calibrate']) {
+            for (const behaviour of ['crawl', 'stop', undefined]) {
+                assert.equal(
+                    describeStallPauseNotice({ mode, ceilingBehaviour: behaviour }),
+                    'STALL PAUSE: PRIMARY HALTED — SPEED RESUMES AFTER THE PAUSE',
+                    `${mode} under ${behaviour}`
+                );
+            }
         }
     });
 
