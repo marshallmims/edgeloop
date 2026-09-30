@@ -6,7 +6,8 @@ import {
     clampEdgeHoldPercent,
     resolveEdgeTriggerHr,
     describeEdgeHoldPreview,
-    micBoostReachesMotors
+    micBoostReachesMotors,
+    CRAWL_PERCENT
 } from './engine.js';
 import {
     ORGASM_BOOST_CAP,
@@ -20,6 +21,7 @@ import {
     clampTrainEdges,
     survivalDrive,
     calibrationReading,
+    ORGASM_SETTLE_SECONDS,
     DEFAULT_MIN_HR,
     clampStallGuardSeconds,
     clampStallPauseSeconds,
@@ -932,10 +934,15 @@ function updateEngine() {
         ruinHoldSeconds: state.ruinHoldSeconds,
         oracleState: state.oracleState,
         survivalSpeedFloor: state.survivalSpeedFloor,
-        trainingState: state.trainState
+        trainingState: state.trainState,
+        settleSecondsLeft: state.settleSecondsLeft,
+        settleSpan: ORGASM_SETTLE_SECONDS,
+        settleFromPrimary: state.settleFromPrimary,
+        settleFromSecondary: state.settleFromSecondary,
+        settleFloor: state.settleFloor
     });
 
-    if (result.newEdgeTriggered) {
+    if (result.newEdgeTriggered && !(state.settleSecondsLeft > 0)) {
         state.edges += 1;
         const edgeEl = document.getElementById('edgeCount');
         if (edgeEl) edgeEl.textContent = state.edges;
@@ -1275,6 +1282,7 @@ function resetSessionCounters() {
     state.endgameHeldByOrgasm = false;
     state.strokerSpeed = 0;
     state.prostateSpeed = 0;
+    clearSettle();
     funscriptSamples = [];
     funscriptSessionStart = 0;
     const edgeEl = document.getElementById('edgeCount');
@@ -1711,6 +1719,10 @@ setInterval(() => {
         // Refresh the engine first so the guards and games below judge THIS
         // second's HR, ceiling and edge flag, not the previous tick's.
         updateEngine();
+        if (state.settleSecondsLeft > 0) {
+            state.settleSecondsLeft -= 1;
+            if (state.settleSecondsLeft <= 0) finishSettle();
+        } else {
         tickSessionGuardsAndGames();
 
         // The endgame fires exactly once per session: the Orgasm endgame
@@ -1741,6 +1753,7 @@ setInterval(() => {
             // Raise the WORKING ceiling 1 BPM/s (capped) so the edge detector
             // stops firing; the typed Climax HR input is never touched.
             state.orgasmBoost = Math.min(ORGASM_BOOST_CAP, (state.orgasmBoost || 0) + 1);
+        }
         }
     } else if (state.sessionStatus === 'RAMPDOWN') {
         state.rampdownSecondsLeft -= 1;
@@ -1777,12 +1790,14 @@ function handleTargetTimeReached() {
     // timer then chose the tease-down - would keep driving the toys instead
     // of the gentle ending. Denied stops the session, which clears it
     // anyway; the Orgasm endgame IS the latch and keeps it.
-    if (!endgameKeepsOrgasmLatch(state.endgameType)) setOrgasmMode(false);
+    if (!endgameKeepsOrgasmLatch(state.endgameType)) setOrgasmMode(false, { settle: false });
     if (state.endgameType === 'orgasm') {
         if (!state.orgasmMode && orgasmBtn) orgasmBtn.click();
     } else if (state.endgameType === 'rampdown') {
         state.sessionStatus = 'RAMPDOWN';
         state.rampdownSecondsLeft = 45;
+        const landing = document.getElementById('rampdownNotice');
+        if (landing) landing.textContent = 'SOFT LANDING IN PROGRESS: DECELERATING TO 0%';
         // RAMPDOWN computes both channels from the ramp factor alone and
         // never looks at the heart rate, so no boost reaches the toys. The
         // session tick that refreshes (and clears) the boost is RUNNING-only,
@@ -1836,7 +1851,7 @@ function startOrResumeSession() {
     if (state.sessionStatus === 'IDLE') {
         // A fresh run never inherits time, edges or samples from the last one.
         resetSessionCounters();
-        setOrgasmMode(false);
+        setOrgasmMode(false, { settle: false });
         funscriptSessionStart = Date.now();
         // Play resets the climb clock. The pass was chosen before play.
         const pass = state.calibrationPass;
@@ -1885,6 +1900,65 @@ stopBtn?.addEventListener('click', () => {
     stopSession("Stopped");
 });
 
+function clearSettle() {
+    state.settleSecondsLeft = 0;
+    state.settleFromPrimary = 0;
+    state.settleFromSecondary = 0;
+    state.settleFloor = 0;
+    state.settleEndsSession = false;
+    state.settleOutcome = null;
+    state.settleVoice = null;
+}
+
+function ceilingSettleFloor() {
+    return advancedSettings.ceilingBehaviour === 'stop' ? 0 : CRAWL_PERCENT;
+}
+
+// Ease from the speed the toys are at down to Crawl or Full Stop. An ending
+// (calibration, Came Early, Survival) stops the session when the ease finishes.
+// Cancelling Force Orgasm eases down and then the mode takes over again.
+function beginSettle({ endsSession = false, outcome = null, voiceText = null } = {}) {
+    if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'PAUSED') return false;
+    state.settleFromPrimary = state.strokerSpeed || 0;
+    state.settleFromSecondary = state.prostateSpeed || 0;
+    state.settleFloor = ceilingSettleFloor();
+    state.settleSecondsLeft = ORGASM_SETTLE_SECONDS;
+    state.settleEndsSession = Boolean(endsSession);
+    state.settleOutcome = outcome;
+    state.settleVoice = voiceText;
+    if (state.sessionStatus === 'PAUSED') {
+        state.sessionStatus = 'RUNNING';
+        state.resumeStatus = null;
+        renderTransport('RUNNING');
+    }
+    if (state.orgasmMode) setOrgasmMode(false, { settle: false });
+    const notice = document.getElementById('rampdownNotice');
+    if (notice) {
+        const landing = state.settleFloor > 0 ? 'CRAWL' : 'A STOP';
+        notice.textContent = endsSession
+            ? `EASING DOWN TO ${landing}, THEN THE SESSION STOPS`
+            : `EASING DOWN TO ${landing}`;
+        notice.classList.remove('hidden');
+    }
+    if (voiceText) cueVoice(voiceText, true);
+    updateEngine();
+    syncTelemetry();
+    return true;
+}
+
+function finishSettle() {
+    const ends = state.settleEndsSession;
+    const outcome = state.settleOutcome;
+    const voice = state.settleVoice;
+    clearSettle();
+    document.getElementById('rampdownNotice')?.classList.add('hidden');
+    // The tap already said its line. The stop at the end of the ease should
+    // not say it again. An ending with no line of its own still gets the
+    // normal stop cue.
+    if (ends) stopSession(outcome || 'Stopped', voice ? false : null);
+    else updateEngine();
+}
+
 // Put the transport back into its idle look. Shared by stop and reset.
 function showIdleTransport() {
     document.getElementById('rampdownNotice')?.classList.add('hidden');
@@ -1897,12 +1971,13 @@ function stopSession(outcome = "Stopped", voiceText = null) {
     const wasActive = state.sessionStatus !== 'IDLE';
     // Status and motors FIRST: nothing below (history, storage, voice) may
     // leave the session running if it throws.
+    clearSettle();
     state.sessionStatus = 'IDLE';
     state.resumeStatus = null;
     state.strokerSpeed = 0;
     state.prostateSpeed = 0;
     dispatchHardware(0, 0, 0, 100, true);
-    setOrgasmMode(false);
+    setOrgasmMode(false, { settle: false });
     clearHrSignalPause();
     try {
         if (wasActive && state.sessionSeconds >= 10 && !isRemotePage) saveSessionToHistory(outcome);
@@ -1916,7 +1991,9 @@ function stopSession(outcome = "Stopped", voiceText = null) {
         showIdleTransport();
         // STOP silences every queued cue; the outcome is the one thing said.
         cancelSpeech();
-        cueVoice(voiceText || ((outcome && outcome !== 'Stopped') ? outcome : 'sessionStop'), true);
+        if (voiceText !== false) {
+            cueVoice(voiceText || ((outcome && outcome !== 'Stopped') ? outcome : 'sessionStop'), true);
+        }
         syncTelemetry();
         checkReadiness();
         if (!isRemotePage) updateEngine();
@@ -1929,10 +2006,11 @@ resetBtn?.addEventListener('click', () => {
         sendPeerCommand({ type: 'SESSION_RESET' });
         return;
     }
+    clearSettle();
     state.sessionStatus = 'IDLE';
     state.resumeStatus = null;
     dispatchHardware(0, 0, 0, 100, true);
-    setOrgasmMode(false);
+    setOrgasmMode(false, { settle: false });
     clearHrSignalPause();
     resetSessionCounters();
     resetGameState();
@@ -2105,22 +2183,22 @@ cameEarlyBtn?.addEventListener('click', () => {
             const asPrimary = confirm(`The secondary is not on, so this reading is from the primary device alone. Save ${hr} as your primary max instead?`);
             if (!asPrimary) return;
             savePrimaryClimax(hr);
-            stopSession('Calibration', 'Saved. That heart rate is your max.');
+            beginSettle({ endsSession: true, outcome: 'Calibration', voiceText: 'Saved. That heart rate is your max.' });
             return;
         }
         if (pass === 'dual') {
             const single = readHrLimits().maxHr;
-            const ok = confirm(`Set the dual max to ${hr}? Your primary max stays ${single}. The toys stop. You can change this number by hand.`);
+            const ok = confirm(`Set the dual max to ${hr}? Your primary max stays ${single}. The toys ease down, then stop. You can change this number by hand.`);
             if (!ok) return;
             saveDualClimax(hr);
-            stopSession('Calibration', 'Saved. That heart rate is your dual-stim max.');
+            beginSettle({ endsSession: true, outcome: 'Calibration', voiceText: 'Saved. That heart rate is your dual-stim max.' });
             return;
         }
         const typed = readHrLimits().maxHr;
-        const ok = confirm(`Set the primary max to ${hr}? This was your primary device alone. Your typed max is ${typed}. The toys stop. You can change this number by hand. After a rest, a run with both devices sets the dual max.`);
+        const ok = confirm(`Set the primary max to ${hr}? This was your primary device alone. Your typed max is ${typed}. The toys ease down, then stop. You can change this number by hand. After a rest, a run with both devices sets the dual max.`);
         if (!ok) return;
         savePrimaryClimax(hr);
-        stopSession('Calibration', 'Saved. That heart rate is your max.');
+        beginSettle({ endsSession: true, outcome: 'Calibration', voiceText: 'Saved. That heart rate is your max.' });
         return;
     }
     if (state.activeMode === 'survival') {
@@ -2129,8 +2207,8 @@ cameEarlyBtn?.addEventListener('click', () => {
             return;
         }
         const typed = readHrLimits().maxHr;
-        if (confirm(`End the run? Your Climax HR stays ${typed}.`)) {
-            stopSession('Survival');
+        if (confirm(`End the run? Your Climax HR stays ${typed}. The toys ease down, then stop.`)) {
+            beginSettle({ endsSession: true, outcome: 'Survival' });
         }
         return;
     }
@@ -2148,7 +2226,7 @@ cameEarlyBtn?.addEventListener('click', () => {
         }
         persistSettings();
         renderLearningStatus();
-        stopSession("Premature Release", "cameEarly");
+        beginSettle({ endsSession: true, outcome: 'Premature Release', voiceText: 'cameEarly' });
     }
 });
 
@@ -2164,7 +2242,7 @@ document.getElementById('wipeLearningBtn')?.addEventListener('click', () => {
 // toggle, stop, reset and remote telemetry all agree. The ceiling boost
 // counter restarts from zero on every change and the typed Climax HR input
 // is never modified.
-function setOrgasmMode(on, { voice = false } = {}) {
+function setOrgasmMode(on, { voice = false, settle = false } = {}) {
     const next = Boolean(on);
     const changed = next !== Boolean(state.orgasmMode);
     state.orgasmMode = next;
@@ -2175,6 +2253,7 @@ function setOrgasmMode(on, { voice = false } = {}) {
             ? 'bg-rose-700 text-white font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center animate-pulse cursor-pointer shadow-lg shadow-rose-950/40'
             : 'bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer shadow-lg shadow-amber-950/30';
     }
+    if (changed && !next && settle) beginSettle({ endsSession: false });
     if (!changed || !voice) return;
     if (next) {
         cueVoice('forceOrgasm');
@@ -2192,7 +2271,7 @@ orgasmBtn?.addEventListener('click', () => {
         sendPeerCommand({ type: 'ORGASM_TOGGLE' });
         return;
     }
-    setOrgasmMode(!state.orgasmMode, { voice: true });
+    setOrgasmMode(!state.orgasmMode, { voice: true, settle: state.orgasmMode });
     syncTelemetry();
     updateEngine();
 });

@@ -969,6 +969,41 @@ describe('engine safety guards', () => {
         assert.equal(ramp.newEdgeTriggered, false);
     });
 
+    it('an orgasm settle eases from the current speed down to the ceiling floor', () => {
+        const start = calculateEngineOutputs({
+            ...running,
+            activeMode: 'calibrate',
+            survivalSpeedFloor: 80,
+            settleSecondsLeft: 45,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 56,
+            settleFloor: 10
+        });
+        assert.equal(start.primaryPercent, 80);
+        assert.equal(start.secondaryPercent, 56);
+        const mid = calculateEngineOutputs({
+            ...running,
+            settleSecondsLeft: 22.5,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 40,
+            settleFloor: 0
+        });
+        assert.equal(mid.primaryPercent, 40);
+        assert.equal(mid.secondaryPercent, 20);
+        const end = calculateEngineOutputs({
+            ...running,
+            settleSecondsLeft: 0.01,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 40,
+            settleFloor: 10
+        });
+        assert.ok(end.primaryPercent <= 11);
+        assert.equal(end.newEdgeTriggered, false);
+    });
+
     it('rampdown scales linearly from 50% to 0% over 45 seconds', () => {
         const full = calculateEngineOutputs({ ...running, sessionStatus: 'RAMPDOWN', rampdownSecondsLeft: 45 });
         const half = calculateEngineOutputs({ ...running, sessionStatus: 'RAMPDOWN', rampdownSecondsLeft: 22.5 });

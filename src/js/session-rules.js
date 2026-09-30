@@ -17,6 +17,11 @@ export const MIN_CEILING_GAP = 15;
 // cannot drift the ceiling into nonsense territory.
 export const ORGASM_BOOST_CAP = 60;
 
+// After an orgasm is indicated, or Force Orgasm is cancelled, the toys ease
+// from the speed they were at down to the ceiling setting. 45 seconds is the
+// same wind-down the soft landing already uses.
+export const ORGASM_SETTLE_SECONDS = 45;
+
 // Survival Mode only ends after this many consecutive READINGS at or above
 // the ceiling, so a single HR-sensor spike cannot end the game. The game
 // itself no longer ends on this streak. The counter stays so a held reading

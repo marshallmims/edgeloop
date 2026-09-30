@@ -432,7 +432,7 @@ describe('survival climb', () => {
         assert.match(html, /id="calibrateBtn"/);
         assert.match(html, /id="wizardCalibrateBtn"/);
         assert.match(src, /Finished me/);
-        const handler = src.match(/cameEarlyBtn\?\.addEventListener\([\s\S]*?stopSession\("Premature Release"/);
+        const handler = src.match(/cameEarlyBtn\?\.addEventListener\([\s\S]*?beginSettle\(\{ endsSession: true, outcome: 'Premature Release'/);
         assert.ok(handler, 'Finished me has no handler on the Came Early button');
         assert.match(handler[0], /activeMode === 'calibrate'/);
         assert.match(handler[0], /activeMode === 'survival'/);
@@ -696,8 +696,8 @@ describe('the endgame and a latched Force Orgasm', () => {
             /endgameKeepsOrgasmLatch\(/.test(fn[0]),
             `the endgame must decide what happens to the latch: ${fn[0]}`
         );
-        assert.ok(/setOrgasmMode\(false\)/.test(fn[0]), 'and actually clear it');
-        const clear = fn[0].indexOf('setOrgasmMode(false)');
+        assert.ok(/setOrgasmMode\(false, \{ settle: false \}\)/.test(fn[0]), 'and actually clear it without starting a second ease-down');
+        const clear = fn[0].indexOf('setOrgasmMode(false, { settle: false })');
         const ramp = fn[0].indexOf("'rampdown'");
         assert.ok(clear >= 0 && ramp >= 0 && clear < ramp, 'the latch must be cleared before the rampdown starts');
     });
