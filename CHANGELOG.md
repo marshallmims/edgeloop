@@ -16,6 +16,7 @@ Calibration, two climax numbers, and one card for the stroke and the goal. Shipp
 - **Calibration talks about your devices, not The Handy.** The first run is your primary stimulation device alone. When you orgasm, tap The app / Finished me. After a rest of about a day, a second run with primary and secondary together sets the dual max. Either number can be changed by hand. That explanation stays in the popup. The line under the heart-rate fields appears only while Calibration is on.
 
 ### Cockpit
+- **Start, Stop, and Reset sit with the heart rate.** Those buttons are in the left column, under the edge and orgasm controls, so the mode list on the right is not carrying the transport as well.
 - **Stroke and goal on one card.** The Modes and Games tabs are gone. The stroke sits on the top row. The goal sits under it: Tease, Survival, Edge Training, and The Oracle. Tease means no game, so the stroke runs on its own. Edge Training's hold time and edge count stay on that card. Session Setup is unchanged.
 
 ### Site
