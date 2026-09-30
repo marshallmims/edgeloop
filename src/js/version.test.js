@@ -34,15 +34,16 @@ describe('parseChangelog', () => {
         assert.equal(sections[1].blocks[0].text, 'The footer gained Discord.');
     });
 
-    it('reads the real changelog as Unreleased, then the current version, then 1.1.1, then 1.1.0', () => {
+    it('reads the real changelog as the current version, then 1.1.2, then 1.1.1, then 1.1.0', () => {
         const text = readFileSync(new URL('../../CHANGELOG.md', import.meta.url), 'utf8');
         const sections = parseChangelog(text);
         const titles = sections.map((section) => section.title);
-        assert.equal(titles[0], 'Unreleased');
-        assert.equal(titles[1], APP_VERSION);
+        assert.equal(titles[0], APP_VERSION);
+        assert.equal(titles[1], '1.1.2');
         assert.equal(titles[2], '1.1.1');
         assert.equal(titles[3], '1.1.0');
         assert.ok(sections[0].blocks.some((block) => /dev\.edgeloop\.app/.test(block.text)));
+        assert.ok(sections[0].blocks.some((block) => /Decay stays off during Calibration/.test(block.text)));
         assert.ok(sections[1].blocks.some((block) => /Survival/.test(block.text)));
         assert.ok(sections[2].blocks.some((block) => /Force Orgasm/.test(block.text)));
         assert.ok(sections[3].blocks.some((block) => /PATTERNS/.test(block.text)));

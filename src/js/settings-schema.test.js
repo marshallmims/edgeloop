@@ -103,7 +103,6 @@ describe('the fields with no control at all', () => {
 describe('the bounds are the ones the controls carry', () => {
     const cases = [
         ['warmupMinutes', 99, 10], ['warmupMinutes', -4, 0],
-        ['dualDampeningBpm', 99, 30], ['dualDampeningBpm', 1, 5],
         ['decayEdgeCount', 99, 10], ['decayEdgeCount', 0, 1],
         ['decayBpm', 99, 5], ['decayBpm', 0, 1],
         ['decayFloor', 999, 130], ['decayFloor', 9, 80],
@@ -119,10 +118,10 @@ describe('the bounds are the ones the controls carry', () => {
         // it or the panel and the store disagree.
         const bounds = {
             warmupInput: ['warmupMinutes', 0, 10],
+            orgasmSettleSecondsInput: ['orgasmSettleSeconds', 0, 180],
             decayEdgeCountInput: ['decayEdgeCount', 1, 10],
             decayBpmInput: ['decayBpm', 1, 5],
-            decayFloorInput: ['decayFloor', 80, 130],
-            dualDampeningOffsetInput: ['dualDampeningBpm', 5, 30]
+            decayFloorInput: ['decayFloor', 80, 130]
         };
         for (const [id, [name, min, max]] of Object.entries(bounds)) {
             const tag = INDEX.slice(INDEX.indexOf(`id="${id}"`) - 120, INDEX.indexOf(`id="${id}"`) + 160);

@@ -40,7 +40,7 @@ const running = {
 describe('engine modes', () => {
     it('lists every cockpit mode', () => {
         assert.deepEqual(ENGINE_MODES, [
-            'classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain'
+            'classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate'
         ]);
     });
 
@@ -569,9 +569,19 @@ describe('engine modes', () => {
         assert.equal(climbing.newEdgeTriggered, false);
     });
 
-    it('survival uses the accelerating floor', () => {
-        const result = calculateEngineOutputs({ ...running, activeMode: 'survival', survivalSpeedFloor: 61 });
-        assert.equal(result.primaryPercent, 61);
+    it('survival and calibration use the accelerating floor', () => {
+        const survival = calculateEngineOutputs({ ...running, activeMode: 'survival', survivalSpeedFloor: 61 });
+        const calibrate = calculateEngineOutputs({ ...running, activeMode: 'calibrate', survivalSpeedFloor: 61 });
+        assert.equal(survival.primaryPercent, 61);
+        assert.equal(calibrate.primaryPercent, 61);
+    });
+
+    it('calibration drops decay and a stroke change does not leave the climb', () => {
+        const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+        assert.match(app, /adaptiveDecay: isUncappedClimb\(\) \? false/);
+        assert.match(app, /decayBadge\?\.classList\.toggle\('hidden', isUncappedClimb\(\) \|\| !\(ceiling\.totalDecay > 0\)\)/);
+        assert.match(app, /A stroke change keeps Calibration running/);
+        assert.equal(app.includes('A stroke is not a way to keep Calibration'), false);
     });
 
     it('edge training pulls on the climb and obeys the ceiling rule on a hold', () => {
@@ -707,7 +717,7 @@ describe('engine safety guards', () => {
     });
 
     it('no mode, pattern, game, warm-up or orgasm leaves the travel envelope', () => {
-        const games = ['oracle', 'survival', 'edgetrain'];
+        const games = ['oracle', 'survival', 'edgetrain', 'calibrate'];
         for (const mode of ENGINE_MODES) {
             for (const sessionSeconds of [0, 3, 7, 12, 20, 40]) {
                 for (const hr of [70, 105, 140]) {
@@ -957,6 +967,41 @@ describe('engine safety guards', () => {
         assert.equal(orgasm.newEdgeTriggered, false);
         const ramp = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 150, sessionStatus: 'RAMPDOWN' });
         assert.equal(ramp.newEdgeTriggered, false);
+    });
+
+    it('an orgasm settle eases from the current speed down to the ceiling floor', () => {
+        const start = calculateEngineOutputs({
+            ...running,
+            activeMode: 'calibrate',
+            survivalSpeedFloor: 80,
+            settleSecondsLeft: 45,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 56,
+            settleFloor: 10
+        });
+        assert.equal(start.primaryPercent, 80);
+        assert.equal(start.secondaryPercent, 56);
+        const mid = calculateEngineOutputs({
+            ...running,
+            settleSecondsLeft: 22.5,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 40,
+            settleFloor: 0
+        });
+        assert.equal(mid.primaryPercent, 40);
+        assert.equal(mid.secondaryPercent, 20);
+        const end = calculateEngineOutputs({
+            ...running,
+            settleSecondsLeft: 0.01,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 40,
+            settleFloor: 10
+        });
+        assert.ok(end.primaryPercent <= 11);
+        assert.equal(end.newEdgeTriggered, false);
     });
 
     it('rampdown scales linearly from 50% to 0% over 45 seconds', () => {
@@ -1419,15 +1464,17 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
         // two modes Full Stop / Crawl does not govern. The run does not end
         // there. Each edge raises the mark instead.
         for (const ceilingBehaviour of ['stop', 'crawl']) {
-            const onTheMark = calculateEngineOutputs({
-                ...running,
-                activeMode: 'survival',
-                survivalSpeedFloor: 61,
-                hr: 140,
-                isEdged: true,
-                ceilingBehaviour
-            });
-            assert.equal(onTheMark.primaryPercent, 61, `survival ignores ${ceilingBehaviour} by design`);
+            for (const activeMode of ['survival', 'calibrate']) {
+                const onTheMark = calculateEngineOutputs({
+                    ...running,
+                    activeMode,
+                    survivalSpeedFloor: 61,
+                    hr: 140,
+                    isEdged: true,
+                    ceilingBehaviour
+                });
+                assert.equal(onTheMark.primaryPercent, 61, `${activeMode} ignores ${ceilingBehaviour} by design`);
+            }
         }
     });
 
@@ -1474,12 +1521,18 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
         }
         const app = read('src/js/app.js');
         const survivalDetail = app.match(/survival: '([^']*)'/);
+        const calibrateDetail = app.match(/calibrate: '([^']*)'/);
         const ruinDetail = app.match(/ruin: '([^']*)'/);
         assert.ok(survivalDetail, 'Survival detail anchor missing');
+        assert.ok(calibrateDetail, 'Calibration detail anchor missing');
         assert.ok(ruinDetail, 'Ruin & Leak detail anchor missing');
         assert.ok(
             /At the ceiling/.test(survivalDetail[1]),
             `the Survival detail must say the rule does not govern it: ${survivalDetail[1]}`
+        );
+        assert.ok(
+            /At the ceiling/.test(calibrateDetail[1]),
+            `the Calibration detail must say the rule does not govern it: ${calibrateDetail[1]}`
         );
         assert.ok(
             /At the ceiling/.test(ruinDetail[1]),
@@ -1499,6 +1552,8 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
         // the stroke zone, and at full depth there is no contraction at all.
         assert.equal(micBoostReachesMotors('survival', { edgeStrokeDepth: 100 }), false);
         assert.equal(micBoostReachesMotors('survival', { edgeStrokeDepth: 40 }), true);
+        assert.equal(micBoostReachesMotors('calibrate', { edgeStrokeDepth: 100 }), false);
+        assert.equal(micBoostReachesMotors('calibrate', { edgeStrokeDepth: 40 }), true);
         assert.equal(micBoostReachesMotors('not-a-mode'), true, 'unknown modes are classic');
     });
 
@@ -1515,7 +1570,8 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
             { activeMode: 'edgetrain', trainingState: 'climb' },
             { activeMode: 'edgetrain', trainingState: 'hold' },
             { activeMode: 'edgetrain', trainingState: 'recover' },
-            { activeMode: 'survival' }
+            { activeMode: 'survival' },
+            { activeMode: 'calibrate' }
         ];
         let checked = 0;
         for (const probe of probes) {

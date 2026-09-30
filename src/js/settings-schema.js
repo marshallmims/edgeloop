@@ -20,7 +20,7 @@
 // after this pass; this file is per-field only.
 
 import { SETTING_DEFAULTS } from './state.js';
-import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, MAX_SESSION_MINUTES } from './session-rules.js';
+import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, clampOrgasmSettleSeconds, MAX_SESSION_MINUTES } from './session-rules.js';
 import { clampEdgeHoldPercent } from './engine.js';
 import { clampStaleSeconds } from './hr-watchdog.js';
 import { clampEndMargin } from './hardware/handy-protocol.js';
@@ -108,6 +108,7 @@ export function sanitizeLearningProfile(raw) {
 export const CROSS_FIELD_OWNERS = {
     minHr: 'session-rules.sanitizeSessionLimits',
     maxHr: 'session-rules.sanitizeSessionLimits',
+    dualMaxHr: 'session-rules.sanitizeSessionLimits',
     durationMode: 'session-rules.sanitizeSessionLimits',
     durationFixedMinutes: 'session-rules.sanitizeSessionLimits',
     durationMinMinutes: 'session-rules.sanitizeSessionLimits',
@@ -127,6 +128,7 @@ export const SETTING_SANITIZERS = {
     // documentation promises. The owner sees both ends and decides.
     minHr: passToOwner,
     maxHr: passToOwner,
+    dualMaxHr: passToOwner,
     durationMode: oneOf('durationMode', ['fixed', 'range', 'endless']),
     // The lengths go to their owner as written, for the same reason the HR
     // pair does: the owner REFUSES a length outside the window and falls
@@ -143,6 +145,7 @@ export const SETTING_SANITIZERS = {
     edgeStrokeDepth: fixedAtFactory('edgeStrokeDepth'),
 
     warmupMinutes: wholeNumber('warmupMinutes', 0, 10),
+    orgasmSettleSeconds: (value) => clampOrgasmSettleSeconds(value),
     cadenceBreathing: boolean('cadenceBreathing'),
     milkingWave: boolean('milkingWave'),
 
@@ -161,13 +164,17 @@ export const SETTING_SANITIZERS = {
     edgeHoldPercent: (value) => clampEdgeHoldPercent(value),
     trainHoldSeconds: (value) => clampTrainHoldSeconds(value),
     trainEdges: (value) => clampTrainEdges(value),
-    survivalCalibrating: boolean('survivalCalibrating'),
+    calibrationPrimaryHr: (value) => {
+        if (value === null || value === undefined || value === '') return null;
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+        if (!Number.isFinite(n)) return null;
+        const rounded = Math.round(n);
+        if (rounded < 40 || rounded > 220) return null;
+        return rounded;
+    },
 
     hrStaleSeconds: (value) => clampStaleSeconds(value),
     hrAutoResume: boolean('hrAutoResume'),
-
-    dualDampening: boolean('dualDampening'),
-    dualDampeningBpm: wholeNumber('dualDampeningBpm', 5, 30),
     adaptiveDecay: boolean('adaptiveDecay'),
     decayEdgeCount: wholeNumber('decayEdgeCount', 1, 10),
     decayBpm: wholeNumber('decayBpm', 1, 5),

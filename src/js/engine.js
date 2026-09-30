@@ -10,7 +10,7 @@ import { normalizeEnvelope } from './hardware/handy-protocol.js';
 import { teaseFrame, warmupShape, placeStroke, orgasmFrame } from './patterns.js';
 
 export const TEASE_MODES = ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
-export const GAME_MODES = ['oracle', 'survival', 'edgetrain'];
+export const GAME_MODES = ['oracle', 'survival', 'edgetrain', 'calibrate'];
 
 export function resolveTeaseMode(strokeMode, activeMode) {
     if (TEASE_MODES.includes(strokeMode)) return strokeMode;
@@ -27,8 +27,13 @@ export const ENGINE_MODES = [
     'ruin',
     'oracle',
     'survival',
-    'edgetrain'
+    'edgetrain',
+    'calibrate'
 ];
+
+function isUncappedClimb(mode) {
+    return mode === 'survival' || mode === 'calibrate';
+}
 
 // Hysteresis: once edged, the flag only clears when HR drops MORE than this
 // many BPM below the typed climax ceiling, so a reading hovering at the
@@ -128,7 +133,7 @@ export function resolveEngineMode(mode) {
 export function micBoostReachesMotors(activeMode, { edgeStrokeDepth = 100 } = {}) {
     const mode = resolveEngineMode(activeMode);
     if (mode === 'oracle' || mode === 'edgetrain') return false;
-    if (mode === 'survival') return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
+    if (isUncappedClimb(mode)) return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
     return true;
 }
 
@@ -205,6 +210,7 @@ export function calculateEngineOutputs({
     handyHwMax = 100,
     sessionSeconds = 0,
     warmupMinutes = 0,
+    warmupElapsedSeconds = undefined,
     cadenceBreathing = false,
     milkingWave = false,
     stallGuardEngaged = false,
@@ -214,7 +220,12 @@ export function calculateEngineOutputs({
     strokeMode,
     oracleState = 'IDLE',
     survivalSpeedFloor = 30,
-    trainingState = 'climb'
+    trainingState = 'climb',
+    settleSecondsLeft = 0,
+    settleSpan = 45,
+    settleFromPrimary = 0,
+    settleFromSecondary = 0,
+    settleFloor = 0
 }) {
     const mode = resolveEngineMode(activeMode);
     const teaseMode = resolveTeaseMode(strokeMode, mode);
@@ -319,7 +330,7 @@ export function calculateEngineOutputs({
         ruinHoldSeconds
     };
     const stroke = teaseFrame(teaseArgs);
-    const isGame = mode === 'oracle' || mode === 'survival' || mode === 'edgetrain';
+    const isGame = mode === 'oracle' || mode === 'edgetrain' || isUncappedClimb(mode);
 
     if (sessionStatus === 'RAMPDOWN') {
         const rampFactor = Math.max(0, rampLeft / 45);
@@ -329,7 +340,7 @@ export function calculateEngineOutputs({
         const oracle = applyOracle(oracleState, climbProgress, nextIsEdged, orgasmMode, seconds, crawlPercent);
         primaryPercent = oracle.primary;
         secondaryPercent = oracle.secondary;
-    } else if (mode === 'survival') {
+    } else if (isUncappedClimb(mode)) {
         const floor = clamp(finiteOr(survivalSpeedFloor, 30), 5, 100);
         // Force Orgasm ramps from this floor; it does not replace it with a flat 100.
         primaryPercent = floor;
@@ -376,7 +387,8 @@ export function calculateEngineOutputs({
     // a short slow stroke. The stroke still starts at the bottom of whatever
     // window the mode asked for, which is already inside the travel envelope.
     if (!orgasmMode && sessionStatus === 'RUNNING') {
-        const wake = warmupShape(seconds, warmupMinutes);
+        const wakeClock = Number.isFinite(warmupElapsedSeconds) ? Math.max(0, warmupElapsedSeconds) : seconds;
+        const wake = warmupShape(wakeClock, warmupMinutes);
         if (wake.depth < 1 || wake.speed < 1) {
             const woken = placeStroke(strokeMinPercent, strokeMaxPercent, wake.depth, 'low');
             strokeMinPercent = woken.min;
@@ -422,6 +434,20 @@ export function calculateEngineOutputs({
     let physicalMin = clamp(Math.round(env.min + (strokeMinPercent / 100) * envSpan), env.min, env.max);
     let physicalMax = clamp(Math.round(env.min + (strokeMaxPercent / 100) * envSpan), env.min, env.max);
     if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+
+    // An orgasm was indicated, or Force Orgasm was cancelled. Ease from the
+    // speed the toys were at down to Crawl or a full stop. This replaces the
+    // mode for the wind-down, so a tease curve cannot snap back underneath it.
+    if (settleSecondsLeft > 0) {
+        const span = Math.max(1, finiteOr(settleSpan, 45));
+        const t = clamp(settleSecondsLeft / span, 0, 1);
+        const floor = clamp(finiteOr(settleFloor, 0), 0, 100);
+        const fromPrimary = clamp(finiteOr(settleFromPrimary, 0), 0, 100);
+        const fromSecondary = clamp(finiteOr(settleFromSecondary, 0), 0, 100);
+        primaryPercent = Math.round(fromPrimary * t + floor * (1 - t));
+        secondaryPercent = Math.round(fromSecondary * t + floor * (1 - t));
+        newEdgeTriggered = false;
+    }
 
     return {
         primaryPercent: clamp(finiteOr(primaryPercent, 0), 0, 100),
