@@ -20,7 +20,16 @@ export const ORGASM_BOOST_CAP = 60;
 // After an orgasm is indicated, or Force Orgasm is cancelled, the toys ease
 // from the speed they were at down to the ceiling setting. 45 seconds is the
 // same wind-down the soft landing already uses.
-export const ORGASM_SETTLE_SECONDS = 45;
+export const MIN_ORGASM_SETTLE_SECONDS = 0;
+export const MAX_ORGASM_SETTLE_SECONDS = 180;
+export const DEFAULT_ORGASM_SETTLE_SECONDS = 45;
+export const ORGASM_SETTLE_SECONDS = DEFAULT_ORGASM_SETTLE_SECONDS;
+
+export function clampOrgasmSettleSeconds(value, fallback = DEFAULT_ORGASM_SETTLE_SECONDS) {
+    const n = toInt(value);
+    if (n === null) return fallback;
+    return clamp(n, MIN_ORGASM_SETTLE_SECONDS, MAX_ORGASM_SETTLE_SECONDS);
+}
 
 // Survival Mode only ends after this many consecutive READINGS at or above
 // the ceiling, so a single HR-sensor spike cannot end the game. The game
