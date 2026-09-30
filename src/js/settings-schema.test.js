@@ -118,6 +118,7 @@ describe('the bounds are the ones the controls carry', () => {
         // it or the panel and the store disagree.
         const bounds = {
             warmupInput: ['warmupMinutes', 0, 10],
+            orgasmSettleSecondsInput: ['orgasmSettleSeconds', 0, 180],
             decayEdgeCountInput: ['decayEdgeCount', 1, 10],
             decayBpmInput: ['decayBpm', 1, 5],
             decayFloorInput: ['decayFloor', 80, 130]

@@ -22,6 +22,8 @@ import {
     survivalDrive,
     calibrationReading,
     ORGASM_SETTLE_SECONDS,
+    clampOrgasmSettleSeconds,
+    SURVIVAL_START_FLOOR,
     DEFAULT_MIN_HR,
     clampStallGuardSeconds,
     clampStallPauseSeconds,
@@ -926,6 +928,7 @@ function updateEngine() {
         handyHwMax: advancedSettings.handyHwMax,
         sessionSeconds: state.sessionSeconds,
         warmupMinutes: advancedSettings.warmupMinutes,
+        warmupElapsedSeconds: Math.max(0, state.sessionSeconds - (state.warmupOriginSeconds || 0)),
         cadenceBreathing: advancedSettings.cadenceBreathing,
         milkingWave: advancedSettings.milkingWave,
         stallGuardEngaged: state.stallGuardEngaged,
@@ -936,7 +939,7 @@ function updateEngine() {
         survivalSpeedFloor: state.survivalSpeedFloor,
         trainingState: state.trainState,
         settleSecondsLeft: state.settleSecondsLeft,
-        settleSpan: ORGASM_SETTLE_SECONDS,
+        settleSpan: state.settleSpan || ORGASM_SETTLE_SECONDS,
         settleFromPrimary: state.settleFromPrimary,
         settleFromSecondary: state.settleFromSecondary,
         settleFloor: state.settleFloor
@@ -1111,14 +1114,19 @@ function cueVoice(key, urgent = false) {
     else speakPrompt(true, text, advancedSettings.voiceURI);
 }
 
+function warmupElapsedSeconds() {
+    return Math.max(0, (state.sessionSeconds || 0) - (state.warmupOriginSeconds || 0));
+}
+
 function updateWarmupBadge() {
     const badge = document.getElementById('warmupBadge');
     const remainingEl = document.getElementById('warmupRemainingText');
     const warmupSeconds = Math.max(0, advancedSettings.warmupMinutes || 0) * 60;
-    const active = state.sessionStatus === 'RUNNING' && warmupSeconds > 0 && state.sessionSeconds < warmupSeconds;
+    const elapsed = warmupElapsedSeconds();
+    const active = state.sessionStatus === 'RUNNING' && warmupSeconds > 0 && elapsed < warmupSeconds;
     if (badge) badge.classList.toggle('hidden', !active);
     if (active && remainingEl) {
-        const left = warmupSeconds - state.sessionSeconds;
+        const left = warmupSeconds - elapsed;
         remainingEl.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
     }
 }
@@ -1276,6 +1284,7 @@ function resetSessionCounters() {
     state.orgasmBoost = 0;
     clearMicBoost(state);
     state.rampdownSecondsLeft = 45;
+    state.warmupOriginSeconds = 0;
     state.resumeStatus = null;
     state.durationFallback = false;
     state.endgameFired = false;
@@ -1382,7 +1391,7 @@ function tickSessionGuardsAndGames() {
     if (guard.justReleased) cueVoice('stallRecover');
 
     const warmupSeconds = Math.max(0, advancedSettings.warmupMinutes || 0) * 60;
-    if (warmupSeconds > 0 && state.sessionSeconds === warmupSeconds) {
+    if (warmupSeconds > 0 && warmupElapsedSeconds() === warmupSeconds) {
         cueVoice('warmupDone');
     }
 
@@ -1906,8 +1915,31 @@ function clearSettle() {
     state.settleFromSecondary = 0;
     state.settleFloor = 0;
     state.settleEndsSession = false;
+    state.settleRestartsSurvival = false;
     state.settleOutcome = null;
     state.settleVoice = null;
+}
+
+function restartSurvivalAfterOrgasm() {
+    state.survivalTimer = 0;
+    state.survivalEdges = 0;
+    state.survivalOverdrive = 0;
+    state.survivalSpeedFloor = SURVIVAL_START_FLOOR;
+    state.survivalEdgesSeen = state.edges || 0;
+    state.survivalBreachTicks = 0;
+    state.survivalLastReadingAt = null;
+    state.isEdged = false;
+    state.orgasmBoost = 0;
+    state.edgeStallSeconds = 0;
+    state.stallPauseElapsed = 0;
+    state.stallGuardEngaged = false;
+    state.ruinHoldSeconds = 0;
+    state.ruinRideSeconds = 0;
+    state.warmupOriginSeconds = state.sessionSeconds;
+    document.getElementById('stallGuardNotice')?.classList.add('hidden');
+    updateWarmupBadge();
+    updateEngine();
+    syncTelemetry();
 }
 
 function ceilingSettleFloor() {
@@ -1917,13 +1949,28 @@ function ceilingSettleFloor() {
 // Ease from the speed the toys are at down to Crawl or Full Stop. An ending
 // (calibration, Came Early, Survival) stops the session when the ease finishes.
 // Cancelling Force Orgasm eases down and then the mode takes over again.
-function beginSettle({ endsSession = false, outcome = null, voiceText = null } = {}) {
+function beginSettle({ endsSession = false, restartSurvival = false, outcome = null, voiceText = null } = {}) {
+    const seconds = clampOrgasmSettleSeconds(advancedSettings.orgasmSettleSeconds);
+    if (seconds <= 0) {
+        if (voiceText) cueVoice(voiceText, true);
+        if (endsSession) {
+            stopSession(outcome || 'Stopped', voiceText ? false : null);
+            return true;
+        }
+        if (restartSurvival) {
+            restartSurvivalAfterOrgasm();
+            return true;
+        }
+        return false;
+    }
     if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'PAUSED') return false;
     state.settleFromPrimary = state.strokerSpeed || 0;
     state.settleFromSecondary = state.prostateSpeed || 0;
     state.settleFloor = ceilingSettleFloor();
-    state.settleSecondsLeft = ORGASM_SETTLE_SECONDS;
+    state.settleSpan = seconds;
+    state.settleSecondsLeft = seconds;
     state.settleEndsSession = Boolean(endsSession);
+    state.settleRestartsSurvival = Boolean(restartSurvival);
     state.settleOutcome = outcome;
     state.settleVoice = voiceText;
     if (state.sessionStatus === 'PAUSED') {
@@ -1935,9 +1982,11 @@ function beginSettle({ endsSession = false, outcome = null, voiceText = null } =
     const notice = document.getElementById('rampdownNotice');
     if (notice) {
         const landing = state.settleFloor > 0 ? 'CRAWL' : 'A STOP';
-        notice.textContent = endsSession
-            ? `EASING DOWN TO ${landing}, THEN THE SESSION STOPS`
-            : `EASING DOWN TO ${landing}`;
+        notice.textContent = restartSurvival
+            ? `EASING DOWN TO ${landing}, THEN THE CLIMB STARTS AGAIN`
+            : endsSession
+                ? `EASING DOWN TO ${landing}, THEN THE SESSION STOPS`
+                : `EASING DOWN TO ${landing}`;
         notice.classList.remove('hidden');
     }
     if (voiceText) cueVoice(voiceText, true);
@@ -1948,6 +1997,7 @@ function beginSettle({ endsSession = false, outcome = null, voiceText = null } =
 
 function finishSettle() {
     const ends = state.settleEndsSession;
+    const restart = state.settleRestartsSurvival;
     const outcome = state.settleOutcome;
     const voice = state.settleVoice;
     clearSettle();
@@ -1955,7 +2005,8 @@ function finishSettle() {
     // The tap already said its line. The stop at the end of the ease should
     // not say it again. An ending with no line of its own still gets the
     // normal stop cue.
-    if (ends) stopSession(outcome || 'Stopped', voice ? false : null);
+    if (restart) restartSurvivalAfterOrgasm();
+    else if (ends) stopSession(outcome || 'Stopped', voice ? false : null);
     else updateEngine();
 }
 
@@ -2207,8 +2258,8 @@ cameEarlyBtn?.addEventListener('click', () => {
             return;
         }
         const typed = readHrLimits().maxHr;
-        if (confirm(`End the run? Your Climax HR stays ${typed}. The toys ease down, then stop.`)) {
-            beginSettle({ endsSession: true, outcome: 'Survival' });
+        if (confirm(`Mark this orgasm? The toys ease down, then Survival starts again from a warm-up. The session timer keeps going. Your Climax HR stays ${typed}.`)) {
+            beginSettle({ restartSurvival: true });
         }
         return;
     }
@@ -2308,7 +2359,7 @@ const MODE_DETAILS = {
     ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Stops and short bursts wait until your pulse is close to the heart rate you set. The internal toy follows the same chapters.',
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
-    survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come. The stroke range is the tease mode you selected.',
+    survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.'
 };
@@ -2730,6 +2781,8 @@ function syncParamsUI() {
     if (stallPause) stallPause.value = clampStallPauseSeconds(advancedSettings.stallPauseSeconds);
     const ceilingSelect = document.getElementById('ceilingBehaviourSelect');
     if (ceilingSelect) ceilingSelect.value = advancedSettings.ceilingBehaviour === 'stop' ? 'stop' : 'crawl';
+    const settleInput = document.getElementById('orgasmSettleSecondsInput');
+    if (settleInput) settleInput.value = isRemotePage ? '' : String(clampOrgasmSettleSeconds(advancedSettings.orgasmSettleSeconds));
     const holdInput = document.getElementById('edgeHoldPercentInput');
     if (holdInput) holdInput.value = isRemotePage ? '' : clampEdgeHoldPercent(advancedSettings.edgeHoldPercent);
     if (isRemotePage && holdInput) holdInput.placeholder = '--';
@@ -3183,6 +3236,7 @@ document.getElementById('applyParamsBtn')?.addEventListener('click', async () =>
     advancedSettings.stallGuardSeconds = clampStallGuardSeconds(document.getElementById('stallGuardSecondsInput')?.value);
     advancedSettings.stallPauseSeconds = clampStallPauseSeconds(document.getElementById('stallPauseSecondsInput')?.value);
     advancedSettings.ceilingBehaviour = document.getElementById('ceilingBehaviourSelect')?.value === 'stop' ? 'stop' : 'crawl';
+    advancedSettings.orgasmSettleSeconds = clampOrgasmSettleSeconds(document.getElementById('orgasmSettleSecondsInput')?.value);
     advancedSettings.edgeHoldPercent = clampEdgeHoldPercent(document.getElementById('edgeHoldPercentInput')?.value);
     advancedSettings.adaptiveDecay = document.getElementById('adaptiveDecayToggle')?.checked ?? true;
     advancedSettings.decayEdgeCount = parseInt(document.getElementById('decayEdgeCountInput')?.value, 10) || 2;

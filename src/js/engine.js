@@ -210,6 +210,7 @@ export function calculateEngineOutputs({
     handyHwMax = 100,
     sessionSeconds = 0,
     warmupMinutes = 0,
+    warmupElapsedSeconds = undefined,
     cadenceBreathing = false,
     milkingWave = false,
     stallGuardEngaged = false,
@@ -386,7 +387,8 @@ export function calculateEngineOutputs({
     // a short slow stroke. The stroke still starts at the bottom of whatever
     // window the mode asked for, which is already inside the travel envelope.
     if (!orgasmMode && sessionStatus === 'RUNNING') {
-        const wake = warmupShape(seconds, warmupMinutes);
+        const wakeClock = Number.isFinite(warmupElapsedSeconds) ? Math.max(0, warmupElapsedSeconds) : seconds;
+        const wake = warmupShape(wakeClock, warmupMinutes);
         if (wake.depth < 1 || wake.speed < 1) {
             const woken = placeStroke(strokeMinPercent, strokeMaxPercent, wake.depth, 'low');
             strokeMinPercent = woken.min;

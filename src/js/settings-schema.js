@@ -20,7 +20,7 @@
 // after this pass; this file is per-field only.
 
 import { SETTING_DEFAULTS } from './state.js';
-import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, MAX_SESSION_MINUTES } from './session-rules.js';
+import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, clampOrgasmSettleSeconds, MAX_SESSION_MINUTES } from './session-rules.js';
 import { clampEdgeHoldPercent } from './engine.js';
 import { clampStaleSeconds } from './hr-watchdog.js';
 import { clampEndMargin } from './hardware/handy-protocol.js';
@@ -145,6 +145,7 @@ export const SETTING_SANITIZERS = {
     edgeStrokeDepth: fixedAtFactory('edgeStrokeDepth'),
 
     warmupMinutes: wholeNumber('warmupMinutes', 0, 10),
+    orgasmSettleSeconds: (value) => clampOrgasmSettleSeconds(value),
     cadenceBreathing: boolean('cadenceBreathing'),
     milkingWave: boolean('milkingWave'),
 

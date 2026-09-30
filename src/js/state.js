@@ -29,6 +29,11 @@ export const state = {
     // Post-orgasm ease-down. 0 means it is not running. The from-speeds are
     // what the toys were doing when it started; the floor is Crawl or 0.
     settleSecondsLeft: 0,
+    settleSpan: 45,
+    settleRestartsSurvival: false,
+    // Seconds already on the session clock when warm-up last started. Survival
+    // sets this after an orgasm so the warm-up runs again without zeroing the timer.
+    warmupOriginSeconds: 0,
     settleFromPrimary: 0,
     settleFromSecondary: 0,
     settleFloor: 0,
@@ -159,6 +164,7 @@ export const advancedSettings = {
     endgameType: 'orgasm',
     gammaCurve: 2.0,
     warmupMinutes: 5,
+    orgasmSettleSeconds: 45,
     edgeStrokeDepth: 100,
     cadenceBreathing: true,
     milkingWave: true,
