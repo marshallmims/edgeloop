@@ -235,10 +235,29 @@
           </button>
         </div>
 
+        <!-- Primary Transport Controls -->
+        <div class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
+          <div class="flex gap-2">
+            <button id="sessionPlayPauseBtn" disabled class="flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
+              <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span id="playPauseText">WAITING FOR HR SENSOR & TOY</span>
+            </button>
+
+            <button id="sessionStopBtn" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 font-bold py-3 px-3 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+              <span>STOP</span>
+            </button>
+
+            <button id="sessionResetBtn" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
+              Reset
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <!-- RIGHT COLUMN -->
-      <div class="lg:col-span-5 space-y-3 flex flex-col justify-between">
+      <div class="lg:col-span-5 space-y-3">
 
         <!-- Hardware Status Badges -->
         <div class="grid grid-cols-2 xl:grid-cols-4 gap-1.5">
@@ -277,25 +296,6 @@
               <span id="badgeTCodeBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
             </div>
           </button>
-        </div>
-
-        <!-- Primary Transport Controls -->
-        <div class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
-          <div class="flex gap-2">
-            <button id="sessionPlayPauseBtn" disabled class="flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
-              <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              <span id="playPauseText">WAITING FOR HR SENSOR & TOY</span>
-            </button>
-
-            <button id="sessionStopBtn" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 font-bold py-3 px-3 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
-              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
-              <span>STOP</span>
-            </button>
-
-            <button id="sessionResetBtn" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
-              Reset
-            </button>
-          </div>
         </div>
 
         <!-- Experience Profiles & Modes Grid -->
