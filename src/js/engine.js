@@ -219,7 +219,12 @@ export function calculateEngineOutputs({
     strokeMode,
     oracleState = 'IDLE',
     survivalSpeedFloor = 30,
-    trainingState = 'climb'
+    trainingState = 'climb',
+    settleSecondsLeft = 0,
+    settleSpan = 45,
+    settleFromPrimary = 0,
+    settleFromSecondary = 0,
+    settleFloor = 0
 }) {
     const mode = resolveEngineMode(activeMode);
     const teaseMode = resolveTeaseMode(strokeMode, mode);
@@ -427,6 +432,20 @@ export function calculateEngineOutputs({
     let physicalMin = clamp(Math.round(env.min + (strokeMinPercent / 100) * envSpan), env.min, env.max);
     let physicalMax = clamp(Math.round(env.min + (strokeMaxPercent / 100) * envSpan), env.min, env.max);
     if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+
+    // An orgasm was indicated, or Force Orgasm was cancelled. Ease from the
+    // speed the toys were at down to Crawl or a full stop. This replaces the
+    // mode for the wind-down, so a tease curve cannot snap back underneath it.
+    if (settleSecondsLeft > 0) {
+        const span = Math.max(1, finiteOr(settleSpan, 45));
+        const t = clamp(settleSecondsLeft / span, 0, 1);
+        const floor = clamp(finiteOr(settleFloor, 0), 0, 100);
+        const fromPrimary = clamp(finiteOr(settleFromPrimary, 0), 0, 100);
+        const fromSecondary = clamp(finiteOr(settleFromSecondary, 0), 0, 100);
+        primaryPercent = Math.round(fromPrimary * t + floor * (1 - t));
+        secondaryPercent = Math.round(fromSecondary * t + floor * (1 - t));
+        newEdgeTriggered = false;
+    }
 
     return {
         primaryPercent: clamp(finiteOr(primaryPercent, 0), 0, 100),
