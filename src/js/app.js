@@ -784,13 +784,11 @@ function workingCeiling(minHr, typedMaxHr) {
         minHr,
         maxHr: typedMaxHr,
         dualMaxHr: readHrLimits().dualMaxHr,
-        // A calibration run is measuring the typed number. The learned
-        // offset and adaptive decay both lower that number, so the stroke
-        // would ease off before the climb has done its job.
-        learnedOffset: state.activeMode === 'calibrate'
-            ? 0
-            : (advancedSettings.learningProfile?.suggestedMaxHrOffset || 0),
+        learnedOffset: advancedSettings.learningProfile?.suggestedMaxHrOffset || 0,
         dualStimActive: dual,
+        // Decay lowers the ceiling as edges pile up. Calibration and Survival
+        // are climbs, so that drop does not run during them, and the cockpit
+        // badge must not claim it is on.
         adaptiveDecay: isUncappedClimb() ? false : Boolean(advancedSettings.adaptiveDecay),
         edges: state.edges,
         decayEdgeCount: advancedSettings.decayEdgeCount,
@@ -885,7 +883,7 @@ function updateEngine() {
     const decayBadge = document.getElementById('decayBadge');
     const decayText = document.getElementById('decayAmountText');
     if (decayText) decayText.textContent = ceiling.appliedDecay;
-    decayBadge?.classList.toggle('hidden', !(ceiling.totalDecay > 0));
+    decayBadge?.classList.toggle('hidden', isUncappedClimb() || !(ceiling.totalDecay > 0));
 
     // Shown whenever the working ceiling differs from the typed Climax HR.
     const ceilingBadge = document.getElementById('effectiveCeilingBadge');
@@ -2293,11 +2291,8 @@ function applyModeSelection(mode, enabled) {
             state.gameMode = mode;
         }
     } else {
-        // A stroke is not a way to keep Calibration running in the background.
-        if (state.gameMode === 'calibrate') {
-            state.gameMode = null;
-            state.calibrationPass = null;
-        }
+        // A stroke change keeps Calibration running. Leaving it here turned
+        // the climb back into a normal tease, which brought decay back on.
         state.teaseMode = mode;
         state.ruinHoldSeconds = 0;
         state.ruinRideSeconds = 0;
