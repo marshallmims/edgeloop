@@ -354,6 +354,13 @@ export function calculateEngineOutputs({
     // can only shrink it further. A game used to substitute its own zone.
     strokeMinPercent = stroke.strokeMin;
     strokeMaxPercent = stroke.strokeMax;
+    // Calibration is measuring a climax, so the stroke must not shorten as
+    // the pulse climbs the way a tease mode does. Survival still borrows
+    // the selected stroke.
+    if (mode === 'calibrate') {
+        strokeMinPercent = 0;
+        strokeMaxPercent = 100;
+    }
 
     // Force Orgasm eases both channels up from whatever the mode was doing
     // and keeps a wave at the top. It never drops a toy that was already
@@ -380,7 +387,9 @@ export function calculateEngineOutputs({
     // Over the warm-up the wearer set, speed and stroke length ease in from
     // a short slow stroke. The stroke still starts at the bottom of whatever
     // window the mode asked for, which is already inside the travel envelope.
-    if (!orgasmMode && sessionStatus === 'RUNNING') {
+    // Warm-up eases a normal session in. Calibration's own clock is that
+    // ease; stacking the warm-up on it holds the toys down for minutes.
+    if (!orgasmMode && sessionStatus === 'RUNNING' && mode !== 'calibrate') {
         const wake = warmupShape(seconds, warmupMinutes);
         if (wake.depth < 1 || wake.speed < 1) {
             const woken = placeStroke(strokeMinPercent, strokeMaxPercent, wake.depth, 'low');

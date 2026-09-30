@@ -576,6 +576,37 @@ describe('engine modes', () => {
         assert.equal(calibrate.primaryPercent, 61);
     });
 
+    it('calibration does not ease the toys off as the pulse climbs', () => {
+        const climbed = calculateEngineOutputs({
+            ...running,
+            activeMode: 'calibrate',
+            strokeMode: 'shortener',
+            hr: 140,
+            edgeHr: 140,
+            isEdged: true,
+            survivalSpeedFloor: 61,
+            warmupMinutes: 5,
+            sessionSeconds: 0,
+            ceilingBehaviour: 'stop'
+        });
+        assert.equal(climbed.primaryPercent, 61, 'warm-up and the ceiling rule do not cut the climb');
+        assert.equal(climbed.strokeMinPercent, 0);
+        assert.equal(climbed.strokeMaxPercent, 100, 'the tease stroke does not shorten');
+        const survival = calculateEngineOutputs({
+            ...running,
+            activeMode: 'survival',
+            strokeMode: 'shortener',
+            hr: 140,
+            edgeHr: 140,
+            isEdged: true,
+            survivalSpeedFloor: 61,
+            warmupMinutes: 5,
+            sessionSeconds: 0
+        });
+        assert.ok(survival.primaryPercent < 61, 'Survival still wakes up through the warm-up');
+        assert.ok(survival.strokeMaxPercent < 100, 'Survival still uses the tease stroke');
+    });
+
     it('edge training pulls on the climb and obeys the ceiling rule on a hold', () => {
         const classic = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 120 });
         const climb = calculateEngineOutputs({
