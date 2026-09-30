@@ -576,35 +576,12 @@ describe('engine modes', () => {
         assert.equal(calibrate.primaryPercent, 61);
     });
 
-    it('calibration does not ease the toys off as the pulse climbs', () => {
-        const climbed = calculateEngineOutputs({
-            ...running,
-            activeMode: 'calibrate',
-            strokeMode: 'shortener',
-            hr: 140,
-            edgeHr: 140,
-            isEdged: true,
-            survivalSpeedFloor: 61,
-            warmupMinutes: 5,
-            sessionSeconds: 0,
-            ceilingBehaviour: 'stop'
-        });
-        assert.equal(climbed.primaryPercent, 61, 'warm-up and the ceiling rule do not cut the climb');
-        assert.equal(climbed.strokeMinPercent, 0);
-        assert.equal(climbed.strokeMaxPercent, 100, 'the tease stroke does not shorten');
-        const survival = calculateEngineOutputs({
-            ...running,
-            activeMode: 'survival',
-            strokeMode: 'shortener',
-            hr: 140,
-            edgeHr: 140,
-            isEdged: true,
-            survivalSpeedFloor: 61,
-            warmupMinutes: 5,
-            sessionSeconds: 0
-        });
-        assert.ok(survival.primaryPercent < 61, 'Survival still wakes up through the warm-up');
-        assert.ok(survival.strokeMaxPercent < 100, 'Survival still uses the tease stroke');
+    it('calibration drops decay and a stroke change does not leave the climb', () => {
+        const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+        assert.match(app, /adaptiveDecay: isUncappedClimb\(\) \? false/);
+        assert.match(app, /decayBadge\?\.classList\.toggle\('hidden', isUncappedClimb\(\) \|\| !\(ceiling\.totalDecay > 0\)\)/);
+        assert.match(app, /A stroke change keeps Calibration running/);
+        assert.equal(app.includes('A stroke is not a way to keep Calibration'), false);
     });
 
     it('edge training pulls on the climb and obeys the ceiling rule on a hold', () => {
