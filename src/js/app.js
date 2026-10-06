@@ -942,7 +942,13 @@ function updateEngine() {
         settleSpan: state.settleSpan || ORGASM_SETTLE_SECONDS,
         settleFromPrimary: state.settleFromPrimary,
         settleFromSecondary: state.settleFromSecondary,
-        settleFloor: state.settleFloor
+        settleFromStrokeMin: state.settleFromStrokeMin,
+        settleFromStrokeMax: state.settleFromStrokeMax,
+        settleFloor: state.settleFloor,
+        orgasmFromPrimary: state.orgasmFromPrimary,
+        orgasmFromSecondary: state.orgasmFromSecondary,
+        orgasmFromStrokeMin: state.orgasmFromStrokeMin,
+        orgasmFromStrokeMax: state.orgasmFromStrokeMax
     });
 
     if (result.newEdgeTriggered && !(state.settleSecondsLeft > 0)) {
@@ -1913,6 +1919,8 @@ function clearSettle() {
     state.settleSecondsLeft = 0;
     state.settleFromPrimary = 0;
     state.settleFromSecondary = 0;
+    state.settleFromStrokeMin = null;
+    state.settleFromStrokeMax = null;
     state.settleFloor = 0;
     state.settleEndsSession = false;
     state.settleRestartsSurvival = false;
@@ -1966,6 +1974,8 @@ function beginSettle({ endsSession = false, restartSurvival = false, outcome = n
     if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'PAUSED') return false;
     state.settleFromPrimary = state.strokerSpeed || 0;
     state.settleFromSecondary = state.prostateSpeed || 0;
+    state.settleFromStrokeMin = Number.isFinite(state.strokeMin) ? state.strokeMin : null;
+    state.settleFromStrokeMax = Number.isFinite(state.strokeMax) ? state.strokeMax : null;
     state.settleFloor = ceilingSettleFloor();
     state.settleSpan = seconds;
     state.settleSecondsLeft = seconds;
@@ -2296,6 +2306,18 @@ document.getElementById('wipeLearningBtn')?.addEventListener('click', () => {
 function setOrgasmMode(on, { voice = false, settle = false } = {}) {
     const next = Boolean(on);
     const changed = next !== Boolean(state.orgasmMode);
+    if (changed && next) {
+        state.orgasmFromPrimary = state.strokerSpeed || 0;
+        state.orgasmFromSecondary = state.prostateSpeed || 0;
+        state.orgasmFromStrokeMin = Number.isFinite(state.strokeMin) ? state.strokeMin : null;
+        state.orgasmFromStrokeMax = Number.isFinite(state.strokeMax) ? state.strokeMax : null;
+    }
+    if (changed && !next) {
+        state.orgasmFromPrimary = null;
+        state.orgasmFromSecondary = null;
+        state.orgasmFromStrokeMin = null;
+        state.orgasmFromStrokeMax = null;
+    }
     state.orgasmMode = next;
     state.orgasmBoost = 0;
     if (orgasmBtnText) orgasmBtnText.textContent = state.orgasmMode ? 'Forcing...' : 'Force Orgasm';

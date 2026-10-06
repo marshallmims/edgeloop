@@ -225,7 +225,15 @@ export function calculateEngineOutputs({
     settleSpan = 45,
     settleFromPrimary = 0,
     settleFromSecondary = 0,
-    settleFloor = 0
+    settleFromStrokeMin = null,
+    settleFromStrokeMax = null,
+    settleFloor = 0,
+    // Speeds and stroke last sent, captured when Force Orgasm was armed.
+    // Absent means blend from this tick's own output.
+    orgasmFromPrimary = null,
+    orgasmFromSecondary = null,
+    orgasmFromStrokeMin = null,
+    orgasmFromStrokeMax = null
 }) {
     const mode = resolveEngineMode(activeMode);
     const teaseMode = resolveTeaseMode(strokeMode, mode);
@@ -361,23 +369,6 @@ export function calculateEngineOutputs({
     strokeMinPercent = stroke.strokeMin;
     strokeMaxPercent = stroke.strokeMax;
 
-    // Force Orgasm eases both channels up from whatever the mode was doing
-    // and keeps a wave at the top. It never drops a toy that was already
-    // hotter, and the stroke opens toward the full travel window. The
-    // working ceiling climbs on the same clock (app.js), so the pulse is
-    // allowed past the typed max until the wearer finishes.
-    if (orgasmMode && sessionStatus === 'RUNNING') {
-        const frame = orgasmFrame(seconds, orgasmBoost);
-        const ease = frame.ease;
-        primaryPercent = Math.round(primaryPercent * (1 - ease) + frame.primary * ease);
-        secondaryPercent = Math.round(secondaryPercent * (1 - ease) + frame.secondary * ease);
-        const openMin = strokeMinPercent * (1 - ease);
-        const openMax = strokeMaxPercent + (100 - strokeMaxPercent) * ease;
-        const opened = placeStroke(openMin, openMax, frame.depth, 'low');
-        strokeMinPercent = opened.min;
-        strokeMaxPercent = opened.max;
-    }
-
     if (stallGuardEngaged && !orgasmMode && sessionStatus === 'RUNNING') {
         primaryPercent = 0;
     }
@@ -435,9 +426,32 @@ export function calculateEngineOutputs({
     let physicalMax = clamp(Math.round(env.min + (strokeMaxPercent / 100) * envSpan), env.min, env.max);
     if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
 
+    // Force Orgasm eases from the speed and stroke last sent, not from this
+    // tick's ceiling cut. Armed on the mark, that cut is 0% or crawl, so a
+    // blend that started there stopped the toy and then climbed. The first
+    // tick sends what was already sent. Later ticks walk toward the high wave.
+    if (orgasmMode && sessionStatus === 'RUNNING') {
+        const frame = orgasmFrame(seconds, orgasmBoost);
+        const ease = frame.ease;
+        const fromP = Number.isFinite(orgasmFromPrimary) ? orgasmFromPrimary : primaryPercent;
+        const fromS = Number.isFinite(orgasmFromSecondary) ? orgasmFromSecondary : secondaryPercent;
+        const targetP = Math.min(100, Math.round(frame.primary * intensityScale));
+        const targetS = Math.min(100, Math.round(frame.secondary * intensityScale));
+        primaryPercent = Math.round(fromP * (1 - ease) + targetP * ease);
+        secondaryPercent = Math.round(fromS * (1 - ease) + targetS * ease);
+        const full = placeStroke(0, 100, frame.depth, 'low');
+        const goalMin = clamp(Math.round(env.min + (full.min / 100) * envSpan), env.min, env.max);
+        const goalMax = clamp(Math.round(env.min + (full.max / 100) * envSpan), env.min, env.max);
+        const fromMin = Number.isFinite(orgasmFromStrokeMin) ? orgasmFromStrokeMin : physicalMin;
+        const fromMax = Number.isFinite(orgasmFromStrokeMax) ? orgasmFromStrokeMax : physicalMax;
+        physicalMin = clamp(Math.round(fromMin * (1 - ease) + goalMin * ease), env.min, env.max);
+        physicalMax = clamp(Math.round(fromMax * (1 - ease) + goalMax * ease), env.min, env.max);
+        if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+    }
+
     // An orgasm was indicated, or Force Orgasm was cancelled. Ease from the
-    // speed the toys were at down to Crawl or a full stop. This replaces the
-    // mode for the wind-down, so a tease curve cannot snap back underneath it.
+    // speed and stroke the toys were at down to Crawl or a full stop, and
+    // toward the stroke the mode would use once the ease is over.
     if (settleSecondsLeft > 0) {
         const span = Math.max(1, finiteOr(settleSpan, 45));
         const t = clamp(settleSecondsLeft / span, 0, 1);
@@ -446,6 +460,11 @@ export function calculateEngineOutputs({
         const fromSecondary = clamp(finiteOr(settleFromSecondary, 0), 0, 100);
         primaryPercent = Math.round(fromPrimary * t + floor * (1 - t));
         secondaryPercent = Math.round(fromSecondary * t + floor * (1 - t));
+        if (Number.isFinite(settleFromStrokeMin) && Number.isFinite(settleFromStrokeMax)) {
+            physicalMin = clamp(Math.round(settleFromStrokeMin * t + physicalMin * (1 - t)), env.min, env.max);
+            physicalMax = clamp(Math.round(settleFromStrokeMax * t + physicalMax * (1 - t)), env.min, env.max);
+            if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+        }
         newEdgeTriggered = false;
     }
 
