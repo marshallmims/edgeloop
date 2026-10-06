@@ -1206,7 +1206,7 @@ function calibrationHintText() {
             : 'Primary and secondary both on. The app / Finished me saves that heart rate as the dual max.';
     }
     if (saved && !live) {
-        return `Redo of the primary run. Leave the secondary off. The app / Finished me replaces ${saved}.`;
+        return `Primary device only. The app / Finished me replaces your single max, now ${saved}.`;
     }
     return 'Primary device only. Leave the secondary off. When you orgasm, tap The app / Finished me.';
 }
@@ -2197,32 +2197,22 @@ function offerCalibration() {
         alert('Stop the session before starting Calibration.');
         return false;
     }
-    const saved = calibrationReading(advancedSettings.calibrationPrimaryHr);
     const { dual } = stimulationRoles();
-    if (!saved) {
-        if (dual) {
-            alert('Both devices are on. The first run is your primary stimulation device alone. Turn the secondary off, then tap Calibrate again.');
-            return false;
-        }
-        const ok = confirm('Calibration matches the app to your body and your toys.\n\nFirst, use your primary stimulation device alone and leave the secondary off. It slowly pushes until you orgasm. When you do, tap the button labeled The app / Finished me. That sets your primary max.\n\nAfter a rest (about 24 hours), run it again with both primary and secondary connected. Tap that same button when you orgasm. That sets your dual max.\n\nYou can change either number by hand at any time.\n\nStart the primary run? Press play when you are ready.');
+    const single = readHrLimits().maxHr;
+    const dualMax = readHrLimits().dualMaxHr;
+    const hadPrimary = calibrationReading(advancedSettings.calibrationPrimaryHr) != null;
+    // Whichever devices are on decides the number this run replaces. A saved
+    // max is not a reason to refuse another run.
+    if (dual) {
+        const ok = confirm(`Both devices are on, so this run sets your dual max. It is ${dualMax} now, and Finished me replaces it. Your single max stays ${single}.\n\nIt slowly pushes until you orgasm. Tap the button labeled The app / Finished me.\n\nStart the both-devices run? Press play when you are ready.`);
         if (!ok) return false;
-        armCalibration('primary');
-        return true;
-    }
-    const dualOk = confirm(`Your primary max is ${saved} BPM.\n\nThis run uses both your primary and secondary stimulation. Turn the secondary on before you press play. It slowly pushes until you orgasm. Tap The app / Finished me, and that sets your dual max. The primary max stays ${saved}. You can change either number by hand at any time.\n\nStart the run with both devices?`);
-    if (dualOk) {
-        if (!dual) {
-            alert('The secondary is not on yet. Turn it on, then tap Calibrate again.');
-            return false;
-        }
         armCalibration('dual');
         return true;
     }
-    if (!confirm('Redo the primary run instead? Primary device only. The saved number stays until The app / Finished me replaces it.')) return false;
-    if (dual) {
-        alert('Turn the secondary off for the primary run, then tap Calibrate again.');
-        return false;
-    }
+    const ok = confirm(hadPrimary
+        ? `Primary device only, so this run sets your single max. It is ${single} now, and Finished me replaces it.\n\nIt slowly pushes until you orgasm. Tap the button labeled The app / Finished me.\n\nStart the primary run? Press play when you are ready.`
+        : 'Calibration matches the app to your body and your toys.\n\nUse your primary stimulation device alone and leave the secondary off. It slowly pushes until you orgasm. When you do, tap the button labeled The app / Finished me. That sets your single max.\n\nA later run with both devices on replaces the dual max. You can change either number by hand at any time.\n\nStart the primary run? Press play when you are ready.');
+    if (!ok) return false;
     armCalibration('primary');
     return true;
 }
