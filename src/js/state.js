@@ -26,6 +26,12 @@ export const state = {
     // Force Orgasm raises the WORKING ceiling by 1 BPM/s (capped) instead of
     // rewriting the typed Climax HR input; cleared by stop/reset.
     orgasmBoost: 0,
+    // What the toys were last sent when Force Orgasm was armed. The ramp
+    // starts there. Null until the button is on.
+    orgasmFromPrimary: null,
+    orgasmFromSecondary: null,
+    orgasmFromStrokeMin: null,
+    orgasmFromStrokeMax: null,
     // Post-orgasm ease-down. 0 means it is not running. The from-speeds are
     // what the toys were doing when it started; the floor is Crawl or 0.
     settleSecondsLeft: 0,
@@ -36,6 +42,8 @@ export const state = {
     warmupOriginSeconds: 0,
     settleFromPrimary: 0,
     settleFromSecondary: 0,
+    settleFromStrokeMin: null,
+    settleFromStrokeMax: null,
     settleFloor: 0,
     settleEndsSession: false,
     settleOutcome: null,

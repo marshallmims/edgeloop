@@ -440,7 +440,20 @@ describe('engine modes', () => {
             sessionSeconds: 4
         };
         const armed = calculateEngineOutputs({ ...parked, orgasmMode: true, orgasmBoost: 0 });
-        assert.ok(armed.primaryPercent < 40, 'the first second does not slam the toys');
+        assert.ok(armed.primaryPercent < 40, 'without a remembered speed the first second stays with the stopped mode');
+        const fromWhereItWas = calculateEngineOutputs({
+            ...parked,
+            orgasmMode: true,
+            orgasmBoost: 0,
+            orgasmFromPrimary: 62,
+            orgasmFromSecondary: 40,
+            orgasmFromStrokeMin: 15,
+            orgasmFromStrokeMax: 70
+        });
+        assert.equal(fromWhereItWas.primaryPercent, 62, 'the first tick sends the speed the toys were already at');
+        assert.equal(fromWhereItWas.secondaryPercent, 40);
+        assert.equal(fromWhereItWas.strokeMinPercent, 15);
+        assert.equal(fromWhereItWas.strokeMaxPercent, 70);
         const mid = calculateEngineOutputs({ ...parked, orgasmMode: true, orgasmBoost: 14 });
         const full = [];
         for (let sessionSeconds = 0; sessionSeconds < 36; sessionSeconds += 1) {
