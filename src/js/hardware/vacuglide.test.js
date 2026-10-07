@@ -6057,6 +6057,11 @@ describe('app.js attaches the VacuGlide to the page', () => {
         }
     });
 
+    it('treats a connected VacuGlide as a toy, so START is not waiting on another device', () => {
+        const fn = src.slice(src.indexOf('function hardwareReadiness'), src.indexOf('function pulseIsFresh'));
+        assert.match(fn, /isVacuglideConnected\(\)/);
+    });
+
     it('does nothing to the VacuGlide on another tab\'s storage write', () => {
         assert.ok(!/\bonstorage\b/.test(src), 'app.js sets onstorage');
         for (const match of src.matchAll(/\.addEventListener\(\s*['"`]storage['"`]/g)) {

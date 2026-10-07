@@ -538,6 +538,7 @@ function hardwareReadiness() {
     const hrReady = isBleConnected() || state.simEngaged;
     const toyReady = Boolean(
         handyConnected
+        || isVacuglideConnected()
         || (isIntifaceConnected() && intifaceDevices.size > 0)
         || (isTCodeConnected() && countAssignedTCodeAxes() > 0)
     );
