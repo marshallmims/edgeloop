@@ -94,7 +94,7 @@ Every toy has its own card on the cockpit; tap the card to open its modal. A toy
 
 ### Intiface Central (Buttplug.io)
 
-Intiface Central is the bridge for Bluetooth vibrators, rotators, reciprocating machines and (through its serial support) T-Code strokers.
+Intiface Central is the bridge for Bluetooth vibrators, rotators, reciprocating machines and (through its serial support) T-Code strokers. An OSSM reached this way shows Position and Oscillate. Those are one motor. Position is on by default and stays inside your travel range. STOP holds where the carriage is. Oscillate runs the whole rail, so it turns on only when the travel range is 0-100%. The first stroke after connecting still runs out, up to about 2 seconds.
 
 1. Start Intiface Central and **start its server**. Add and connect your toys there first.
 2. In the EdgeLoop Intiface modal, keep the URL at `ws://localhost:12345` (plain `ws://`, not `wss://`, for a local server) and press **Connect**. The status walks Offline, Connecting, Handshake and Connected (server name, N devices); an invalid URL, a stopped server or a stalled handshake is reported in the same line.
@@ -103,6 +103,10 @@ Intiface Central is the bridge for Bluetooth vibrators, rotators, reciprocating 
 5. Press **Save & Apply**. Roles, caps, invert, the pulse choice and the rotation settings are **remembered per toy**, so a reconnect restores your mapping.
 
 Linear axes are driven by a stroke planner that sends exactly one command per stroke leg, which is what makes OSR-class strokers move smoothly instead of in bursts. `StopAllDevices` is sent on STOP, pause, disconnect and when the page closes.
+
+### Autoblow VacuGlide 2 (experimental)
+
+Speed only, from the channel you assign (Primary, Secondary, or OFF), under a speed cap. Valve + and Valve - are buttons: each press opens that valve for the time you set (0.3-2 seconds, default 1), then closes it. The app does not move the valves by itself. STOP stops the motor and closes both valves. The device token is saved in this browser. If the page closes mid-session, the next time EdgeLoop opens it finishes a stop the closed page could not confirm. A stop from Autoblow's own app during a session pauses EdgeLoop instead of starting the toy again. Keep the power button in reach.
 
 ### TCode Serial (OSR2 / SR6 / OSSM without Intiface)
 

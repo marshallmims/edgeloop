@@ -205,6 +205,10 @@ export const advancedSettings = {
     hrAutoResume: true,
     // Both-toys climax. Independent of the single-stim max.
     dualMaxHr: 125,
+    // Autoblow VacuGlide 2. Speed only. The token lives in its own store.
+    vacuglideRole: 'primary',
+    vacuglideMaxCap: 100,
+    vacuglideValvePulseMs: 1000,
     adaptiveDecay: true,
     decayEdgeCount: 2,
     decayBpm: 2,

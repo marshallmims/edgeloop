@@ -40,7 +40,10 @@ import {
     describeError,
     parseDevice,
     deviceSignature,
-    defaultRoleFor
+    defaultRoleFor,
+    oscillateTwins,
+    rotateDuplicates,
+    linearStep
 } from './buttplug-protocol.js';
 import { createStrokePlanner } from './stroke-planner.js';
 import { readVibeMode, readPulsePeriod, pulsePhase, pulseLevel, DEFAULT_VIBE_MODE, DEFAULT_PULSE_PERIOD_MS } from './vibe-pulse.js';
@@ -57,6 +60,10 @@ export const INTIFACE_TIMINGS = {
     failuresBeforeFlag: 3,
     testMoveMs: 450
 };
+
+// A held linear axis (OSSM position mode) is streamed in pieces this long,
+// so a stop lands within one of them instead of running the rest of the leg.
+export const HELD_SEGMENT_MS = 200;
 
 export const INVALID_URL_TEXT = 'Invalid WebSocket URL: it must start with ws:// (or wss:// for a remote server with TLS), e.g. ws://localhost:12345.';
 export const HANDSHAKE_TIMEOUT_TEXT = 'Handshake timed out. Make sure Intiface Central is running and its server is started; for localhost the URL must be ws://, not wss://.';
@@ -196,6 +203,7 @@ function clearAxisTimers(dev) {
     dev.axes.forEach((axis) => {
         if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
         if (axis.testTimer) { clearTimeout(axis.testTimer); axis.testTimer = null; }
+        if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
         cutPulse(axis);
     });
 }
@@ -463,9 +471,18 @@ function makeAxis(kind, attr, position, parsed, saved) {
         type: attr.actuatorType,
         descriptor: attr.descriptor || '',
         stepCount: attr.stepCount || null,
-        role,
+        role: kind === 'scalar' && attr.actuatorType === 'Position' ? 'off' : role,
         maxCap: Number.isFinite(cap) ? Math.max(0, Math.min(100, Math.round(cap))) : 100,
         invert: Boolean(savedAxis && savedAxis.invert),
+        // A Position scalar is the same motor as a LinearCmd. Oscillate/linear
+        // twins and rotate duplicates are filled in once the device is known.
+        inert: kind === 'scalar' && attr.actuatorType === 'Position',
+        twin: null,
+        pair: null,
+        holds: false,
+        segTimer: null,
+        sentPos: null,
+        sentStep: null,
         // Vibrate axes only: Constant (the engine's level as it is) or
         // Pulsed (vibe-pulse.js), and the pulse period. The running train
         // is { startedAt, timer }, or null.
@@ -502,6 +519,27 @@ function addDiscoveredDevice(raw) {
     if (axes.length === 0) {
         axes.push(makeAxis('scalar', { index: 0, actuatorType: 'Vibrate', descriptor: '', stepCount: null }, 0, parsed, saved));
     }
+    // Oscillate and Position are one motor. A saved map may have both on;
+    // Position keeps its role, because that one stays inside the travel range.
+    oscillateTwins(parsed).forEach(({ scalar, linear }) => {
+        const osc = axes[scalar];
+        const lin = axes[parsed.scalars.length + linear];
+        if (!osc || !lin) return;
+        const pair = { owner: null };
+        osc.twin = lin;
+        lin.twin = osc;
+        osc.pair = pair;
+        lin.pair = pair;
+        if (osc.role !== 'off' && lin.role !== 'off') osc.role = 'off';
+        lin.holds = true;
+        lin.planner = createStrokePlanner({ hold: true });
+    });
+    rotateDuplicates(parsed).forEach((pos) => {
+        const axis = axes[pos];
+        if (!axis) return;
+        axis.inert = true;
+        axis.role = 'off';
+    });
 
     const altSaved = saved ? Number(saved.alternateSeconds) : 0;
     const dev = {
@@ -586,10 +624,32 @@ function scalarFor(axis, speedPercent) {
     return quantize(capped / 100, axis.stepCount);
 }
 
+function fullRail(axis) {
+    return axis.kind === 'scalar' && axis.type === 'Oscillate' && Boolean(axis.twin);
+}
+
+function envelopeIsWhole(env) {
+    return Boolean(env) && env.min <= 0 && env.max >= 1;
+}
+
+function noteDrove(axis, acting) {
+    if (axis.pair && acting) axis.pair.owner = axis.kind;
+}
+
+// An OFF twin whose other mode holds the motor must be sent nothing. A zero
+// to the idle mode tells Buttplug to switch modes, and the OSSM firmware
+// runs that as an emergency stop.
+function silenced(axis) {
+    if (axis.inert) return true;
+    return Boolean(axis.pair) && axis.role === 'off' && axis.pair.owner !== axis.kind;
+}
+
 function sendScalar(dev, axis, value) {
+    if (silenced(axis)) return false;
     if (axis.lastSent === value) return false;
     if (!sendDeviceCmd(dev, axis, buildScalarCmd(nextId(), dev.index, [{ index: axis.index, scalar: value, actuatorType: axis.type }]))) return false;
     axis.lastSent = value;
+    noteDrove(axis, value > 0);
     return true;
 }
 
@@ -633,7 +693,7 @@ function armPulse(dev, axis, now) {
 // level, at the peak at once, and any 0 cuts it: a stop, a pause, OFF, or
 // a cap of 0.
 function applyScalar(dev, axis, speed, now) {
-    const level = scalarFor(axis, speed);
+    const level = fullRail(axis) && !envelopeIsWhole(lastEnvelope) ? 0 : scalarFor(axis, speed);
     if (!isPulsed(axis) || level <= 0) {
         cutPulse(axis);
         sendScalar(dev, axis, level);
@@ -671,6 +731,15 @@ function physicalPosition(axis, position) {
 // arm a timer for its end. Never sends while a leg is in flight.
 function pumpLinear(dev, axis, now = Date.now()) {
     if (!axis.planner || !isIntifaceConnected() || intifaceDevices.get(dev.index) !== dev) return;
+    if (silenced(axis)) {
+        if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+        if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+        return;
+    }
+    if (axis.holds) {
+        pumpHeld(dev, axis, now);
+        return;
+    }
     const leg = axis.planner.next(now);
     if (!leg) return;
     const position = physicalPosition(axis, leg.position);
@@ -680,6 +749,67 @@ function pumpLinear(dev, axis, now = Date.now()) {
         axis.timer = null;
         pumpLinear(dev, axis, Math.max(Date.now(), axis.planner.legEndsAt()));
     }, leg.durationMs);
+}
+
+function sendLinear(dev, axis, position, durationMs) {
+    const step = linearStep(position, axis.stepCount, lastEnvelope);
+    if (axis.holds && step === axis.sentStep) return false;
+    const sent = sendDeviceCmd(dev, axis, buildLinearCmd(nextId(), dev.index, [{ index: axis.index, position, durationMs }]));
+    if (sent) {
+        axis.sentPos = position;
+        axis.sentStep = step;
+    }
+    noteDrove(axis, sent);
+    return sent;
+}
+
+function holdAxis(axis) {
+    if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+    if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+    axis.planner.place(axis.sentPos === null ? null : physicalPosition(axis, axis.sentPos));
+}
+
+function pumpHeld(dev, axis, now) {
+    const leg = axis.planner.next(now);
+    if (!leg) return;
+    if (leg.kind === 'hold') {
+        holdAxis(axis);
+        return;
+    }
+    const to = physicalPosition(axis, leg.position);
+    streamLeg(dev, axis, axis.sentPos, to, leg.durationMs);
+    if (axis.timer) clearTimeout(axis.timer);
+    axis.timer = setTimeout(() => {
+        axis.timer = null;
+        pumpLinear(dev, axis, Math.max(Date.now(), axis.planner.legEndsAt()));
+    }, leg.durationMs);
+}
+
+function streamLeg(dev, axis, from, to, durationMs) {
+    if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+    const n = from === null ? 1 : Math.max(1, Math.ceil(durationMs / HELD_SEGMENT_MS));
+    const each = durationMs / n;
+    const segments = [];
+    let prev = axis.sentStep;
+    let carry = 0;
+    for (let i = 1; i <= n; i++) {
+        const pos = from === null ? to : from + (to - from) * (i / n);
+        const step = linearStep(pos, axis.stepCount, lastEnvelope);
+        if (step === prev) { carry += each; continue; }
+        segments.push({ pos, ms: Math.round(each + carry), at: (i - 1) * each - carry });
+        prev = step;
+        carry = 0;
+    }
+    const start = Date.now();
+    const next = () => {
+        axis.segTimer = null;
+        if (!isIntifaceConnected() || intifaceDevices.get(dev.index) !== dev) return;
+        const seg = segments.shift();
+        if (!seg) return;
+        sendLinear(dev, axis, seg.pos, seg.ms);
+        if (segments.length) axis.segTimer = setTimeout(next, Math.max(1, start + segments[0].at - Date.now()));
+    };
+    next();
 }
 
 function flipDirection(dev, now) {
@@ -777,11 +907,33 @@ function restAxisNow(dev, axis) {
     }
 }
 
-export function setAxisRole(devIdx, axisIdx, role) {
+function yieldTwin(axis) {
+    axis.role = 'off';
+    if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+    if (axis.testTimer) { clearTimeout(axis.testTimer); axis.testTimer = null; }
+    if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+    cutPulse(axis);
+    if (axis.planner) {
+        axis.planner.reset();
+        axis.planner.setInput({ enabled: false });
+        axis.sentPos = null;
+        axis.sentStep = null;
+    }
+    axis.lastSent = null;
+}
+
+export function setAxisRole(devIdx, axisIdx, role, { envelope = null } = {}) {
     const dev = intifaceDevices.get(devIdx);
     const axis = dev && dev.axes[axisIdx];
     if (!axis || !['primary', 'secondary', 'off'].includes(role)) return false;
+    if (axis.inert && role !== 'off') return false;
+    if (envelope && typeof envelope === 'object') {
+        const mapped = zoneFromPercent(lastZone.min * 100, lastZone.max * 100, envelope.min, envelope.max);
+        lastEnvelope = mapped.envelope;
+    }
+    if (role !== 'off' && fullRail(axis) && !envelopeIsWhole(lastEnvelope)) return false;
     axis.role = role;
+    if (role !== 'off' && axis.twin && axis.twin.role !== 'off') yieldTwin(axis.twin);
     saveIntifaceConfig();
     if (!isIntifaceConnected()) return true;
     if (role === 'off') {
@@ -854,7 +1006,9 @@ export function setDeviceRotation(devIdx, { reverseOnEdge, alternateSeconds } = 
 export function testSingleAxis(devIdx, axisIdx) {
     const dev = intifaceDevices.get(devIdx);
     const axis = dev && dev.axes[axisIdx];
-    if (!axis || !isIntifaceConnected()) return false;
+    if (!axis || !isIntifaceConnected() || axis.inert) return false;
+    if (axis.twin && axis.twin.role !== 'off') return false;
+    if (fullRail(axis) && !envelopeIsWhole(lastEnvelope)) return false;
     const level = quantize(0.6 * ((axis.maxCap ?? 100) / 100), axis.stepCount);
     const holdMs = 1000;
 

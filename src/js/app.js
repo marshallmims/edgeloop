@@ -91,6 +91,26 @@ import {
     tcodeHasRole,
     TCODE_STORAGE_KEY
 } from './hardware/tcode.js';
+import {
+    connectVacuglide,
+    disconnectVacuglide,
+    dispatchVacuglide,
+    attachVacuglideToPage,
+    setVacuglideHandlers,
+    isVacuglideConnected,
+    isVacuglideValveOpen,
+    isVacuglideWatching,
+    getValvePulse,
+    pulseValve
+} from './hardware/vacuglide.js';
+import {
+    sanitizeDeviceToken,
+    sanitizeVacuglideRole,
+    vacuglideSpeedFor,
+    VACUGLIDE_TOKEN_STORAGE_KEY,
+    pulseSecondsToMs,
+    clampSpeedCap
+} from './hardware/vacuglide-protocol.js';
 import { describeSerialSupport } from './hardware/tcode-protocol.js';
 import {
     initHostPeer,
@@ -375,6 +395,10 @@ function showAlertBanner(message, { severity = 'safety', source = 'device' } = {
     bannerState = planBannerUpdate(bannerState, { message, severity, source });
     if (msg) msg.textContent = bannerState.text;
     if (banner) banner.classList.remove('hidden');
+}
+
+function reviseAlertBanner(message, { severity = 'safety', source = 'device' } = {}) {
+    showAlertBanner(message, { severity, source });
 }
 
 function hideAlertBanner(owner) {
@@ -775,8 +799,9 @@ function initHandyRoleUI() {
 function stimulationRoles() {
     const intifaceHasRole = (role) => Array.from(intifaceDevices.values()).some(d => d.axes.some(a => a.role === role));
     const serialHasRole = (role) => isTCodeConnected() && tcodeHasRole(role);
-    const hasPrimary = (handyConnected && state.handyRole === 'primary') || intifaceHasRole('primary') || serialHasRole('primary');
-    const hasSecondary = (handyConnected && state.handyRole === 'secondary') || intifaceHasRole('secondary') || serialHasRole('secondary');
+    const vacuglideHasRole = (role) => isVacuglideConnected() && sanitizeVacuglideRole(advancedSettings.vacuglideRole) === role;
+    const hasPrimary = (handyConnected && state.handyRole === 'primary') || vacuglideHasRole('primary') || intifaceHasRole('primary') || serialHasRole('primary');
+    const hasSecondary = (handyConnected && state.handyRole === 'secondary') || vacuglideHasRole('secondary') || intifaceHasRole('secondary') || serialHasRole('secondary');
     return { hasPrimary, hasSecondary, dual: hasPrimary && hasSecondary };
 }
 
@@ -1053,6 +1078,10 @@ function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, fo
     // Same for the direct T-Code serial device: a forced zero dispatch is an
     // immediate stop (every axis to rest on one line).
     dispatchTCode(primarySpeed, secondarySpeed, range.min, range.max, range.env.min, range.env.max, force);
+    dispatchVacuglide(
+        vacuglideSpeedFor(advancedSettings.vacuglideRole, primarySpeed, secondarySpeed, advancedSettings.vacuglideMaxCap),
+        force
+    );
 }
 
 // Queue a spoken cue (voice.js keeps a short queue, so back-to-back cues are
@@ -2523,6 +2552,7 @@ const modals = {
     Handy: document.getElementById('modalBodyHandy'),
     Intiface: document.getElementById('modalBodyIntiface'),
     TCode: document.getElementById('modalBodyTCode'),
+    Vacuglide: document.getElementById('modalBodyVacuglide'),
     History: document.getElementById('modalBodyHistory'),
     Params: document.getElementById('modalBodyParams'),
     Partner: document.getElementById('modalBodyPartner'),
@@ -2544,6 +2574,11 @@ function openModal(type) {
         updateHwEnvelopeDisplay();
     }
     else if (type === 'Intiface' && modalTitle) { modalTitle.textContent = "Intiface Central & Toy Roles"; modals.Intiface?.classList.remove('hidden'); renderIntifaceDevices(); }
+    else if (type === 'Vacuglide' && modalTitle) {
+        modalTitle.textContent = "Autoblow VacuGlide 2";
+        modals.Vacuglide?.classList.remove('hidden');
+        paintVacuglidePanel();
+    }
     else if (type === 'TCode' && modalTitle) {
         modalTitle.textContent = "TCode Serial (OSR2 / SR6 / OSSM)";
         modals.TCode?.classList.remove('hidden');
@@ -2577,6 +2612,261 @@ document.getElementById('cardBle')?.addEventListener('click', () => { if (!isRem
 document.getElementById('cardHandy')?.addEventListener('click', () => { if (!isRemotePage) openModal('Handy'); });
 document.getElementById('cardIntiface')?.addEventListener('click', () => { if (!isRemotePage) openModal('Intiface'); });
 document.getElementById('cardTCode')?.addEventListener('click', () => { if (!isRemotePage) openModal('TCode'); });
+document.getElementById('cardVacuglide')?.addEventListener('click', () => { if (!isRemotePage) openModal('Vacuglide'); });
+
+function setVacuglideStatus(message, tone) {
+    const el = document.getElementById('modalVacuglideMsg');
+    if (!el) return;
+    el.textContent = message ? `Status: ${message}` : 'Status: Offline';
+    el.className = `text-xs leading-snug ${tone === 'error' ? 'text-rose-300' : tone === 'ok' ? 'text-emerald-300' : tone === 'busy' ? 'text-amber-200' : 'text-slate-500'}`;
+}
+
+function paintVacuglideRole(role) {
+    const badge = document.getElementById('modalVacuglideRoleBadge');
+    const paint = (id, on) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.className = on
+            ? 'py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs transition cursor-pointer'
+            : 'py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold text-xs hover:text-white transition cursor-pointer';
+    };
+    paint('vacuglideRolePrimaryBtn', role === 'primary');
+    paint('vacuglideRoleSecondaryBtn', role === 'secondary');
+    paint('vacuglideRoleOffBtn', role === 'off');
+    if (badge) {
+        badge.textContent = role === 'primary' ? 'Primary speed' : role === 'secondary' ? 'Secondary speed' : 'OFF';
+    }
+}
+
+function paintVacuglidePanel() {
+    const role = sanitizeVacuglideRole(advancedSettings.vacuglideRole);
+    paintVacuglideRole(role);
+    const cap = document.getElementById('vacuglideCapSlider');
+    const capVal = document.getElementById('vacuglideCapVal');
+    if (cap) cap.value = String(advancedSettings.vacuglideMaxCap ?? 100);
+    if (capVal) capVal.textContent = `${advancedSettings.vacuglideMaxCap ?? 100}%`;
+    const pulse = document.getElementById('vacuglidePulseInput');
+    if (pulse) pulse.value = String((advancedSettings.vacuglideValvePulseMs || 1000) / 1000);
+    const connected = isVacuglideConnected();
+    document.getElementById('modalVacuglideConnectBtn')?.classList.toggle('hidden', connected);
+    document.getElementById('modalVacuglideDisconnectBtn')?.classList.toggle('hidden', !connected);
+    for (const id of ['vacuglideValvePlusBtn', 'vacuglideValveMinusBtn']) {
+        const btn = document.getElementById(id);
+        if (!btn) continue;
+        btn.disabled = !connected;
+        btn.setAttribute('aria-disabled', connected ? 'false' : 'true');
+        btn.classList.toggle('opacity-50', !connected);
+        btn.classList.toggle('cursor-not-allowed', !connected);
+    }
+}
+
+function applyVacuglideRole(role) {
+    advancedSettings.vacuglideRole = sanitizeVacuglideRole(role);
+    persistSettings();
+    paintVacuglideRole(advancedSettings.vacuglideRole);
+    updateEngine();
+}
+
+function paintVacuglideButtons() {
+    paintVacuglidePanel();
+}
+
+function setVacuglideValveMessage(text, tone = 'idle') {
+    const el = document.getElementById('vacuglideValveMsg');
+    if (!el) return;
+    el.textContent = text;
+    el.className = `text-[10px] leading-snug ${tone === 'error' ? 'text-rose-400' : 'text-slate-400'}${text ? '' : ' hidden'}`;
+}
+
+function renderVacuglideValves() {
+    const connected = isVacuglideConnected();
+    const running = getValvePulse();
+    for (const [valve, id] of [['plus', 'vacuglideValvePlusBtn'], ['minus', 'vacuglideValveMinusBtn']]) {
+        const btn = document.getElementById(id);
+        if (!btn) continue;
+        const blocked = !connected || Boolean(running);
+        btn.disabled = blocked;
+        btn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+        btn.classList.toggle('opacity-50', blocked);
+        btn.classList.toggle('cursor-not-allowed', blocked);
+    }
+    const el = document.getElementById('vacuglideValveState');
+    if (!el) return;
+    if (running) {
+        el.textContent = running.valve === 'minus' ? 'Valve -' : 'Valve +';
+        el.className = 'font-mono text-[10px] font-bold text-amber-300';
+    } else if (!connected) {
+        el.textContent = 'Not connected';
+        el.className = 'font-mono text-[10px] font-bold text-slate-500';
+    } else if (isVacuglideValveOpen('plus') || isVacuglideValveOpen('minus')) {
+        el.textContent = 'A valve may still be open';
+        el.className = 'font-mono text-[10px] font-bold text-rose-400';
+    } else if (isVacuglideWatching()) {
+        el.textContent = 'Watching for a late open';
+        el.className = 'font-mono text-[10px] font-bold text-amber-300';
+    } else {
+        el.textContent = 'Both valves closed';
+        el.className = 'font-mono text-[10px] font-bold text-teal-400';
+    }
+}
+
+let vacuglideConnectedLabel = 'Connected';
+const vacuglideStopsOwed = new Map();
+let vacuglidePanelOwed = null;
+const VACUGLIDE_RESTING_BADGES = ['Offline', 'Device error', 'Disconnected'];
+
+function noteVacuglidePanelOwed(token, status) {
+    const badge = (document.getElementById('badgeVacuglideText')?.textContent || '').trim();
+    const before = badge === 'Stop unconfirmed' && vacuglidePanelOwed ? vacuglidePanelOwed.badge : badge;
+    vacuglidePanelOwed = { token, status: `Status: ${status}`, badge: before };
+}
+
+function settleVacuglidePanel(token) {
+    const owed = vacuglidePanelOwed;
+    if (!owed || owed.token !== token) return;
+    vacuglidePanelOwed = null;
+    const status = (document.getElementById('modalVacuglideMsg')?.textContent || '').trim();
+    const badge = (document.getElementById('badgeVacuglideText')?.textContent || '').trim();
+    if (status !== owed.status || badge !== 'Stop unconfirmed') return;
+    if (isVacuglideConnected()) {
+        setVacuglideStatus(vacuglideConnectedLabel, 'ok');
+        setBadgeState('Vacuglide', 'connected', 'VacuGlide', null);
+        return;
+    }
+    setVacuglideStatus("Autoblow's server confirmed the stop: the motor is stopped and both valves are closed.", 'idle');
+    setBadgeState('Vacuglide', 'disconnected', VACUGLIDE_RESTING_BADGES.includes(owed.badge) ? owed.badge : 'Disconnected');
+}
+
+function vacuglideOwedSentence() {
+    const details = [...vacuglideStopsOwed.values()];
+    if (details.length === 0) return '';
+    const lead = details.length === 1
+        ? 'The VacuGlide did not confirm a stop and may still be running, or have a valve open: check the device.'
+        : `${details.length} VacuGlides did not confirm a stop and may still be running, or have a valve open: check each device.`;
+    const newest = details[details.length - 1];
+    return newest ? `${lead} (${newest})` : lead;
+}
+
+function reportOwedVacuglideStops({ fresh = false } = {}) {
+    const sentence = vacuglideOwedSentence();
+    if (!sentence) hideAlertBanner('vacuglideStop');
+    else if (fresh) triggerDisconnectAlert(sentence, 'vacuglideStop');
+    else reviseAlertBanner(sentence, { severity: 'safety', source: 'vacuglideStop' });
+}
+
+setVacuglideHandlers({
+    isSessionActive: () => state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN',
+    onError: (message) => {
+        if (!isVacuglideConnected()) return;
+        if (message) {
+            const short = message.length > 70 ? `${message.slice(0, 67)}...` : message;
+            setVacuglideStatus(`API error: ${short}`, 'error');
+            setBadgeState('Vacuglide', 'warning', 'API Error', null);
+        } else {
+            setVacuglideStatus(vacuglideConnectedLabel, 'ok');
+            setBadgeState('Vacuglide', 'connected', 'VacuGlide', null);
+        }
+    },
+    onOffline: (reason, label) => {
+        setVacuglideStatus(reason || 'Offline', 'error');
+        setBadgeState('Vacuglide', 'disconnected', label || 'Offline');
+        paintVacuglideButtons();
+        renderVacuglideValves();
+        triggerDisconnectAlert(reason || 'The VacuGlide went offline.', 'vacuglideLink');
+    },
+    onNotice: (message) => {
+        if (!isVacuglideConnected() || !message) return;
+        setVacuglideStatus(message, 'busy');
+    },
+    onPulse: () => renderVacuglideValves(),
+    onValves: (message) => {
+        renderVacuglideValves();
+        if (message && isVacuglideConnected()) setVacuglideValveMessage(message, 'error');
+    },
+    onLateStop: (message) => {
+        if (isVacuglideConnected() || !message) return;
+        setVacuglideStatus(message, 'busy');
+    },
+    onTakeover: (message, active) => {
+        if (isVacuglideConnected() || !message) return;
+        setVacuglideStatus(message, active ? 'busy' : 'idle');
+        setBadgeState('Vacuglide', active ? 'warning' : 'disconnected', active ? 'Watching' : 'Disconnected');
+    },
+    onStoppedElsewhere: (message) => {
+        if (!isVacuglideConnected() || !message) return;
+        triggerDisconnectAlert(message, 'vacuglidePaused');
+    },
+    onStopUnconfirmed: (message, token) => {
+        const connected = isVacuglideConnected();
+        const key = typeof token === 'string' ? token : '';
+        noteVacuglidePanelOwed(key, message);
+        setVacuglideStatus(message, 'error');
+        setBadgeState('Vacuglide', connected ? 'warning' : 'disconnected', 'Stop unconfirmed', null);
+        renderVacuglideValves();
+        vacuglideStopsOwed.delete(key);
+        vacuglideStopsOwed.set(key, typeof message === 'string' ? message.trim() : '');
+        reportOwedVacuglideStops({ fresh: true });
+    },
+    onStopConfirmed: (token) => {
+        if (vacuglideStopsOwed.delete(typeof token === 'string' ? token : '')) reportOwedVacuglideStops();
+        settleVacuglidePanel(typeof token === 'string' ? token : '');
+    }
+});
+
+document.getElementById('vacuglideRolePrimaryBtn')?.addEventListener('click', () => applyVacuglideRole('primary'));
+document.getElementById('vacuglideRoleSecondaryBtn')?.addEventListener('click', () => applyVacuglideRole('secondary'));
+document.getElementById('vacuglideRoleOffBtn')?.addEventListener('click', () => applyVacuglideRole('off'));
+document.getElementById('vacuglideCapSlider')?.addEventListener('input', (e) => {
+    advancedSettings.vacuglideMaxCap = clampSpeedCap(e.target.value);
+    const capVal = document.getElementById('vacuglideCapVal');
+    if (capVal) capVal.textContent = `${advancedSettings.vacuglideMaxCap}%`;
+    persistSettings();
+});
+document.getElementById('vacuglidePulseInput')?.addEventListener('change', (e) => {
+    advancedSettings.vacuglideValvePulseMs = pulseSecondsToMs(e.target.value);
+    e.target.value = String(advancedSettings.vacuglideValvePulseMs / 1000);
+    persistSettings();
+});
+document.getElementById('vacuglideValvePlusBtn')?.addEventListener('click', () => {
+    pulseValve('plus', advancedSettings.vacuglideValvePulseMs);
+});
+document.getElementById('vacuglideValveMinusBtn')?.addEventListener('click', () => {
+    pulseValve('minus', advancedSettings.vacuglideValvePulseMs);
+});
+document.getElementById('modalVacuglideConnectBtn')?.addEventListener('click', async () => {
+    const input = document.getElementById('modalVacuglideInput');
+    const token = sanitizeDeviceToken(input?.value || '');
+    if (!token) {
+        setVacuglideStatus('Paste the device token Autoblow shows: plain letters and digits, at most 128 characters.', 'error');
+        return;
+    }
+    safeSet(VACUGLIDE_TOKEN_STORAGE_KEY, token);
+    if (input) input.value = token;
+    setVacuglideStatus("Finding the VacuGlide, then stopping it and closing both valves...", 'busy');
+    setBadgeState('Vacuglide', 'connecting', 'Connecting...');
+    try {
+        const result = await connectVacuglide(token);
+        setVacuglideStatus(result.description ? `Connected (${result.description})` : 'Connected', 'ok');
+        setBadgeState('Vacuglide', 'connected', 'VacuGlide');
+        paintVacuglidePanel();
+        updateEngine();
+    } catch (e) {
+        setVacuglideStatus(e && e.message ? e.message : 'Could not connect.', 'error');
+        setBadgeState('Vacuglide', 'disconnected', 'Error');
+        paintVacuglidePanel();
+    }
+});
+document.getElementById('modalVacuglideDisconnectBtn')?.addEventListener('click', () => {
+    disconnectVacuglide();
+    setVacuglideStatus('Disconnected.', 'idle');
+    setBadgeState('Vacuglide', 'disconnected', 'Disconnected');
+    paintVacuglidePanel();
+    updateEngine();
+});
+const savedVacuglideToken = safeGet(VACUGLIDE_TOKEN_STORAGE_KEY, '') || '';
+const vacuglideTokenInput = document.getElementById('modalVacuglideInput');
+if (vacuglideTokenInput && savedVacuglideToken) vacuglideTokenInput.value = savedVacuglideToken;
+attachVacuglideToPage({ remote: isRemotePage, win: window, doc: document });
 document.getElementById('historyBtn')?.addEventListener('click', () => openModal('History'));
 document.getElementById('sessionParamsHeaderBtn')?.addEventListener('click', () => openModal('Params'));
 document.getElementById('openParamsBtn')?.addEventListener('click', () => openModal('Params'));
@@ -3919,7 +4209,7 @@ document.getElementById('modalIntifaceSaveBtn')?.addEventListener('click', () =>
 window.addEventListener('pagehide', () => { stopAllIntiface(); });
 
 window.setDeviceRole = (devIdx, axisIdx, role) => {
-    setAxisRole(devIdx, axisIdx, role);
+    setAxisRole(devIdx, axisIdx, role, { envelope: { min: advancedSettings.handyHwMin, max: advancedSettings.handyHwMax } });
     renderIntifaceDevices();
     syncTelemetry();
 };
@@ -3984,6 +4274,11 @@ function renderIntifaceDevices() {
             const failing = axis.failing
                 ? `<span class="text-[9px] font-bold text-rose-400 bg-rose-950/60 border border-rose-800 px-1 rounded" title="Intiface rejected the last 3 commands to this axis">Not responding</span>`
                 : '';
+            const twinNote = axis.twin
+                ? `<p class="text-[9px] text-slate-500 leading-snug">${axis.kind === 'linear'
+                    ? 'Same motor as Oscillate. This one strokes inside your travel range. STOP holds where it is. The first stroke after connecting runs to its end, up to about 2 seconds.'
+                    : 'Same motor as Position. Oscillate uses the whole rail, so it only turns on when the travel range is 0-100%.'}</p>`
+                : '';
             const invertRow = axis.kind === 'linear' ? `
             <label class="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-800/60 cursor-pointer">
             <span>Invert direction (sleeve mounted upside down)</span>
@@ -3996,6 +4291,7 @@ function renderIntifaceDevices() {
             <span class="flex items-center gap-1 shrink-0">${failing}
             <button onclick="testAxis(${devIdx}, ${aIdx})" class="bg-slate-800 hover:bg-slate-700 px-1.5 py-0.5 rounded text-[9px] cursor-pointer">Test</button></span>
             </div>
+            ${twinNote}
             <div class="flex gap-1">
             <button onclick="setDeviceRole(${devIdx}, ${aIdx}, 'primary')" class="flex-1 py-1 rounded ${axis.role === 'primary' ? 'bg-rose-600 text-white font-bold' : 'bg-slate-800 text-slate-400'} transition cursor-pointer">Primary</button>
             <button onclick="setDeviceRole(${devIdx}, ${aIdx}, 'secondary')" class="flex-1 py-1 rounded ${axis.role === 'secondary' ? 'bg-purple-600 text-white font-bold' : 'bg-slate-800 text-slate-400'} transition cursor-pointer">Secondary</button>
@@ -4429,7 +4725,7 @@ function setupPartnerHost() {
 const VIEWER_LOCKED_IDS = [
     'sessionPlayPauseBtn', 'sessionStopBtn', 'sessionResetBtn', 'cameEarlyBtn', 'orgasmBtn',
     'intensitySlider', 'openParamsBtn', 'sessionParamsHeaderBtn',
-    'partnerShareBtn', 'historyBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardTCode',
+    'partnerShareBtn', 'historyBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // Nested in the Edge Training card: a disabled ancestor does not stop a
     // browser from focusing and editing them, so they are disabled themselves.
     'trainHoldSecondsInput', 'trainEdgesInput', 'calibrateBtn'
@@ -4451,7 +4747,7 @@ function lockViewerControls() {
 // leaves the page), so it is locked rather than left looking clickable.
 const CONTROLLER_LOCKED_IDS = [
     'cameEarlyBtn', 'intensitySlider', 'openParamsBtn', 'sessionParamsHeaderBtn',
-    'partnerShareBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardTCode',
+    'partnerShareBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // The mode cards stay live (MODE_CHANGE is a legal command), but the two
     // Edge Training numbers inside one of them are host-only settings.
     'trainHoldSecondsInput', 'trainEdgesInput', 'calibrateBtn'
