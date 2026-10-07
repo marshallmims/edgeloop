@@ -130,6 +130,8 @@ export const SETTING_SANITIZERS = {
     minHr: passToOwner,
     maxHr: passToOwner,
     dualMaxHr: passToOwner,
+    speedSlowest: wholeNumber('speedSlowest', 0, 100),
+    speedFastest: wholeNumber('speedFastest', 0, 100),
     vacuglideRole: (value) => sanitizeVacuglideRole(value),
     vacuglideMaxCap: (value) => clampSpeedCap(value),
     vacuglideValvePulseMs: (value) => clampValvePulseMs(value),

@@ -213,6 +213,15 @@
           <p class="text-[9px] text-slate-400 leading-tight">
             Real-time stimulation multiplier. Dial left for lighter tease or right for more aggressive power without changing your HR thresholds.
           </p>
+          <div class="flex items-center justify-between gap-3 pt-1 text-[10px] text-slate-400">
+            <label class="flex items-center gap-1.5" for="speedSlowestInput">Slowest
+              <input id="speedSlowestInput" type="number" min="0" max="100" step="1" value="0" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 font-mono text-center text-slate-200 outline-none focus:border-emerald-500">
+            </label>
+            <label class="flex items-center gap-1.5" for="speedFastestInput">Fastest
+              <input id="speedFastestInput" type="number" min="0" max="100" step="1" value="100" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 font-mono text-center text-slate-200 outline-none focus:border-rose-500">
+            </label>
+          </div>
+          <p class="text-[9px] text-slate-500 leading-tight">Strokes stay between these. 0 and 100 leave the pattern alone. A stop is still a stop.</p>
         </div>
 
         <!-- Action Bar: Edges, Pauses, Came Early, Force Orgasm -->

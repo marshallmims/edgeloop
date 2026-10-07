@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
     calculateEngineOutputs,
+    mapSessionSpeed,
     ENGINE_MODES,
     resolveEngineMode,
     resolveCeilingBehaviour,
@@ -1055,6 +1056,33 @@ describe('engine safety guards', () => {
         assert.ok(intense.primaryPercent <= 100);
         const cut = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 140, isEdged: true, intensityValue: 100 });
         assert.equal(cut.primaryPercent, 0, 'intensity must never revive a cut motor');
+    });
+
+    it('scales strokes into the slowest and fastest window and still stops at 0', () => {
+        assert.equal(mapSessionSpeed(0, 8, 30), 0);
+        assert.equal(mapSessionSpeed(100, 8, 30), 30);
+        assert.equal(mapSessionSpeed(50, 8, 30), 19);
+        assert.equal(mapSessionSpeed(40, 0, 100), 40);
+        const open = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 90, speedSlowest: 0, speedFastest: 100 });
+        const boxed = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 90, speedSlowest: 8, speedFastest: 30 });
+        assert.ok(boxed.primaryPercent >= 8 && boxed.primaryPercent <= 30);
+        assert.ok(boxed.primaryPercent < open.primaryPercent);
+        const stopped = calculateEngineOutputs({
+            ...running, activeMode: 'classic', hr: 140, isEdged: true, ceilingBehaviour: 'stop', speedSlowest: 8, speedFastest: 30
+        });
+        assert.equal(stopped.primaryPercent, 0);
+        const easing = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 100,
+            speedSlowest: 8,
+            speedFastest: 30,
+            settleSecondsLeft: 45,
+            settleSpan: 45,
+            settleFromPrimary: 30,
+            settleFloor: 0
+        });
+        assert.equal(easing.primaryPercent, 30, 'an ease-down starts from the speed just sent');
     });
 
     it('non-finite inputs yield zero output, never NaN', () => {

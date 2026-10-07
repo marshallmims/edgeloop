@@ -205,6 +205,10 @@ export const advancedSettings = {
     hrAutoResume: true,
     // Both-toys climax. Independent of the single-stim max.
     dualMaxHr: 125,
+    // Session speed window. 0 and 100 leave the pattern alone. A stop is
+    // still 0; everything above 0 is scaled into this pair.
+    speedSlowest: 0,
+    speedFastest: 100,
     // Autoblow VacuGlide 2. Speed only. The token lives in its own store.
     vacuglideRole: 'primary',
     vacuglideMaxCap: 100,
