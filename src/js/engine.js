@@ -183,6 +183,26 @@ function safeEnvelope(hwMin, hwMax) {
     return normalizeEnvelope(Math.min(lo, hi), Math.max(lo, hi));
 }
 
+export function clampSpeedBound(value, fallback = 0) {
+    const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+// Slowest and fastest are the session's speed window. A pattern percent above
+// 0 lands inside it: 100 becomes fastest, a quiet moment becomes slowest.
+// 0 stays 0, so STOP, Full Stop, and the bottom of an ease-down still stop.
+export function mapSessionSpeed(percent, slowest = 0, fastest = 100) {
+    const p = Number(percent);
+    if (!Number.isFinite(p) || p <= 0) return 0;
+    let lo = clampSpeedBound(slowest, 0);
+    let hi = clampSpeedBound(fastest, 100);
+    if (hi < lo) [lo, hi] = [hi, lo];
+    const capped = Math.min(100, p);
+    if (lo === 0 && hi === 100) return Math.round(capped);
+    return Math.round(lo + (capped / 100) * (hi - lo));
+}
+
 export function calculateEngineOutputs({
     hr,
     // The sensor's own pulse. `hr` may carry the microphone boost, which
@@ -205,6 +225,8 @@ export function calculateEngineOutputs({
     orgasmBoost = 0,
     gamma = 2.0,
     intensityValue = 50,
+    speedSlowest = 0,
+    speedFastest = 100,
     edgeStrokeDepth = 100,
     handyHwMin = 0,
     handyHwMax = 100,
@@ -401,12 +423,15 @@ export function calculateEngineOutputs({
     }
 
     const intensityScale = 0.5 + (intensitySafe / 100);
+    const inWindow = (percent) => mapSessionSpeed(percent, speedSlowest, speedFastest);
     if (primaryPercent > 0) {
         primaryPercent = Math.min(100, Math.round(primaryPercent * intensityScale));
     }
     if (secondaryPercent > 0) {
         secondaryPercent = Math.min(100, Math.round(secondaryPercent * intensityScale));
     }
+    primaryPercent = inWindow(primaryPercent);
+    secondaryPercent = inWindow(secondaryPercent);
 
     // Zone sanity: whatever the mode and warm-up cap did, the zone must stay
     // ordered and at least MIN_ZONE_WIDTH wide. The cap (upper bound) wins,
@@ -438,8 +463,8 @@ export function calculateEngineOutputs({
         const ease = frame.ease;
         const fromP = Number.isFinite(orgasmFromPrimary) ? orgasmFromPrimary : primaryPercent;
         const fromS = Number.isFinite(orgasmFromSecondary) ? orgasmFromSecondary : secondaryPercent;
-        const targetP = Math.min(100, Math.round(frame.primary * intensityScale));
-        const targetS = Math.min(100, Math.round(frame.secondary * intensityScale));
+        const targetP = inWindow(Math.min(100, Math.round(frame.primary * intensityScale)));
+        const targetS = inWindow(Math.min(100, Math.round(frame.secondary * intensityScale)));
         primaryPercent = Math.round(fromP * (1 - ease) + targetP * ease);
         secondaryPercent = Math.round(fromS * (1 - ease) + targetS * ease);
         const full = placeStroke(0, 100, frame.depth, 'low');

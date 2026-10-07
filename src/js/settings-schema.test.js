@@ -119,6 +119,8 @@ describe('the bounds are the ones the controls carry', () => {
         const bounds = {
             warmupInput: ['warmupMinutes', 0, 10],
             orgasmSettleSecondsInput: ['orgasmSettleSeconds', 0, 180],
+            speedSlowestInput: ['speedSlowest', 0, 100],
+            speedFastestInput: ['speedFastest', 0, 100],
             decayEdgeCountInput: ['decayEdgeCount', 1, 10],
             decayBpmInput: ['decayBpm', 1, 5],
             decayFloorInput: ['decayFloor', 80, 130]

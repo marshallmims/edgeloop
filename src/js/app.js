@@ -4,6 +4,7 @@ import {
     resolveEngineMode,
     gameEdgeReleased,
     clampEdgeHoldPercent,
+    clampSpeedBound,
     resolveEdgeTriggerHr,
     describeEdgeHoldPreview,
     micBoostReachesMotors,
@@ -622,6 +623,28 @@ intensitySlider?.addEventListener('input', (e) => {
     syncTelemetry();
 });
 
+function paintSpeedWindow() {
+    const slow = document.getElementById('speedSlowestInput');
+    const fast = document.getElementById('speedFastestInput');
+    if (slow) slow.value = String(advancedSettings.speedSlowest ?? 0);
+    if (fast) fast.value = String(advancedSettings.speedFastest ?? 100);
+}
+
+function applySpeedWindow(edited) {
+    let slowest = clampSpeedBound(document.getElementById('speedSlowestInput')?.value, 0);
+    let fastest = clampSpeedBound(document.getElementById('speedFastestInput')?.value, 100);
+    if (edited === 'slowest' && slowest > fastest) fastest = slowest;
+    if (edited === 'fastest' && fastest < slowest) slowest = fastest;
+    advancedSettings.speedSlowest = slowest;
+    advancedSettings.speedFastest = fastest;
+    paintSpeedWindow();
+    persistSettings();
+    updateEngine();
+}
+
+document.getElementById('speedSlowestInput')?.addEventListener('change', () => applySpeedWindow('slowest'));
+document.getElementById('speedFastestInput')?.addEventListener('change', () => applySpeedWindow('fastest'));
+
 // The hardware travel envelope is ONE persisted setting (advancedSettings
 // handyHwMin / handyHwMax) that bounds The Handy and every TCode linear axis,
 // so it is edited from both the Handy and the TCode modal. Every input and
@@ -950,6 +973,8 @@ function updateEngine() {
         orgasmBoost: state.orgasmMode ? state.orgasmBoost : 0,
         gamma: advancedSettings.gammaCurve,
         intensityValue: state.intensityValue,
+        speedSlowest: advancedSettings.speedSlowest,
+        speedFastest: advancedSettings.speedFastest,
         edgeStrokeDepth: advancedSettings.edgeStrokeDepth,
         strokeMode: state.teaseMode,
         handyHwMin: advancedSettings.handyHwMin,
@@ -3088,6 +3113,7 @@ function syncParamsUI() {
     if (ceilingSelect) ceilingSelect.value = advancedSettings.ceilingBehaviour === 'stop' ? 'stop' : 'crawl';
     const settleInput = document.getElementById('orgasmSettleSecondsInput');
     if (settleInput) settleInput.value = isRemotePage ? '' : String(clampOrgasmSettleSeconds(advancedSettings.orgasmSettleSeconds));
+    paintSpeedWindow();
     const holdInput = document.getElementById('edgeHoldPercentInput');
     if (holdInput) holdInput.value = isRemotePage ? '' : clampEdgeHoldPercent(advancedSettings.edgeHoldPercent);
     if (isRemotePage && holdInput) holdInput.placeholder = '--';
@@ -4725,7 +4751,7 @@ function setupPartnerHost() {
 // every telemetry frame because some renderers reset element classes.
 const VIEWER_LOCKED_IDS = [
     'sessionPlayPauseBtn', 'sessionStopBtn', 'sessionResetBtn', 'cameEarlyBtn', 'orgasmBtn',
-    'intensitySlider', 'openParamsBtn', 'sessionParamsHeaderBtn',
+    'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
     'partnerShareBtn', 'historyBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // Nested in the Edge Training card: a disabled ancestor does not stop a
     // browser from focusing and editing them, so they are disabled themselves.
@@ -4747,7 +4773,7 @@ function lockViewerControls() {
 // Everything else is host-only (its handlers return or its state never
 // leaves the page), so it is locked rather than left looking clickable.
 const CONTROLLER_LOCKED_IDS = [
-    'cameEarlyBtn', 'intensitySlider', 'openParamsBtn', 'sessionParamsHeaderBtn',
+    'cameEarlyBtn', 'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
     'partnerShareBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // The mode cards stay live (MODE_CHANGE is a legal command), but the two
     // Edge Training numbers inside one of them are host-only settings.
