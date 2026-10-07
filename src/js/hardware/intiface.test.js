@@ -10,6 +10,7 @@ import {
     setAxisMaxCap,
     setAxisInvert,
     setDeviceRotation,
+    setAxisVibeMode,
     reverseIntifaceRotation,
     saveIntifaceConfig,
     stopAllIntiface,
@@ -475,6 +476,48 @@ describe('rotation', () => {
         assert.equal(dev.alternateSeconds, 60);
         setDeviceRotation(2, { alternateSeconds: 0 });
         assert.equal(dev.alternateSeconds, 0);
+    });
+});
+
+describe('pulsed vibration', () => {
+    function levels(ws, index) {
+        return ws.messages('ScalarCmd').flatMap((cmd) => cmd.Scalars).filter((s) => s.Index === index).map((s) => s.Scalar);
+    }
+
+    it('holds the engine level for half the period, then rests, and a stop ends the train', async () => {
+        const ws = connectWith([EDGE]);
+        assert.equal(setAxisVibeMode(0, 0, { mode: 'pulsed', periodMs: 800 }), true);
+        assert.equal(setAxisVibeMode(0, 0, { mode: 'nope' }), false);
+        // Arming Pulsed while the engine is still at 0 sends that 0 once.
+        // The first positive level is the peak, at once.
+        dispatchIntiface(0, 50, 0, 100);
+        assert.deepEqual(levels(ws, 0), [0, 0.5]);
+        await sleep(420);
+        assert.deepEqual(levels(ws, 0), [0, 0.5, 0]);
+        await sleep(400);
+        assert.deepEqual(levels(ws, 0), [0, 0.5, 0, 0.5]);
+        const beforeStop = levels(ws, 0).length;
+        dispatchIntiface(0, 0, 0, 100, 0, 100, true);
+        assert.equal(levels(ws, 0).at(-1), 0);
+        await sleep(500);
+        assert.equal(levels(ws, 0).length, beforeStop + 1, 'a stop cuts the train');
+    });
+
+    it('remembers Constant or Pulsed with the toy', () => {
+        connectWith([EDGE]);
+        setAxisVibeMode(0, 1, { mode: 'pulsed', periodMs: 2400 });
+        const stored = JSON.parse(memory.get(INTIFACE_STORAGE_KEY));
+        const axes = stored['Lovense Edge|S:Vibrate,Vibrate|L:|R:'].axes;
+        assert.equal(axes['scalar:0'].vibeMode, 'constant');
+        assert.equal(axes['scalar:0'].pulsePeriodMs, 1600);
+        assert.equal(axes['scalar:1'].vibeMode, 'pulsed');
+        assert.equal(axes['scalar:1'].pulsePeriodMs, 2400);
+        disconnectIntiface();
+        connectWith([{ ...EDGE, DeviceIndex: 4 }]);
+        const edge = intifaceDevices.get(4);
+        assert.equal(edge.axes[0].vibeMode, 'constant');
+        assert.equal(edge.axes[1].vibeMode, 'pulsed');
+        assert.equal(edge.axes[1].pulsePeriodMs, 2400);
     });
 });
 

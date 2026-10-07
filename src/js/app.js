@@ -58,6 +58,7 @@ import {
     setAxisMaxCap,
     setAxisInvert,
     setDeviceRotation,
+    setAxisVibeMode,
     reverseIntifaceRotation,
     saveIntifaceConfig,
     testSingleAxis,
@@ -71,6 +72,7 @@ import {
     ALTERNATE_SECONDS_MAX,
     INTIFACE_STORAGE_KEY
 } from './hardware/intiface.js';
+import { PULSE_PERIODS_MS } from './hardware/vibe-pulse.js';
 import {
     connectTCode,
     disconnectTCode,
@@ -3933,6 +3935,15 @@ window.setDeviceInvert = (devIdx, axisIdx, checked) => {
     setAxisInvert(devIdx, axisIdx, Boolean(checked));
 };
 
+window.setDeviceVibeMode = (devIdx, axisIdx, mode) => {
+    setAxisVibeMode(devIdx, axisIdx, { mode });
+    renderIntifaceDevices();
+};
+
+window.setDevicePulsePeriod = (devIdx, axisIdx, val) => {
+    setAxisVibeMode(devIdx, axisIdx, { periodMs: parseInt(val, 10) });
+};
+
 window.setDeviceReverseOnEdge = (devIdx, checked) => {
     setDeviceRotation(devIdx, { reverseOnEdge: Boolean(checked) });
 };
@@ -3997,6 +4008,20 @@ function renderIntifaceDevices() {
             </div>
             <input type="range" min="10" max="100" step="5" value="${axis.maxCap ?? 100}" oninput="setDeviceCap(${devIdx}, ${aIdx}, this.value)" class="w-full accent-amber-500 h-1 bg-slate-800 rounded cursor-pointer">
             </div>
+            ${axis.kind === 'scalar' && axis.type === 'Vibrate' ? (() => {
+                const pulsed = axis.vibeMode === 'pulsed';
+                const periods = PULSE_PERIODS_MS.map((ms) => `<option value="${ms}" ${axis.pulsePeriodMs === ms ? 'selected' : ''}>${(ms / 1000).toFixed(1)} s</option>`).join('');
+                return `
+            <div class="space-y-1 pt-1 border-t border-slate-800/60">
+            <div class="flex items-center gap-1 text-[9px] text-slate-400">
+            <span class="mr-1">Vibration:</span>
+            <button onclick="setDeviceVibeMode(${devIdx}, ${aIdx}, 'constant')" class="flex-1 py-0.5 rounded ${!pulsed ? 'bg-slate-700 text-amber-300 font-bold' : 'bg-slate-800 text-slate-400'} cursor-pointer">Constant</button>
+            <button onclick="setDeviceVibeMode(${devIdx}, ${aIdx}, 'pulsed')" class="flex-1 py-0.5 rounded ${pulsed ? 'bg-slate-700 text-amber-300 font-bold' : 'bg-slate-800 text-slate-400'} cursor-pointer">Pulsed</button>
+            <select aria-label="Pulse period" onchange="setDevicePulsePeriod(${devIdx}, ${aIdx}, this.value)" ${pulsed ? '' : 'disabled'} class="bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-[9px] text-slate-200 ${pulsed ? 'cursor-pointer' : 'opacity-40'}">${periods}</select>
+            </div>
+            ${pulsed ? '<p class="text-[9px] text-slate-500 leading-snug">On for half of each period, off for the other half. The intensity sets the peak, and it stays under the cap.</p>' : ''}
+            </div>`;
+            })() : ''}
             ${invertRow}
             </div>
             `;
