@@ -185,3 +185,17 @@ describe('stroke planner', () => {
         assert.ok(a > b, 'the period falls as the speed rises');
     });
 });
+
+describe('a holding planner', () => {
+    it('stops where it is instead of sending a rest move', () => {
+        const p = createStrokePlanner({ hold: true });
+        p.setInput({ speed: 40, zoneMin: 0.2, zoneMax: 0.8 });
+        const stroke = p.next(0);
+        assert.equal(stroke.kind, 'stroke');
+        p.setInput({ speed: 0 });
+        const held = p.next(stroke.durationMs);
+        assert.equal(held.kind, 'hold');
+        assert.equal(held.position, null);
+        assert.equal(p.next(stroke.durationMs + 1), null);
+    });
+});

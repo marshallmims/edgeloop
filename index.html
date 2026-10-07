@@ -288,6 +288,16 @@
             </div>
           </button>
 
+
+          <button id="cardVacuglide" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotVacuglide" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">VacuGlide 2 <span class="text-amber-400">· Experimental</span></span>
+              <span id="badgeVacuglideText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeVacuglideBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
           <button id="cardTCode" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
             <span id="dotTCode" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
             <div class="flex flex-col min-w-0 flex-1">
@@ -649,6 +659,99 @@
       </div>
 
       <!-- 3b. TCode Serial Modal (OSR2 / SR6 / OSSM over Web Serial, no Intiface) -->
+      <!-- 2b. Autoblow VacuGlide 2 Modal (speed only; the valves are two manual buttons) -->
+      <div id="modalBodyVacuglide" class="space-y-3 hidden">
+        <!-- Shipped for testers before anyone has run it on a real device -->
+        <div class="p-2.5 rounded-xl border border-amber-700/70 bg-amber-950/40 space-y-1" role="note">
+          <div class="text-xs font-bold text-amber-300">Experimental</div>
+          <p class="text-[10px] text-amber-100/90 leading-snug">
+            VacuGlide support is experimental. A first real session went well. Keep the first sessions on this build
+            short, with the VacuGlide's own power button within reach. To stop it, use EdgeLoop's STOP or the
+            VacuGlide's own power button. If you stop it from Autoblow's app during a session, EdgeLoop pauses instead
+            of starting it again. Tell us what happened, good or bad, in the
+            <a href="https://discuss.eroscripts.com/t/edgeloop-app-autonomous-real-time-cardiac-biofeedback-edging-funscript-generator/336717" target="_blank" rel="noopener noreferrer" class="underline text-amber-200 hover:text-white">EdgeLoop thread on Eroscripts</a>.
+          </p>
+        </div>
+        <p class="text-xs text-slate-400">Turn on your VacuGlide's online mode (hold its mode button for about 2.5 seconds), then enter the device token Autoblow gave it. <a href="https://autoblowme.com/vacuglide-2/device-token" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:underline">Autoblow shows how to find the token</a>.</p>
+        <div class="space-y-1">
+          <label for="modalVacuglideInput" class="text-[10px] text-slate-300 font-semibold block uppercase tracking-wider">Device Token</label>
+          <input id="modalVacuglideInput" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="letters and digits, e.g. a1b2c3d4e5f6" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 font-mono text-xs outline-none focus:border-rose-500 text-slate-200">
+        </div>
+        <div id="modalVacuglideMsg" class="text-xs leading-snug text-slate-500" role="status" aria-live="polite">Status: Offline</div>
+
+        <!-- What EdgeLoop drives on this device, and what it does not -->
+        <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+          <div class="text-xs font-bold text-slate-200">Speed only</div>
+          <p class="text-[9px] text-slate-400 leading-snug">
+            EdgeLoop sets the VacuGlide's speed from the channel you pick below, and nothing else. The device has no
+            stroke-range and no suction setting, so the stroke range (the Zone) and the other channel do not reach it.
+            EdgeLoop never moves the valves by itself: they are the two buttons further down. STOP, Pause and Disconnect
+            stop the motor and close both valves. Autoblow's documentation says that while the device is online its
+            speed and mode buttons do not control it; holding the mode button for about 2.5 seconds leaves online mode.
+          </p>
+        </div>
+
+        <!-- VacuGlide Stimulation Role & Speed Cap -->
+        <div class="pt-3 border-t border-slate-800 space-y-2.5">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-300">Speed follows</span>
+            <span id="modalVacuglideRoleBadge" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800">Primary speed</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button id="vacuglideRolePrimaryBtn" type="button" class="py-1.5 rounded-lg bg-rose-600 text-white font-bold text-xs transition cursor-pointer">Primary</button>
+            <button id="vacuglideRoleSecondaryBtn" type="button" class="py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold text-xs hover:text-white transition cursor-pointer">Secondary</button>
+            <button id="vacuglideRoleOffBtn" type="button" class="py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold text-xs hover:text-white transition cursor-pointer">OFF</button>
+          </div>
+
+          <div class="space-y-1 pt-1">
+            <div class="flex justify-between text-[11px] text-slate-400">
+              <label for="vacuglideCapSlider">Max Speed Cap:</label>
+              <span id="vacuglideCapVal" class="font-bold font-mono text-amber-400">100%</span>
+            </div>
+            <input type="range" id="vacuglideCapSlider" min="10" max="100" step="5" value="100" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded cursor-pointer">
+          </div>
+        </div>
+
+        <!-- Manual stroke valves: one press, one short pulse, then closed -->
+        <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex justify-between items-center gap-2">
+            <span class="text-xs font-bold text-slate-200">Stroke Valves</span>
+            <span id="vacuglideValveState" class="font-mono text-[10px] font-bold text-slate-500" aria-live="polite">Not connected</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="vacuglideValvePlusBtn" type="button" disabled aria-disabled="true" class="bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold py-2 px-2 rounded-lg text-xs transition cursor-pointer opacity-50 cursor-not-allowed">
+              Valve +
+              <span class="block text-[9px] font-normal text-slate-400">longer stroke</span>
+            </button>
+            <button id="vacuglideValveMinusBtn" type="button" disabled aria-disabled="true" class="bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold py-2 px-2 rounded-lg text-xs transition cursor-pointer opacity-50 cursor-not-allowed">
+              Valve &minus;
+              <span class="block text-[9px] font-normal text-slate-400">shorter stroke</span>
+            </button>
+          </div>
+          <p class="text-[9px] text-slate-400 leading-snug">
+            Each press opens that valve for the time below, then closes it. Valve + (Autoblow's stroke-plus valve)
+            lengthens the stroke and Valve &minus; (stroke-minus) shortens it; owners describe it as moving the receiver
+            up or down the shaft. How far one press moves it depends on the speed and on your receiver, and owners warn
+            that too big a change can pop the receiver off - so press once, feel it, then decide on the next. A press
+            while a valve is open is ignored.
+          </p>
+          <div class="flex justify-between items-center gap-2">
+            <label for="vacuglidePulseInput" class="text-[9px] text-slate-400 font-semibold">Valve pulse, seconds (0.3 - 2.0):</label>
+            <input id="vacuglidePulseInput" type="number" min="0.3" max="2" step="0.1" value="1.0" class="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 font-mono text-xs text-center text-slate-200 outline-none">
+          </div>
+          <div id="vacuglideValveMsg" class="text-[10px] leading-snug text-slate-400 hidden" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="flex gap-2 pt-1">
+          <button id="modalVacuglideConnectBtn" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">
+            Connect VacuGlide
+          </button>
+          <button id="modalVacuglideDisconnectBtn" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-3 rounded-lg text-xs transition hidden cursor-pointer">
+            Disconnect
+          </button>
+        </div>
+      </div>
+
       <div id="modalBodyTCode" class="space-y-3 hidden">
         <p class="text-xs text-slate-400">Drive an OSR2, SR6, OSSM or any other T-Code v0.3 stroker straight over its USB serial port (115200 baud), without Intiface Central. Close Intiface Central, MultiFunPlayer or any other app that holds the COM port first, then press <strong>Connect</strong> and pick the port in the browser dialog. On Linux your user must be in the <span class="font-mono">dialout</span> group.</p>
         <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">

@@ -244,3 +244,53 @@ export function defaultRoleFor(parsed, kind, position) {
     if (kind === 'rotate') return (position === 0 && parsed.linears.length === 0) ? 'primary' : 'secondary';
     return (position === 0 && parsed.linears.length === 0 && parsed.rotations.length === 0) ? 'primary' : 'secondary';
 }
+
+function stepsOf(stepCount) {
+    const n = Math.round(Number(stepCount));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// The step a LinearCmd for `position` (0..1) lands on. 1000 when the axis
+// lists no step count. Used so a held OSSM is never sent the same step twice.
+export function linearStep(position, stepCount, bounds = { min: 0, max: 1 }) {
+    const n = stepsOf(stepCount) || 1000;
+    const lo = Math.ceil(clamp01(bounds && bounds.min) * n - 1e-9);
+    const hi = Math.floor(clamp01(bounds && bounds.max !== undefined ? bounds.max : 1) * n + 1e-9);
+    let step = Math.round(clamp01(position) * n);
+    if (lo <= hi) step = Math.max(lo, Math.min(hi, step));
+    return step;
+}
+
+// Which Oscillate scalar and which linear axis are one motor. Buttplug lists
+// an OSSM (and a Lovense Solace Pro) twice: ScalarCmd Oscillate and LinearCmd
+// Position. Driving both sends the machine to its menu, and the OSSM firmware
+// runs that as an emergency stop.
+export function oscillateTwins(parsed) {
+    if (!parsed || !Array.isArray(parsed.scalars) || !Array.isArray(parsed.linears)) return [];
+    return pairByFeature(parsed.scalars, 'Oscillate', parsed.linears).map(({ scalar, other }) => ({ scalar, linear: other }));
+}
+
+// ScalarCmd Rotate entries that repeat a RotateCmd motor. The RotateCmd one,
+// which has the direction, is the one EdgeLoop drives.
+export function rotateDuplicates(parsed) {
+    if (!parsed || !Array.isArray(parsed.scalars) || !Array.isArray(parsed.rotations)) return [];
+    return pairByFeature(parsed.scalars, 'Rotate', parsed.rotations).map(({ scalar }) => scalar);
+}
+
+function pairByFeature(scalars, type, others) {
+    const mine = scalars.map((a, pos) => ({ a, pos })).filter(({ a }) => a.actuatorType === type);
+    const theirs = others.map((a, pos) => ({ a, pos }));
+    if (mine.length === 0 || theirs.length === 0) return [];
+    if (mine.length === theirs.length && mine.every((o, i) => o.a.descriptor === theirs[i].a.descriptor)) {
+        return mine.map((o, i) => ({ scalar: o.pos, other: theirs[i].pos }));
+    }
+    const pairs = [];
+    mine.forEach((o) => {
+        const d = o.a.descriptor;
+        if (!d) return;
+        const sameTheirs = theirs.filter((l) => l.a.descriptor === d);
+        const sameMine = mine.filter((x) => x.a.descriptor === d);
+        if (sameTheirs.length === 1 && sameMine.length === 1) pairs.push({ scalar: o.pos, other: sameTheirs[0].pos });
+    });
+    return pairs;
+}

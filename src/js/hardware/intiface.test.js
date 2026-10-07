@@ -521,6 +521,41 @@ describe('pulsed vibration', () => {
     });
 });
 
+describe('an OSSM through Intiface is one motor', () => {
+    const OSSM = {
+        DeviceIndex: 4,
+        DeviceName: 'OSSM',
+        DeviceMessages: {
+            ScalarCmd: [{ StepCount: 100, ActuatorType: 'Oscillate', FeatureDescriptor: 'Stroke' }],
+            LinearCmd: [{ StepCount: 1000, ActuatorType: 'Position', FeatureDescriptor: 'Stroke' }],
+            StopDeviceCmd: {}
+        }
+    };
+
+    it('drives Position inside the travel range and leaves Oscillate off', () => {
+        const ws = connectWith([OSSM]);
+        const dev = intifaceDevices.get(4);
+        assert.equal(dev.axes[0].type, 'Oscillate');
+        assert.equal(dev.axes[0].role, 'off');
+        assert.equal(dev.axes[1].holds, true);
+        assert.equal(dev.axes[1].role, 'primary');
+        dispatchIntiface(80, 0, 20, 80);
+        assert.equal(ws.messages('ScalarCmd').length, 0);
+        assert.equal(ws.messages('LinearCmd').length, 1);
+        const before = ws.messages('LinearCmd').length;
+        dispatchIntiface(0, 0, 20, 80, 0, 100, true);
+        assert.equal(ws.messages('LinearCmd').length, before, 'STOP holds where it is');
+    });
+
+    it('refuses Oscillate unless the travel range is the whole rail', () => {
+        connectWith([OSSM]);
+        assert.equal(setAxisRole(4, 0, 'primary', { envelope: { min: 10, max: 90 } }), false);
+        assert.equal(intifaceDevices.get(4).axes[0].role, 'off');
+        assert.equal(setAxisRole(4, 0, 'primary', { envelope: { min: 0, max: 100 } }), true);
+        assert.equal(intifaceDevices.get(4).axes[1].role, 'off', 'turning Oscillate on takes Position off');
+    });
+});
+
 describe('persistence', () => {
     it('stores roles, caps, invert and rotation per device signature and reapplies them on reconnect', () => {
         connectWith([EDGE, OSR2, VORZE]);

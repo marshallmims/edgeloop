@@ -24,6 +24,7 @@ import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, 
 import { clampEdgeHoldPercent } from './engine.js';
 import { clampStaleSeconds } from './hr-watchdog.js';
 import { clampEndMargin } from './hardware/handy-protocol.js';
+import { sanitizeVacuglideRole, clampSpeedCap, clampValvePulseMs } from './hardware/vacuglide-protocol.js';
 import { clampMicGate, clampMicBoostBpm } from './voice.js';
 import { clampEncourageSeconds, mergeVoiceCues } from './voice-cues.js';
 
@@ -129,6 +130,9 @@ export const SETTING_SANITIZERS = {
     minHr: passToOwner,
     maxHr: passToOwner,
     dualMaxHr: passToOwner,
+    vacuglideRole: (value) => sanitizeVacuglideRole(value),
+    vacuglideMaxCap: (value) => clampSpeedCap(value),
+    vacuglideValvePulseMs: (value) => clampValvePulseMs(value),
     durationMode: oneOf('durationMode', ['fixed', 'range', 'endless']),
     // The lengths go to their owner as written, for the same reason the HR
     // pair does: the owner REFUSES a length outside the window and falls
