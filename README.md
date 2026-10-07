@@ -98,9 +98,9 @@ Intiface Central is the bridge for Bluetooth vibrators, rotators, reciprocating 
 
 1. Start Intiface Central and **start its server**. Add and connect your toys there first.
 2. In the EdgeLoop Intiface modal, keep the URL at `ws://localhost:12345` (plain `ws://`, not `wss://`, for a local server) and press **Connect**. The status walks Offline, Connecting, Handshake and Connected (server name, N devices); an invalid URL, a stopped server or a stalled handshake is reported in the same line.
-3. Every actuator is listed with an **axis role** (Primary / Secondary / OFF), a cap and a **Test** button. Stroke maps to Linear axes, twist and roll map to Rotate axes; assign leftover axes Secondary or OFF. Linear axes have an invert switch.
+3. Every actuator is listed with an **axis role** (Primary / Secondary / OFF), a cap and a **Test** button. Stroke maps to Linear axes, twist and roll map to Rotate axes; assign leftover axes Secondary or OFF. Linear axes have an invert switch. A vibrate axis can be **Constant** or **Pulsed** (0.8, 1.6, or 2.4 seconds): on for half of that, off for half. The intensity is the peak, and it stays under the cap. STOP cuts it at once.
 4. **Rotation options:** a rotator can **reverse on every edge** and/or **alternate direction every N seconds** (5-60).
-5. Press **Save & Apply**. Roles, caps, invert and the rotation settings are **remembered per toy**, so a reconnect restores your mapping.
+5. Press **Save & Apply**. Roles, caps, invert, the pulse choice and the rotation settings are **remembered per toy**, so a reconnect restores your mapping.
 
 Linear axes are driven by a stroke planner that sends exactly one command per stroke leg, which is what makes OSR-class strokers move smoothly instead of in bursts. `StopAllDevices` is sent on STOP, pause, disconnect and when the page closes.
 
@@ -246,6 +246,8 @@ edgeloop/
             ├── handy-protocol.test.js
             ├── intiface.js     # Intiface / Buttplug.io WebSocket driver for multi-motor vibrators, strokers, and rotators; per-toy memory
             ├── intiface.test.js
+            ├── vibe-pulse.js   # Pure pulsed-vibration schedule for Intiface vibrate axes: the three periods, the square wave, the setting's readers
+            ├── vibe-pulse.test.js
             ├── buttplug-protocol.js  # Pure Buttplug v3 message builders / parsers (handshake, device attributes, errors)
             ├── buttplug-protocol.test.js
             ├── tcode.js        # Direct T-Code driver over Web Serial (OSR2 / SR6 / OSSM): identification, per-axis roles, caps, stop
@@ -268,7 +270,7 @@ There is no build step and no dependency to install. Clone the repository, serve
 npm test
 ```
 
-runs every `*.test.js` under `src/js/` with Node's built-in test runner, which prints the exact count on its last lines (`# tests` / `# pass`). No number is quoted here: the suite grows most weeks, and a number in a document nobody re-counts is simply wrong after the next change - `docs.test.js` fails if one creeps back in. The convention: anything with logic worth testing lives in a **pure module** with no DOM, timers or sockets (`engine.js`, `session-rules.js`, `hr-watchdog.js`, `funscript.js`, `storage.js`, `write-coalescer.js`, `backup.js`, `chart.js`, `peer-messages.js`, `voice-queue.js`, the `*-protocol.js` helpers and `stroke-planner.js`), with a `*.test.js` file next to it. The drivers (`handy.js`, `intiface.js`, `tcode.js`, `ble.js`) keep their browser API calls inside functions so they can be imported under Node and tested with fakes. If you add a feature, put its rules in a pure module and test them there; `app.js` should only wire the DOM to those modules.
+runs every `*.test.js` under `src/js/` with Node's built-in test runner, which prints the exact count on its last lines (`# tests` / `# pass`). No number is quoted here: the suite grows most weeks, and a number in a document nobody re-counts is simply wrong after the next change - `docs.test.js` fails if one creeps back in. The convention: anything with logic worth testing lives in a **pure module** with no DOM, timers or sockets (`engine.js`, `session-rules.js`, `hr-watchdog.js`, `funscript.js`, `storage.js`, `write-coalescer.js`, `backup.js`, `chart.js`, `peer-messages.js`, `voice-queue.js`, the `*-protocol.js` helpers, `stroke-planner.js` and `vibe-pulse.js`), with a `*.test.js` file next to it. The drivers (`handy.js`, `intiface.js`, `tcode.js`, `ble.js`) keep their browser API calls inside functions so they can be imported under Node and tested with fakes. If you add a feature, put its rules in a pure module and test them there; `app.js` should only wire the DOM to those modules.
 
 **Browser smoke test** (needs Chromium through Playwright, which is deliberately not a project dependency):
 

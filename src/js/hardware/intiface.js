@@ -11,7 +11,9 @@
 //      (stroke-planner.js) issuing ONE LinearCmd per leg with the full leg
 //      duration, timed by a per-axis setTimeout at leg end. Engine ticks only
 //      update the planner inputs. Vibrators and rotators get immediate
-//      updates, deduplicated so identical values are not re-sent.
+//      updates, deduplicated so identical values are not re-sent. A vibrate
+//      axis set to Pulsed is a square wave of that level (vibe-pulse.js):
+//      on for half the period, off for half, cut by any 0.
 //
 // Message construction and parsing live in buttplug-protocol.js (pure,
 // unit-tested). Roles, caps, linear invert and the rotation settings are
@@ -41,6 +43,7 @@ import {
     defaultRoleFor
 } from './buttplug-protocol.js';
 import { createStrokePlanner } from './stroke-planner.js';
+import { readVibeMode, readPulsePeriod, pulsePhase, pulseLevel, DEFAULT_VIBE_MODE, DEFAULT_PULSE_PERIOD_MS } from './vibe-pulse.js';
 
 export const INTIFACE_STORAGE_KEY = 'edgeloop_intiface_devices';
 export const DEFAULT_INTIFACE_URL = 'ws://localhost:12345';
@@ -193,6 +196,7 @@ function clearAxisTimers(dev) {
     dev.axes.forEach((axis) => {
         if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
         if (axis.testTimer) { clearTimeout(axis.testTimer); axis.testTimer = null; }
+        cutPulse(axis);
     });
 }
 
@@ -462,6 +466,15 @@ function makeAxis(kind, attr, position, parsed, saved) {
         role,
         maxCap: Number.isFinite(cap) ? Math.max(0, Math.min(100, Math.round(cap))) : 100,
         invert: Boolean(savedAxis && savedAxis.invert),
+        // Vibrate axes only: Constant (the engine's level as it is) or
+        // Pulsed (vibe-pulse.js), and the pulse period. The running train
+        // is { startedAt, timer }, or null.
+        vibeMode: kind === 'scalar' && attr.actuatorType === 'Vibrate'
+            ? (readVibeMode(savedAxis && savedAxis.vibeMode) || DEFAULT_VIBE_MODE)
+            : DEFAULT_VIBE_MODE,
+        pulsePeriodMs: (kind === 'scalar' && attr.actuatorType === 'Vibrate' && readPulsePeriod(savedAxis && savedAxis.pulsePeriodMs))
+            || DEFAULT_PULSE_PERIOD_MS,
+        pulse: null,
         planner: kind === 'linear' ? createStrokePlanner() : null,
         timer: null,
         testTimer: null,
@@ -538,6 +551,10 @@ export function saveIntifaceConfig() {
         const axes = {};
         dev.axes.forEach((axis) => {
             axes[axis.key] = { role: axis.role, maxCap: axis.maxCap, invert: Boolean(axis.invert) };
+            if (axis.kind === 'scalar' && axis.type === 'Vibrate') {
+                axes[axis.key].vibeMode = axis.vibeMode;
+                axes[axis.key].pulsePeriodMs = axis.pulsePeriodMs;
+            }
         });
         all[dev.signature] = {
             name: dev.name,
@@ -574,6 +591,61 @@ function sendScalar(dev, axis, value) {
     if (!sendDeviceCmd(dev, axis, buildScalarCmd(nextId(), dev.index, [{ index: axis.index, scalar: value, actuatorType: axis.type }]))) return false;
     axis.lastSent = value;
     return true;
+}
+
+function speedForRole(role) {
+    if (role === 'primary') return lastSpeeds.primary;
+    if (role === 'secondary') return lastSpeeds.secondary;
+    return 0;
+}
+
+// ---- pulsed vibration (vibe-pulse.js) -------------------------------------
+
+function isPulsed(axis) {
+    return axis.kind === 'scalar' && axis.type === 'Vibrate' && axis.vibeMode === 'pulsed';
+}
+
+// Stop a pulse train where it is. Once this returns, no later tick of that
+// train can go out: its timer is cleared, and the callback checks that its
+// train is still the axis's own all the same.
+function cutPulse(axis) {
+    if (!axis || !axis.pulse) return;
+    if (axis.pulse.timer) clearTimeout(axis.pulse.timer);
+    axis.pulse = null;
+}
+
+function armPulse(dev, axis, now) {
+    const train = axis.pulse;
+    if (!train) return;
+    const { changeAt } = pulsePhase(train.startedAt, now, axis.pulsePeriodMs);
+    train.timer = setTimeout(() => {
+        if (axis.pulse !== train) return;
+        train.timer = null;
+        if (!isIntifaceConnected() || intifaceDevices.get(dev.index) !== dev) { axis.pulse = null; return; }
+        const t = Date.now();
+        applyScalar(dev, axis, speedForRole(axis.role), t);
+        if (axis.pulse === train) armPulse(dev, axis, t);
+    }, Math.max(1, changeAt - now));
+}
+
+// A scalar axis takes the engine's speed as it is (Constant), or as the
+// peak of a pulse train (Pulsed). The train starts on the first positive
+// level, at the peak at once, and any 0 cuts it: a stop, a pause, OFF, or
+// a cap of 0.
+function applyScalar(dev, axis, speed, now) {
+    const level = scalarFor(axis, speed);
+    if (!isPulsed(axis) || level <= 0) {
+        cutPulse(axis);
+        sendScalar(dev, axis, level);
+        return;
+    }
+    let fresh = false;
+    if (!axis.pulse) {
+        axis.pulse = { startedAt: now, timer: null };
+        fresh = true;
+    }
+    sendScalar(dev, axis, pulseLevel(level, pulsePhase(axis.pulse.startedAt, now, axis.pulsePeriodMs).on));
+    if (fresh) armPulse(dev, axis, now);
 }
 
 function sendRotate(dev, axis, value) {
@@ -645,7 +717,7 @@ function applyAxis(dev, axis, primary, secondary, zone, now) {
         maybeAlternate(dev, now, value > 0);
         sendRotate(dev, axis, value);
     } else {
-        sendScalar(dev, axis, scalarFor(axis, speed));
+        applyScalar(dev, axis, speed, now);
     }
 }
 
@@ -700,6 +772,7 @@ function restAxisNow(dev, axis) {
     } else if (axis.kind === 'rotate') {
         sendRotate(dev, axis, 0);
     } else {
+        cutPulse(axis);
         sendScalar(dev, axis, 0);
     }
 }
@@ -727,6 +800,25 @@ export function setAxisMaxCap(devIdx, axisIdx, maxCap) {
     const n = Number(maxCap);
     axis.maxCap = Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 100;
     saveIntifaceConfig();
+    if (isIntifaceConnected() && axis.role !== 'off') {
+        applyAxis(dev, axis, lastSpeeds.primary, lastSpeeds.secondary, lastZone, Date.now());
+    }
+    return true;
+}
+
+// Vibrate axes: Constant or Pulsed, and the pulse period (vibe-pulse.js).
+// Either change starts a fresh train, at its peak, at once.
+export function setAxisVibeMode(devIdx, axisIdx, { mode, periodMs } = {}) {
+    const dev = intifaceDevices.get(devIdx);
+    const axis = dev && dev.axes[axisIdx];
+    if (!axis || axis.kind !== 'scalar' || axis.type !== 'Vibrate') return false;
+    const nextMode = mode === undefined ? axis.vibeMode : readVibeMode(mode);
+    const nextPeriod = periodMs === undefined ? axis.pulsePeriodMs : readPulsePeriod(periodMs);
+    if (!nextMode || !nextPeriod) return false;
+    axis.vibeMode = nextMode;
+    axis.pulsePeriodMs = nextPeriod;
+    saveIntifaceConfig();
+    cutPulse(axis);
     if (isIntifaceConnected() && axis.role !== 'off') {
         applyAxis(dev, axis, lastSpeeds.primary, lastSpeeds.secondary, lastZone, Date.now());
     }
@@ -792,6 +884,10 @@ export function testSingleAxis(devIdx, axisIdx) {
         return true;
     }
 
+    // Test identifies the motor with one steady buzz. A running pulse train
+    // is cut first so its timer cannot turn the axis back on during the buzz,
+    // and the next engine tick starts a fresh train if the session is still going.
+    cutPulse(axis);
     sendDeviceCmd(dev, axis, buildScalarCmd(nextId(), dev.index, [{ index: axis.index, scalar: level, actuatorType: axis.type }]));
     axis.lastSent = null;
     if (axis.testTimer) clearTimeout(axis.testTimer);

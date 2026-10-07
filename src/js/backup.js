@@ -44,6 +44,7 @@ import { SETTING_KEYS } from './state.js';
 // re-exported here because this module's own tests and callers reach for it
 // alongside the rest of the file's shaping.
 import { sanitizeLearningProfile, MAX_LEARNED_OFFSET_BPM, SETTING_SANITIZERS } from './settings-schema.js';
+import { readVibeMode, readPulsePeriod } from './hardware/vibe-pulse.js';
 export { sanitizeLearningProfile, MAX_LEARNED_OFFSET_BPM };
 
 export const BACKUP_FORMAT = 'edgeloop-backup';
@@ -158,13 +159,22 @@ export function sanitizeMaxCap(value) {
 
 // An axis entry keeps only what the drivers read back. An unreadable role or
 // cap is OMITTED rather than defaulted, so the driver's own default for that
-// device applies instead of a value this file never really carried.
-function sanitizeAxis(raw) {
+// device applies instead of a value this file never really carried. An
+// Intiface axis (extras) also carries its vibration mode, Constant or
+// Pulsed, and its pulse period, one of three (vibe-pulse.js), the same way:
+// anything else is left out and the driver's Constant applies.
+function sanitizeAxis(raw, { extras = false } = {}) {
     if (!isPlainObject(raw)) return null;
     const axis = { invert: raw.invert === true };
     if (AXIS_ROLES.includes(raw.role)) axis.role = raw.role;
     const cap = sanitizeMaxCap(raw.maxCap);
     if (cap !== null) axis.maxCap = cap;
+    if (extras) {
+        const mode = readVibeMode(raw.vibeMode);
+        if (mode) axis.vibeMode = mode;
+        const period = readPulsePeriod(raw.pulsePeriodMs);
+        if (period) axis.pulsePeriodMs = period;
+    }
     return axis;
 }
 
@@ -174,7 +184,7 @@ function sanitizeDevice(raw, { extras }) {
     if (isPlainObject(raw.axes)) {
         for (const key of Object.keys(raw.axes).slice(0, MAX_AXES_PER_DEVICE)) {
             if (key.length > MAX_DEVICE_KEY_LENGTH) continue;
-            const axis = sanitizeAxis(raw.axes[key]);
+            const axis = sanitizeAxis(raw.axes[key], { extras });
             if (axis) axes[key] = axis;
         }
     }

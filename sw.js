@@ -6,7 +6,7 @@
 // offline once it has been visited. Bump CACHE_VERSION when the precache list
 // changes; old caches are removed on activate.
 
-const CACHE_VERSION = 'edgeloop-v4';
+const CACHE_VERSION = 'edgeloop-v5';
 const PRECACHE = [
     './',
     './index.html',
@@ -32,6 +32,7 @@ const PRECACHE = [
     './src/js/hardware/handy.js',
     './src/js/hardware/handy-protocol.js',
     './src/js/hardware/intiface.js',
+    './src/js/hardware/vibe-pulse.js',
     './src/js/hardware/buttplug-protocol.js',
     './src/js/hardware/stroke-planner.js',
     './src/js/hardware/tcode.js',
