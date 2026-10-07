@@ -275,6 +275,9 @@ export function calculateEngineOutputs({
 
     const triggerHr = resolveEdgeTriggerHr(maxHr, edgeHoldPercent, minHr);
     const edgeSource = Number.isFinite(edgeHr) ? edgeHr : hr;
+    // Hold to is where the toys ease off. An edge is the pulse reaching the
+    // max itself. A lower Hold to must not count one early.
+    const atPullback = edgeSource >= triggerHr;
 
     // Force Orgasm FREEZES the edge flag; it never clears it. The overdrive
     // raises the working ceiling 1 BPM per second, and the pullback mark
@@ -286,12 +289,12 @@ export function calculateEngineOutputs({
     // never left the mark. New edges were already suppressed here; releases
     // are too, so the flag stays whatever the pulse last really said and the
     // first tick after a cancel judges it against the real ceiling again.
-    if (edgeSource >= triggerHr) {
+    if (edgeSource >= maxHr) {
         if (!isEdged && !orgasmMode && sessionStatus !== 'RAMPDOWN') {
             newEdgeTriggered = true;
             nextIsEdged = true;
         }
-    } else if (!orgasmMode && hasReleasedEdge(edgeSource, maxHr, triggerHr)) {
+    } else if (!orgasmMode && hasReleasedEdge(edgeSource, maxHr, maxHr)) {
         nextIsEdged = false;
     }
 
@@ -331,7 +334,7 @@ export function calculateEngineOutputs({
         shapedProgress: progress,
         sensorRaw: sensorRawProgress,
         climbProgress,
-        atPeak: nextIsEdged && !orgasmMode,
+        atPeak: atPullback && !orgasmMode,
         crawlPercent,
         stallGuardEngaged,
         seconds,

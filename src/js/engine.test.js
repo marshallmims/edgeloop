@@ -800,14 +800,19 @@ describe('engine safety guards', () => {
         }
     });
 
-    it('hysteresis: the edge only releases below ceiling minus the release band', () => {
+    it('hysteresis: the edge only releases below the max minus the release band', () => {
         assert.equal(EDGE_RELEASE_BPM, 5);
         assert.equal(hasReleasedEdge(134, 140), true);
         assert.equal(hasReleasedEdge(135, 140), false);
         assert.equal(hasReleasedEdge(NaN, 140), false);
+        // 136 is under a 100% Hold to (the max) and still inside the latch,
+        // so the tease curve is allowed to move again while the edge stays on.
         const stillEdged = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 136, isEdged: true });
         assert.equal(stillEdged.isEdged, true);
-        assert.equal(stillEdged.primaryPercent, 0);
+        assert.ok(stillEdged.primaryPercent > 0, 'speed follows Hold to, not the edge latch');
+        const atMax = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 140, isEdged: true });
+        assert.equal(atMax.isEdged, true);
+        assert.equal(atMax.primaryPercent, 0);
         const boundary = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 135, isEdged: true });
         assert.equal(boundary.isEdged, true);
         const released = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 134, isEdged: true });
@@ -962,8 +967,18 @@ describe('engine safety guards', () => {
             ceilingBehaviour: 'crawl',
             edgeHoldPercent: 95
         });
-        assert.equal(early.newEdgeTriggered, true);
+        assert.equal(early.newEdgeTriggered, false, 'Hold to slows the toys and does not count an edge');
+        assert.equal(early.isEdged, false);
         assert.equal(early.primaryPercent, CRAWL_PERCENT);
+        const atMax = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 140,
+            isEdged: false,
+            ceilingBehaviour: 'crawl',
+            edgeHoldPercent: 95
+        });
+        assert.equal(atMax.newEdgeTriggered, true, 'the edge waits for the max');
         const below = calculateEngineOutputs({
             ...running,
             activeMode: 'classic',
@@ -1160,7 +1175,7 @@ describe('game-side edge release', () => {
             isEdged: false,
             edgeHoldPercent: 90
         });
-        assert.equal(phantom.newEdgeTriggered, true, 'clearing the flag at 130 costs one phantom edge');
+        assert.equal(phantom.newEdgeTriggered, false, '130 is above Hold to and still under the max, so it is not an edge');
     });
 
     it('gameEdgeReleased refuses to answer without a pullback mark', () => {

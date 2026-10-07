@@ -1384,7 +1384,7 @@ function tickSessionGuardsAndGames() {
         { holdSeconds: state.edgeStallSeconds, pauseSeconds: state.stallPauseElapsed, engaged: state.stallGuardEngaged },
         {
             armed: guardArmed,
-            isEdged: state.isEdged,
+            isEdged: Number.isFinite(state.edgeTriggerHr) ? hr >= state.edgeTriggerHr : state.isEdged,
             holdTimeoutSeconds: advancedSettings.stallGuardSeconds,
             pauseTimeoutSeconds: advancedSettings.stallPauseSeconds
         }
