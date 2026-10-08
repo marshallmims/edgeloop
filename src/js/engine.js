@@ -9,7 +9,7 @@
 import { normalizeEnvelope } from './hardware/handy-protocol.js';
 import { teaseFrame, warmupShape, placeStroke, orgasmFrame } from './patterns.js';
 
-export const TEASE_MODES = ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+export const TEASE_MODES = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
 export const GAME_MODES = ['oracle', 'survival', 'edgetrain', 'calibrate'];
 
 export function resolveTeaseMode(strokeMode, activeMode) {
@@ -20,6 +20,7 @@ export function resolveTeaseMode(strokeMode, activeMode) {
 
 export const ENGINE_MODES = [
     'classic',
+    'finisher',
     'milker',
     'shortener',
     'headplay',
@@ -132,7 +133,7 @@ export function resolveEngineMode(mode) {
 // which is a no-op at full depth.
 export function micBoostReachesMotors(activeMode, { edgeStrokeDepth = 100 } = {}) {
     const mode = resolveEngineMode(activeMode);
-    if (mode === 'oracle' || mode === 'edgetrain') return false;
+    if (mode === 'oracle' || mode === 'edgetrain' || mode === 'finisher') return false;
     if (isUncappedClimb(mode)) return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
     return true;
 }
