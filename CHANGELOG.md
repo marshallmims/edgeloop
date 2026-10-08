@@ -6,10 +6,10 @@ credited by username.
 
 ## 1.1.3
 
-Calibration, two climax numbers, and one card for the stroke and the goal. Shipped as the next number so it can be tested, the same way 1.1.2 was. This is the number on dev.edgeloop.app, and the same number ships to edgeloop.app when it is released. The footer DEV badge is the host, not a second version.
+Calibration, two climax numbers, and one card for the stroke and the goal. Released on edgeloop.app after testing on dev.edgeloop.app. The footer DEV badge is the host, not a second version.
 
 ### Calibration
-- **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Resting heart rate is assumed at 70 and is no longer a field. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
+- **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
 - **Force Orgasm and the ease-down start from the speed the toys are at.** Arming Force Orgasm on the mark used to begin at the ceiling cut, 0% or crawl, and then climb. Marking an orgasm used to open the stroke to a fresh pattern while the speed eased. Both now start from the speed and stroke just sent, then ramp up or ease down from there.
 - **An indicated orgasm eases down.** Calibration and Came Early no longer cut the toys the moment you say you came. Cancelling Force Orgasm no longer snaps back to full speed. The toys ease from the speed they were at down to Crawl or Full Stop, whichever you set for the ceiling. The length is **Ease down after orgasm** on the Guards tab (0–180 seconds, 45 by default). 0 cuts immediately. An ending then stops the session. Cancelling Force Orgasm hands the mode back after the ease. STOP still cuts immediately.
 - **Survival can go again.** Finished me eases down, then the climb and the warm-up start over. The session timer keeps running, so one session can hold more than one orgasm.
