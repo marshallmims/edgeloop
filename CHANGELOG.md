@@ -8,6 +8,8 @@ credited by username.
 
 Calibration, two climax numbers, and one card for the stroke and the goal. Released on edgeloop.app after testing on dev.edgeloop.app. The footer DEV badge is the host, not a second version.
 
+- **VacuGlide 2.** The device card no longer says experimental. STOP still stops the motor and closes both valves. Keep the power button in reach.
+
 ### Calibration
 - **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
 - **Force Orgasm and the ease-down start from the speed the toys are at.** Arming Force Orgasm on the mark used to begin at the ceiling cut, 0% or crawl, and then climb. Marking an orgasm used to open the stroke to a fresh pattern while the speed eased. Both now start from the speed and stroke just sent, then ramp up or ease down from there.
