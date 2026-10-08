@@ -31,6 +31,7 @@ Calibration, two climax numbers, and one card for the stroke and the goal. Shipp
 
 ### Site
 - **dev.edgeloop.app.** A separate copy for development. Pushes to the `dev` branch publish there. `main` still publishes edgeloop.app. The footer shows DEV on that host. Settings and pairings on the dev site are its own, not the live site's. The version number is the release number, shared with production when this build ships.
+- **wiki.edgeloop.app.** User pages for letting the browser see Bluetooth, heart-rate monitors and how often they update, connecting a toy, and how a session decides. The footer links there. Pushes to `dev` and to `main` publish it.
 
 ## 1.1.2
 

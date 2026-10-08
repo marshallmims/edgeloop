@@ -1,0 +1,119 @@
+<p class="lede">A pulse comes in. The page turns it into a primary speed, a secondary speed, and a stroke window. Each connected toy turns those three numbers into the command that toy understands. Nothing about that decision leaves the browser, except a partner link, which only carries commands the page has already decided.</p>
+
+<h2>The browser is the whole loop</h2>
+
+<p>There is no EdgeLoop service choosing a speed. The files in the tab are the program. A heart-rate notification is handled in the tab. The curve is computed in the tab. The Handy request, the Intiface message, and the T-Code line are sent from the tab.</p>
+
+<p>That is why a monitor paired on <a href="https://edgeloop.app">edgeloop.app</a> is unknown on <a href="https://dev.edgeloop.app">dev.edgeloop.app</a>. The browser treats them as two sites, and the pairing lives with the site.</p>
+
+<h2>Three clocks</h2>
+
+<ol>
+  <li><strong>Every usable notification.</strong> A BPM from 35 to 250 updates the number on the cockpit and runs the engine immediately. The toys can move on the packet, without waiting for the next second.</li>
+  <li><strong>Once a second.</strong> The session clock runs the engine again, on the pulse it already has, and then the guards and the goals. An edge, an Oracle hold, a Survival step, Edge Training's count, and the end of a timed session are all decided on this clock.</li>
+  <li><strong>Four times a second.</strong> The speed and the stroke that were actually sent are written down. A funscript export is that record, a <code>.funscript</code> for the primary and a <code>.v0.funscript</code> for the secondary. The record kept in the tab is capped at four hours. The download is how a session leaves the browser. Session history is never put in a settings backup.</li>
+</ol>
+
+<h2>Three numbers</h2>
+
+<p>The engine's output, every time it runs, is:</p>
+
+<ul>
+  <li>A <strong>primary speed</strong>, 0 to 100. This is the stroker.</li>
+  <li>A <strong>secondary speed</strong>, 0 to 100. This is the other channel.</li>
+  <li>A <strong>stroke window</strong>, two percentages. They are a slice of the travel range you set on the toy. A pattern can use less of that range. It cannot go outside it. The narrowest window the engine will emit is 10 percent of the envelope. Anything tighter jams a sleeve in place.</li>
+</ul>
+
+<p>Primary toys receive the first and the third. Secondary toys receive the second. A toy set OFF receives nothing. <a href="/toys/#a-toy-needs-a-role">Roles</a> are that assignment.</p>
+
+<h2>Why the middle of a session stays strong</h2>
+
+<p>Resting heart rate is taken as 70. It is not a field you edit. The band the curve cares about runs from 70 up to the pullback mark. At the default settings the mark is your climax number. A pullback of 95 percent puts the mark earlier. It cannot be set above 100 percent. The typed climax number is a hard ceiling.</p>
+
+<p>Where the pulse sits in that band is then squared. The squaring is fixed at a power of 2. There is no control for it.</p>
+
+<p>On a single max of 140, the band is 70 to 140.</p>
+
+<ul>
+  <li>At 105 BPM the pulse is halfway up the band. The curve treats halfway as a quarter of the way to the ceiling, because 0.5 squared is 0.25. The base speed, before the small weave that keeps a steady pulse from becoming one beat, is still about three quarters.</li>
+  <li>At 126 BPM, the last fifth of the band, the squared curve is already most of the way up. The base speed has fallen to about a third.</li>
+  <li>The last few BPM, around 136 on this same pair, are where a weave is allowed to dip for real, including two waves lining up into a brief stop.</li>
+</ul>
+
+<p>That is the shape people feel as "it stays active, and then it gives way." The give-way is the top of the band. A session that used to die out around 120 on a max of 140 was a bug in 1.1.0, fixed in 1.1.1, and the curve above is the one 1.1.3 still uses.</p>
+
+<h2>When the stroke changes shape</h2>
+
+<p>Through most of the band every stroke mode rides that same falling curve on a long stroke, inside your travel range. The mode's own shape is allowed to show only in the last fifth of the band. On a 70 to 140 max, that starts around 126 BPM.</p>
+
+<ul>
+  <li><strong>Classic Tease</strong> stays a full stroke and lets the speed ease off. Length and tempo drift the whole way, so the same pulse is not one repeating beat. At the mark, Crawl or Full Stop decides the stroker.</li>
+  <li><strong>Glans Protector</strong> stays quicker than Classic, so the shorter stroke does not arrive as a stall. Near the mark the window closes on the base. At the mark it is the bottom 35 percent of your range. The secondary stays low.</li>
+  <li><strong>Head Play</strong> keeps a full stroke until that same point, then climbs toward the head. Speed comes down as the stroke shortens, and the stroke opens back up when the pulse drops.</li>
+  <li><strong>Prostate Milker</strong> cross-fades the whole way: the stroker backs off, the internal toy takes over. Short bursts, and a secondary that pulses instead of sitting at full power, wait until you are actually near the mark.</li>
+  <li><strong>Ultimate Milker</strong> changes chapter. A long stroke holds through the lower part of the band (under about 102 BPM on a 70/140 pair). The stop-and-burst chapter waits until you are near the mark, about 136 on that pair. Opening that chapter earlier is what made 1.1.0 feel like it had given up in the middle.</li>
+  <li><strong>Ruin &amp; Leak</strong> keeps a real stroke on the mark. Crawl and Full Stop do not govern it. After about 12 seconds continuously on the mark, the primary cuts for 18 seconds and the secondary drops to 18 percent.</li>
+</ul>
+
+<p>A goal keeps its own speeds. The stroke window still comes from the stroke you picked. Tease means no goal: the stroke runs on its own. <a href="/session/">How a session is decided</a> is the goal and the guards.</p>
+
+<h2>At the ceiling</h2>
+
+<p><strong>Full Stop</strong> parks the primary at 0. <strong>Crawl</strong> holds it at 10 percent, so the edge stays alive. The secondary keeps whatever the stroke gives it at the ceiling. The stall guard, if you turned it on, can cut the primary during a crawl and only the primary. Survival and Calibration do not park. They keep climbing. Force Orgasm overrides the park.</p>
+
+<p>An edge is counted when the pulse reaches the climax number, not when it reaches an earlier pullback. The edge releases 5 BPM below that number, so a reading hovering on the line cannot flap the counter. The toys may already be parked at the pullback while the counter is still waiting for the number you typed.</p>
+
+<h2>The Handy</h2>
+
+<p>HAMP mode takes a velocity and a slide range. Velocity is sent at most once every 400 milliseconds, which is the API's rate. The slide range is sent at most once a second, and again as soon as it changes. The range is your envelope, then the end-stop margin. The motor is started after the range has been confirmed.</p>
+
+<p>A stop is not assumed. The page waits until the API confirms it, and retries. A Handy that went offline keeps receiving stops in the background until one is confirmed, or until that background effort gives up after about five minutes. Disconnect, and closing the tab, both send a stop. The details of the key and the margin are on <a href="/toys/#the-handy">Connect a toy</a>.</p>
+
+<h2>A stroker through Intiface</h2>
+
+<p>A linear axis is driven one stroke leg at a time. A leg is a single command that carries the whole move, from one end of the window to the other. The carriage is not fed a stream of tiny updates.</p>
+
+<ul>
+  <li>At full speed a leg is about 180 milliseconds.</li>
+  <li>At the slow end a leg is about 2.2 seconds.</li>
+  <li>Nothing shorter than 120 milliseconds is sent.</li>
+  <li>A shorter window takes proportionally less time. The first leg after a rest, if it has to cross more than the window, gets longer rather than snapping.</li>
+</ul>
+
+<p>A new speed, a new cap, or a new window applies on the next leg. The leg already in flight finishes. Stop lets that leg finish, then sends one move to the rest position over about 400 milliseconds, then silence. Setting the axis OFF interrupts the leg and rests it immediately.</p>
+
+<p>This is the difference people feel between a smooth OSR-class stroker and one that chatters. One command per leg is the smooth one.</p>
+
+<h2>Vibration and rotation</h2>
+
+<p>A vibrate axis gets the secondary number, under that axis's cap. Constant holds the number. Pulsed is a square wave: on for half of 0.8, 1.6, or 2.4 seconds, off for half. The engine's number is the peak of the on half. Stop, pause, and OFF cut the pulse at once.</p>
+
+<p>A rotator can reverse when an edge is counted, and it can alternate direction on a timer you set from 5 to 60 seconds. Rotation swings around the centre by the engine speed. The period follows the speed, not a stroke length.</p>
+
+<p>An OSSM reached through Intiface is one motor even though Intiface lists Position and Oscillate. Position is the axis to leave on. <a href="/toys/#an-ossm-through-intiface">Connect a toy</a> has the travel-range rule for Oscillate.</p>
+
+<h2>T-Code</h2>
+
+<p>A T-Code stroker on the USB card receives a line of axis positions at 115200 8N1. The stroke axis and the vibration axis follow the same primary and secondary numbers. Rotation axes swing around centre by the speed. Stop, pause, and a failed write bring every axis to rest on one line. There is no end-stop margin on this path. The window you set is the window that is sent, and a wider window is a longer, slower stroke.</p>
+
+<h2>VacuGlide</h2>
+
+<p>The VacuGlide is asked, rather than pushed. During a session the page checks the link about every 10 seconds. Idle, about every 30. Three checks in a row that cannot reach it take the link down.</p>
+
+<p>Speed follows the role you assigned, under the cap. The valves are buttons. A press opens Valve + or Valve − for the time you set (0.3–2 seconds, default 1) and then closes it. The curve never moves a valve. Stop stops the motor and closes both valves. Up and down on the keyboard pulse the valves when the toy is connected, unless you have rebound those keys.</p>
+
+<h2>Intensity, and the microphone</h2>
+
+<p>The intensity slider scales whatever the pattern is doing. At the middle, which is the default, the scale is 1. At the bottom the speeds are halved. At the top they are one and a half times. A real stop stays 0. The slider cannot turn a stop into motion.</p>
+
+<p>Slowest and Fastest, under the slider, are a window of 0–100, default 0 and 100. A moving stroke is scaled into that window. 0 is still a stop, so Full Stop, STOP, and the bottom of an ease-down still stop.</p>
+
+<p>The microphone, if you turn it on, listens for voice and panting above a noise gate you set. Louder adds extra BPM, up to the cap you set (0–20, default 8), to the pulse the falling curve uses. It can only ease the toys off. Everything that rises with arousal, including the climb in Edge Training and The Oracle and the rising secondary of the milking strokes, uses the pulse the monitor measured, alone. A television, a headset, or a partner in the room cannot push a toy harder. In The Oracle and Edge Training the boost reaches no motor at all, and the badge stays on <strong>MIC LISTEN</strong>.</p>
+
+<p>The BPM on screen, the edge counter, the goals, the guards, and the saved peak all use the measured pulse. Room noise cannot count an edge or end a Survival run. While the watchdog is holding a reading, the microphone boost is frozen at its last value. It cannot grow during a gap, and one missed packet cannot make the toys jump.</p>
+
+<h2>Stop</h2>
+
+<p>STOP cuts. It does not ease down. It clears Force Orgasm. It is sent to every connected toy, and for The Handy it is retried until confirmed. Pause sends the same silence and keeps the session where it was. A heart-rate loss, an unplugged serial port, a Handy that stops answering, and a VacuGlide stopped from its own app all pause rather than keep commanding a device the page is no longer sure of.</p>
+
+<p>Closing the tab sends a last stop to The Handy, to Intiface (<code>StopAllDevices</code>), and, as far as a closing tab can, to the VacuGlide. The VacuGlide stop that a closed tab could not confirm is finished the next time the page opens.</p>

@@ -1,0 +1,116 @@
+<p class="lede">EdgeLoop connects to a monitor that advertises the standard Bluetooth Heart Rate service. The browser asks for that service by name. A watch or strap that speaks only a private protocol never appears in the chooser, and the app has no second protocol to fall back on.</p>
+
+<h2>What the app will connect to</h2>
+
+<p>The service is the Bluetooth SIG Heart Rate service, GATT <code>0x180D</code>. The page subscribes to notifications on the Heart Rate Measurement characteristic. It also reads the battery service when the device has one. Battery is optional. The heart-rate subscription is not.</p>
+
+<p>Each notification can carry a pulse, a sensor-contact flag, and sometimes the time between beats. EdgeLoop drives the toys from the pulse. A contact flag that says the sensor is off the skin is shown as no skin contact. The beat-to-beat intervals are read out of the packet and then not used.</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Reported by people using the app, including the author's daily setup. A blank cell would be a guess, so the table only lists what has actually been said.</caption>
+  <thead>
+    <tr>
+      <th>Monitor</th>
+      <th>How it reaches EdgeLoop</th>
+      <th>Reported update</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Google Pixel Watch, Pixel Watch 2</td>
+      <td>The watch broadcasts heart rate over Bluetooth. The author's monitor is a Pixel Watch 2. Turn on heart-rate broadcasting, then pick the watch in the EdgeLoop chooser.</td>
+      <td>Watches in general: often every 2–5 seconds.</td>
+    </tr>
+    <tr>
+      <td>Samsung Galaxy Watch</td>
+      <td>No native broadcast. The Wear OS app Heart for Bluetooth, recommended by forum user AtagoWTS, rebroadcasts the pulse as a standard Heart Rate service. One person got it working with EdgeLoop on a phone and not on a desktop. Try the phone first.</td>
+      <td>A relay app: often every 2–5 seconds.</td>
+    </tr>
+    <tr>
+      <td>Apple Watch</td>
+      <td>HeartCast or Echo can broadcast the pulse. The browser has to be on a different device from the iPhone running that app. See <a href="/bluetooth/#iphone">iPhone</a>.</td>
+      <td>A relay app: often every 2–5 seconds.</td>
+    </tr>
+    <tr>
+      <td>Chest straps: Polar H10, Coospo H6M, Cycplus H2 Pro, a Garmin HRM that speaks Bluetooth, Wahoo TICKR</td>
+      <td>They advertise the Heart Rate service themselves. Pair from the chooser. Wet the electrodes. The Polar H10 is the strap people have found most regular. The Cycplus H2 Pro has been bought at around 30 USD.</td>
+      <td>About once a second. The Polar H10 has the best cadence of the straps reported so far.</td>
+    </tr>
+    <tr>
+      <td>Watches paired through GloryFit or Da Fit</td>
+      <td>These watches do not expose the Heart Rate service. They cannot work with EdgeLoop, or with any other app that asks for that service.</td>
+      <td>Does not connect.</td>
+    </tr>
+    <tr>
+      <td>No monitor yet</td>
+      <td>The Manual Simulator slider in the Bluetooth panel. Every stroke and every goal can be tried with it.</td>
+      <td>The slider is the pulse. It does not go stale.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>A Garmin strap that speaks only ANT+ will not appear. The browser has no ANT+ radio. "Garmin HRM" in the table means a Garmin strap that advertises the standard Heart Rate service.</p>
+
+<h2>Make it advertise</h2>
+
+<p>The chooser can only list a device that is advertising at the moment you open it. "BLE mode" for this app means that advertisement, of the Heart Rate service, with no other app holding the connection.</p>
+
+<h3>A chest strap</h3>
+
+<ol>
+  <li>Snap the pod onto the strap if it comes off. Wet the electrodes. A dry strap can still transmit, and the page will say there is no pulse. The cockpit shows <strong>NO SKIN CONTACT</strong>.</li>
+  <li>Put it on, snug, under the chest. Most of these straps wake when the electrodes see skin. If the pod has a light and the light stays dark, press the button on the pod until it blinks. The blink pattern differs by model. The thing you need is the light on, and the strap advertising.</li>
+  <li>Quit the vendor's phone app if it is connected. Polar Beat, Wahoo, a bike computer, and the system Bluetooth list all count. Then open the chooser in EdgeLoop and pick the strap there.</li>
+  <li>The Polar H10 can be heard by two Bluetooth listeners at once, so a watch and the browser can both have it. Many other straps can be held by only one listener. If the strap is missing from the chooser, the usual reason is that the other listener still has it.</li>
+</ol>
+
+<h3>Pixel Watch</h3>
+
+<p>Turn on heart-rate broadcasting on the watch. That is the setting gym equipment uses, and the menu has moved between watch updates, so the reliable search is the word "broadcast" in the watch's settings. Once it is on, the watch advertises the Heart Rate service and shows up in the EdgeLoop chooser. Leave the Fitbit or Pixel Watch app from owning an exclusive connection if the chooser stays empty.</p>
+
+<h3>Galaxy Watch</h3>
+
+<p>Install Heart for Bluetooth on the watch and start its broadcast. EdgeLoop then sees a standard Heart Rate device, which is the phone or the computer picking up that broadcast. Native Samsung heart-rate sharing does not speak the service the browser asks for.</p>
+
+<h3>Apple Watch</h3>
+
+<p>Install HeartCast or Echo and start the broadcast. Run EdgeLoop on a second device. Bluefy on the same iPhone that is running the broadcast app cannot see it. A chest strap paired in Bluefy skips the watch entirely, and it is the more regular signal when you have one.</p>
+
+<h2>How often a new number arrives</h2>
+
+<p>EdgeLoop does not poll a heart-rate monitor. The monitor sends a notification when it has a measurement, and a usable measurement is applied as soon as it arrives. Usable means 35 to 250 BPM. A number under 35 is ignored. An empty packet does not become a heart rate of zero, and the toys do not fall on the strength of it.</p>
+
+<p>The session also looks at the last usable number once a second. That clock is when an edge is counted, a goal steps forward, and the signal watchdog decides.</p>
+
+<p>The watchdog has two bands, measured from the last usable reading:</p>
+
+<ul>
+  <li><strong>Under 5 seconds.</strong> The reading is fresh. You cannot change this 5 seconds. It is fixed.</li>
+  <li><strong>From 5 seconds until the signal-loss timeout.</strong> The cockpit says <strong>HOLDING LAST READING</strong>. The toys keep using the last good pulse. The timeout is 8 seconds unless you change it on the Guards tab, where it can be anywhere from 3 to 20. Shorten it below 5 seconds and there is no separate hold. The session pauses at the timeout.</li>
+  <li><strong>Past the timeout.</strong> Every motor stops and the session pauses. With auto-resume on, which is the default, a usable reading starts the session again. With it off, the badge stays up until you press RESUME.</li>
+</ul>
+
+<p>A chest strap that notifies about once a second stays inside the fresh band. A watch or a relay app that notifies every 2 to 5 seconds spends its life in the hold, which is why the timeout wants to stay at 8 seconds or more for a watch. The toys are following a pulse that is already a few seconds old. When the next notification arrives, the change arrives all at once.</p>
+
+<p>A dropped Bluetooth link is retried three times, after 1 second, then 2, then 4. If it is still gone, the page says the sensor is lost. While those retries run, the hold rules above still apply to the last good pulse.</p>
+
+<h2>Accuracy</h2>
+
+<p>There is no EdgeLoop measurement of how many BPM a given monitor is off by. The page trusts the BPM in the notification. It does not average a window of readings. It does not derive a pulse from the beat-to-beat intervals some packets also carry. Those intervals are parsed and discarded. The stroke follows the BPM you can see on the cockpit.</p>
+
+<p>Two kinds of sensor behave differently inside that rule, and the difference is the one that matters in a session:</p>
+
+<ul>
+  <li>A chest strap is an electrical reading of the heartbeat. It needs wet electrodes on skin. When the contact is real, a new BPM tends to arrive about once a second, and the curve is steering on a current pulse.</li>
+  <li>A watch is an optical estimate, light through the skin. It updates more slowly, often every 2 to 5 seconds, and movement moves the estimate. A session is movement. The page cannot tell a late or wandered optical sample from a real change in pulse. The toys react to whichever number just arrived.</li>
+</ul>
+
+<p>That is the accuracy limit in this app. It is a description of the two kinds of sensor and of the timing above. It is not a tested error bar, and a future row in the table should bring a report of how often the number arrived, not a percentage from a product page.</p>
+
+<p>Where you set the climax number depends on the body and the toy, not on the monitor. Prostate-heavy sessions often reach the edge in the 80s or 90s. For those, a single max around 92–95 is the figure people have used, in place of the default 140. <a href="/session/#two-climax-numbers">Two climax numbers</a> is how that ceiling is chosen, including calibration.</p>
+
+<h2>No monitor yet</h2>
+
+<p>The Manual Simulator in the Bluetooth panel is a slider you move by hand. It feeds the same engine as a strap. It does not go stale, and the watchdog overlay stays hidden while it is engaged. If the watchdog has already paused a session, engaging the simulator does not restart the motors. Press RESUME yourself.</p>

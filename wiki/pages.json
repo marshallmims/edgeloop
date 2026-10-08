@@ -1,0 +1,75 @@
+[
+  {
+    "slug": "",
+    "file": "home.html",
+    "title": "EdgeLoop wiki",
+    "nav": "Start here",
+    "section": "Start",
+    "description": "User pages for EdgeLoop 1.1.3: Bluetooth on each platform, heart-rate monitors, connecting a toy, and how a session decides."
+  },
+  {
+    "slug": "bluetooth",
+    "file": "bluetooth.html",
+    "title": "Bluetooth in the browser",
+    "nav": "Bluetooth in the browser",
+    "section": "Connect",
+    "description": "How to let the browser see a heart-rate monitor on Windows, Mac, Linux, iPhone, iPad, and Android."
+  },
+  {
+    "slug": "heart-rate",
+    "file": "heart-rate.html",
+    "title": "Heart-rate monitors",
+    "nav": "Heart-rate monitors",
+    "section": "Connect",
+    "description": "Which monitors EdgeLoop can hear, how to make one advertise, how often a new pulse arrives, and what accuracy means here."
+  },
+  {
+    "slug": "toys",
+    "file": "toys.html",
+    "title": "Connect a toy",
+    "nav": "Connect a toy",
+    "section": "Connect",
+    "description": "Roles, The Handy over Wi-Fi, Intiface, T-Code over USB, and the Autoblow VacuGlide 2."
+  },
+  {
+    "slug": "control",
+    "file": "control.html",
+    "title": "How a toy is driven",
+    "nav": "How a toy is driven",
+    "section": "How it runs",
+    "description": "What the page does with a pulse: the clocks, the curve, and how each toy turns those numbers into motion."
+  },
+  {
+    "slug": "session",
+    "file": "session.html",
+    "title": "How a session is decided",
+    "nav": "How a session is decided",
+    "section": "How it runs",
+    "description": "Single and dual max, calibration, strokes, goals, guards, Force Orgasm, and what the browser remembers."
+  },
+  {
+    "slug": "partner",
+    "file": "partner.html",
+    "title": "A partner on another device",
+    "nav": "A partner elsewhere",
+    "section": "How it runs",
+    "description": "Share Control: one partner can run the session, and viewers can watch the pulse. The wearer's settings are the ones that count."
+  },
+  {
+    "slug": "trouble",
+    "file": "trouble.html",
+    "title": "When it stops",
+    "nav": "When it stops",
+    "section": "How it runs",
+    "description": "An empty Bluetooth chooser, no skin contact, a held reading, a paused session, and a toy that will not move."
+  },
+  {
+    "slug": "missing",
+    "file": "404.html",
+    "out": "404.html",
+    "title": "That page is not on the wiki",
+    "nav": false,
+    "section": "",
+    "description": "The EdgeLoop wiki does not have that page."
+  }
+]

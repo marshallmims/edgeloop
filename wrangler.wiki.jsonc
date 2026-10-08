@@ -1,0 +1,17 @@
+{
+  // The user wiki. Separate from the app Worker so a wiki deploy cannot
+  // replace edgeloop.app, and an app deploy cannot replace the wiki.
+  // `npx wrangler deploy --config wrangler.wiki.jsonc` publishes it and
+  // creates the wiki.edgeloop.app DNS record. Build wiki/dist first:
+  // `node wiki/build.js`.
+  "name": "edgeloop-wiki",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./wiki/dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "wiki.edgeloop.app", "custom_domain": true }
+  ]
+}
