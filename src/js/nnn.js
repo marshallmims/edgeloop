@@ -30,10 +30,23 @@ export function daysBetween(fromKey, toKey) {
     return Math.round((b - a) / 86400000);
 }
 
-export function freshNnn(date = new Date(), { dailyEdges = DEFAULT_DAILY_EDGES, denialPercent = DEFAULT_DENIAL_PERCENT } = {}) {
+function validDate(value, fallback) {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallback;
+}
+
+export function defaultEndDate(startKey) {
+    return startKey <= '2026-11-30' ? '2026-11-30' : startKey;
+}
+
+export function freshNnn(date = new Date(), { dailyEdges = DEFAULT_DAILY_EDGES, denialPercent = DEFAULT_DENIAL_PERCENT, startDate, endDate } = {}) {
     const daily = clampInt(dailyEdges, 1, 20, DEFAULT_DAILY_EDGES);
+    const start = validDate(startDate, dateKey(date));
+    const end = validDate(endDate, defaultEndDate(start));
     return {
-        lastDate: dateKey(date),
+        startDate: start,
+        endDate: end < start ? start : end,
+        // Opening the app on this day counts as checking in.
+        lastOpened: dateKey(date),
         dailyEdges: daily,
         denialPercent: clampInt(denialPercent, 0, 100, DEFAULT_DENIAL_PERCENT),
         edgesToday: 0,
@@ -49,8 +62,14 @@ export function sanitizeNnn(value, date = new Date()) {
     const base = freshNnn(date);
     if (!value || typeof value !== 'object') return base;
     const daily = clampInt(value.dailyEdges, 1, 20, base.dailyEdges);
+    const start = validDate(value.startDate, base.startDate);
+    let end = validDate(value.endDate, defaultEndDate(start));
+    if (end < start) end = start;
+    const lastOpened = validDate(value.lastOpened, null) || validDate(value.lastDate, null);
     return {
-        lastDate: typeof value.lastDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.lastDate) ? value.lastDate : base.lastDate,
+        startDate: start,
+        endDate: end,
+        lastOpened,
         dailyEdges: daily,
         denialPercent: clampInt(value.denialPercent, 0, 100, base.denialPercent),
         edgesToday: clampInt(value.edgesToday, 0, 999, 0),
@@ -62,23 +81,87 @@ export function sanitizeNnn(value, date = new Date()) {
     };
 }
 
-// Open the app on a later day. Yesterday still counts as having played.
-// Each day skipped after that adds one day's edges and 15 seconds of hold.
-export function catchUpNnn(state, date = new Date()) {
+// Where today sits in the window the wearer typed.
+export function nnnCalendar(state, date = new Date()) {
     const today = dateKey(date);
+    const length = daysBetween(state.startDate, state.endDate) + 1;
+    if (today < state.startDate) return { phase: 'before', day: 0, length, today };
+    if (today > state.endDate) return { phase: 'after', day: length, length, today };
+    return { phase: 'during', day: daysBetween(state.startDate, today) + 1, length, today };
+}
+
+// Days inside the window, before today, that the app was not opened.
+function missedDays(state, today) {
+    const start = state.startDate;
+    const opened = state.lastOpened && state.lastOpened >= start ? state.lastOpened : null;
+    if (today <= start) return 0;
+    const yesterday = daysBetween(start, today);
+    if (!opened) return yesterday;
+    if (opened >= today) return 0;
+    return Math.max(0, daysBetween(opened, today) - 1);
+}
+
+// Open the app on a new day. The start and end dates decide which days can
+// be missed. Each missed day adds one day's edges and 15 seconds of hold.
+export function catchUpNnn(state, date = new Date()) {
     const current = sanitizeNnn(state, date);
-    if (current.lastDate === today) return current;
-    const missed = Math.max(0, daysBetween(current.lastDate, today) - 1);
+    const where = nnnCalendar(current, date);
+    if (where.phase === 'before') {
+        return {
+            ...current,
+            edgesToday: 0,
+            quotaToday: current.dailyEdges,
+            holdSeconds: 0,
+            holdProgress: 0,
+            finished: false,
+            outcome: null
+        };
+    }
+    if (where.phase === 'after') return current;
+    if (current.lastOpened === where.today) return current;
+    const missed = missedDays(current, where.today);
     return {
         ...current,
-        lastDate: today,
+        lastOpened: where.today,
         edgesToday: 0,
-        quotaToday: current.dailyEdges + current.dailyEdges * missed,
+        quotaToday: current.dailyEdges * (1 + missed),
         holdSeconds: Math.min(NNN_HOLD_CAP_SECONDS, missed * NNN_HOLD_STEP_SECONDS),
         holdProgress: 0,
         finished: false,
         outcome: null
     };
+}
+
+export function setNnnDates(state, startDate, endDate, date = new Date()) {
+    const current = sanitizeNnn(state, date);
+    const today = dateKey(date);
+    const alreadyToday = current.lastOpened === today;
+    const edgesToday = current.edgesToday;
+    const outcome = current.outcome;
+    const rewound = catchUpNnn({
+        ...current,
+        startDate,
+        endDate,
+        lastOpened: alreadyToday ? null : current.lastOpened
+    }, date);
+    if (!alreadyToday) return rewound;
+    const finished = edgesToday >= rewound.quotaToday;
+    return {
+        ...rewound,
+        lastOpened: today,
+        edgesToday,
+        finished,
+        outcome: finished ? outcome : null
+    };
+}
+
+export function describeNnn(state, date = new Date()) {
+    const where = nnnCalendar(state, date);
+    if (where.phase === 'before') return `Starts ${state.startDate}. Day 1 is the first day.`;
+    if (where.phase === 'after') return `Ended ${state.endDate}. Day ${where.length} of ${where.length}.`;
+    const hold = state.holdSeconds > 0 ? ` · hold ${state.holdProgress}/${state.holdSeconds}s` : '';
+    const end = state.outcome === 'denied' ? ' · denied' : state.outcome === 'permitted' ? ' · permitted' : '';
+    return `Day ${where.day} of ${where.length} · Today ${state.edgesToday}/${state.quotaToday}${hold}${end}`;
 }
 
 export function addMissedDay(state) {
