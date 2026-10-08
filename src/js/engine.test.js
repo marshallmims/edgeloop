@@ -41,7 +41,7 @@ const running = {
 describe('engine modes', () => {
     it('lists every cockpit mode', () => {
         assert.deepEqual(ENGINE_MODES, [
-            'classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate'
+            'classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate', 'script'
         ]);
     });
 

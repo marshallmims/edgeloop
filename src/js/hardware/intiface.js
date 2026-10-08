@@ -46,6 +46,7 @@ import {
     linearStep
 } from './buttplug-protocol.js';
 import { createStrokePlanner } from './stroke-planner.js';
+import { createScriptPlanner, liveFeed } from './script-planner.js';
 import { readVibeMode, readPulsePeriod, pulsePhase, pulseLevel, DEFAULT_VIBE_MODE, DEFAULT_PULSE_PERIOD_MS } from './vibe-pulse.js';
 
 export const INTIFACE_STORAGE_KEY = 'edgeloop_intiface_devices';
@@ -493,12 +494,15 @@ function makeAxis(kind, attr, position, parsed, saved) {
             || DEFAULT_PULSE_PERIOD_MS,
         pulse: null,
         planner: kind === 'linear' ? createStrokePlanner() : null,
+        strokePlanner: null,
+        scriptPlanner: null,
         timer: null,
         testTimer: null,
         lastSent: null,
         failures: 0,
         failing: false
     };
+    if (axis.planner) axis.strokePlanner = axis.planner;
     return axis;
 }
 
@@ -533,6 +537,7 @@ function addDiscoveredDevice(raw) {
         if (osc.role !== 'off' && lin.role !== 'off') osc.role = 'off';
         lin.holds = true;
         lin.planner = createStrokePlanner({ hold: true });
+        lin.strokePlanner = lin.planner;
     });
     rotateDuplicates(parsed).forEach((pos) => {
         const axis = axes[pos];
@@ -722,6 +727,65 @@ function sendRotate(dev, axis, value) {
 // position), not around 0.5: a 20-100 % envelope must never produce a
 // physical 0-80 % move just because the sleeve is mounted upside down. The
 // rest move mirrors the same way, so a stop stays inside the envelope too.
+let scriptFeed = null;
+let unsubscribeScriptFeed = null;
+const scriptFeedNow = liveFeed(() => scriptFeed);
+
+function wantsScript(axis) {
+    if (axis.kind !== 'linear' || axis.role !== 'primary' || !scriptFeed) return false;
+    try {
+        return Boolean(scriptFeed.isActive());
+    } catch (e) {
+        return false;
+    }
+}
+
+function scriptPlannerOf(axis) {
+    if (!axis.scriptPlanner) {
+        axis.scriptPlanner = createScriptPlanner({
+            feed: scriptFeedNow,
+            hold: axis.holds,
+            profile: axis.holds ? 'ossm' : 'intiface'
+        });
+    }
+    return axis.scriptPlanner;
+}
+
+function syncScriptPlanner(axis, now) {
+    if (axis.kind !== 'linear' || !axis.strokePlanner) return;
+    const want = wantsScript(axis) ? scriptPlannerOf(axis) : axis.strokePlanner;
+    const current = axis.planner;
+    if (want === current) return;
+    const input = current && current.getInput ? current.getInput() : null;
+    const moving = input && input.enabled && input.effectiveSpeed > 0;
+    if (moving && current.isInFlight && current.isInFlight(now)) return;
+    const at = current && current.lastPosition ? current.lastPosition() : null;
+    want.reset();
+    want.place(at);
+    axis.planner = want;
+}
+
+function onScriptFeedChange() {
+    if (!isIntifaceConnected()) return;
+    const now = Date.now();
+    intifaceDevices.forEach((dev) => dev.axes.forEach((axis) => {
+        if (!axis.scriptPlanner || axis.planner !== axis.scriptPlanner) return;
+        axis.scriptPlanner.poke();
+        pumpLinear(dev, axis, now);
+    }));
+}
+
+export function setIntifaceScriptFeed(feed) {
+    if (unsubscribeScriptFeed) {
+        try { unsubscribeScriptFeed(); } catch (e) {}
+        unsubscribeScriptFeed = null;
+    }
+    scriptFeed = feed && typeof feed === 'object' ? feed : null;
+    if (scriptFeed && typeof scriptFeed.subscribe === 'function') {
+        try { unsubscribeScriptFeed = scriptFeed.subscribe(onScriptFeedChange); } catch (e) {}
+    }
+}
+
 function physicalPosition(axis, position) {
     if (axis.kind !== 'linear' || !axis.invert) return position;
     return lastEnvelope.min + lastEnvelope.max - position;
@@ -736,12 +800,22 @@ function pumpLinear(dev, axis, now = Date.now()) {
         if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
         return;
     }
+    syncScriptPlanner(axis, now);
     if (axis.holds) {
         pumpHeld(dev, axis, now);
         return;
     }
     const leg = axis.planner.next(now);
     if (!leg) return;
+    if (leg.kind === 'idle' || leg.kind === 'hold') {
+        if (leg.kind === 'hold') holdAxis(axis);
+        if (axis.timer) clearTimeout(axis.timer);
+        axis.timer = setTimeout(() => {
+            axis.timer = null;
+            pumpLinear(dev, axis, Math.max(Date.now(), axis.planner.legEndsAt()));
+        }, leg.durationMs || 0);
+        return;
+    }
     const position = physicalPosition(axis, leg.position);
     sendDeviceCmd(dev, axis, buildLinearCmd(nextId(), dev.index, [{ index: axis.index, position, durationMs: leg.durationMs }]));
     if (axis.timer) clearTimeout(axis.timer);
@@ -1064,6 +1138,11 @@ export function resetIntifaceForTests() {
         intifaceSocket = null;
     }
     clearAllDevices();
+    scriptFeed = null;
+    if (unsubscribeScriptFeed) {
+        try { unsubscribeScriptFeed(); } catch (e) {}
+        unsubscribeScriptFeed = null;
+    }
     scanning = false;
     msgId = 1;
     status = { state: 'offline', text: 'Offline' };

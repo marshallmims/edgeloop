@@ -115,6 +115,15 @@ export function warmupShape(seconds, warmupMinutes) {
     return { speed: 0.16 + 0.84 * ease, depth: 0.28 + 0.72 * ease };
 }
 
+// A speed in whole percent that cannot round away to a stop. Only a speed
+// that really is 0 stays 0.
+export const MIN_MOVING_PERCENT = 1;
+export function roundSpeed(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return clamp(Math.max(MIN_MOVING_PERCENT, Math.round(n)), 0, 100);
+}
+
 function roundPct(value) {
     return clamp(Math.round(value), 0, 100);
 }

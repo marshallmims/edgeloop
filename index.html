@@ -71,6 +71,12 @@
           <span>Session Setup</span>
         </button>
 
+<!-- The player section (your own video and .funscript) -->
+        <button id="playerHeaderBtn" type="button" aria-label="Player" aria-controls="playerSection" aria-expanded="false" class="min-h-[44px] min-w-[44px] justify-center bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-sky-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span class="hidden sm:inline">Player</span>
+        </button>
+
         <!-- Share Remote Control -->
         <div class="relative">
           <button id="partnerShareBtn" class="bg-purple-950/60 hover:bg-purple-900 border border-purple-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
@@ -87,6 +93,112 @@
         </div>
       </div>
     </header>
+
+<section id="playerSection" aria-label="Player" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 sm:p-3 space-y-2.5">
+      <div class="flex items-center justify-between gap-2 min-w-0">
+        <button id="playerToggleBtn" type="button" aria-controls="playerBody" aria-expanded="false" class="flex items-center gap-1.5 min-w-0 text-left cursor-pointer min-h-[44px]">
+          <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span id="playerStrip" class="text-[11px] font-semibold text-slate-300 truncate">Player: your own video and .funscript, played with your pulse as the limiter</span>
+        </button>
+        <span id="playerStripPhase" class="hidden shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-700 text-sky-300 font-mono"></span>
+      </div>
+
+      <div id="playerBody" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-3">
+        <div class="lg:col-span-7 space-y-1.5 min-w-0">
+          <div id="playerStage" data-theater="off" data-immersive="off" class="relative bg-black rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center">
+            <video id="playerVideo" playsinline preload="auto" class="block w-full max-h-[40vh] bg-black"></video>
+            <!-- The HUD: only in theater and fullscreen. Its readouts hide
+                 after 4 s and come back on a tap or a mouse move; PAUSE and
+                 STOP only fade, and take a press at any time. -->
+            <div id="playerHud" data-idle="off" class="hidden absolute inset-0 pointer-events-none">
+              <div class="hud-info absolute top-0 inset-x-0 p-3 flex justify-between items-start gap-3 bg-gradient-to-b from-black/70 to-transparent text-white">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span class="text-3xl font-black font-mono text-rose-400"><span id="hudHr">--</span><span class="text-xs text-slate-300 ml-1">BPM</span></span>
+                  <span class="text-[11px] font-mono text-purple-200">mark <span id="hudMark">--</span></span>
+                  <span id="hudPhase" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-950/90 border border-sky-700 text-sky-200 font-mono"></span>
+                </div>
+                <div class="text-right font-mono">
+                  <div class="text-xl font-bold" id="hudTimer">00:00</div>
+                  <div class="text-[11px] text-amber-300">edges <span id="hudEdges">0</span></div>
+                </div>
+              </div>
+              <p id="hudNotice" class="hud-info hidden absolute top-20 inset-x-3 text-center text-[11px] font-bold text-rose-100 bg-rose-950/90 border border-rose-700 rounded-lg px-2 py-1"></p>
+              <div class="hud-info absolute bottom-10 left-[28%] right-[28%] h-1.5 rounded-full bg-white/20 overflow-hidden" aria-hidden="true">
+                <div id="hudBar" class="h-full bg-gradient-to-r from-teal-400 to-rose-500" style="width: 0%"></div>
+              </div>
+              <button id="hudPauseBtn" type="button" class="hud-btn pointer-events-auto absolute left-3 bottom-3 min-w-[64px] min-h-[64px] px-4 rounded-2xl bg-amber-600/90 hover:bg-amber-500 text-white font-black text-sm cursor-pointer shadow-xl">PAUSE</button>
+              <button id="hudStopBtn" type="button" class="hud-btn pointer-events-auto absolute right-3 bottom-3 min-w-[64px] min-h-[64px] px-4 rounded-2xl bg-rose-700/90 hover:bg-rose-600 text-white font-black text-sm cursor-pointer shadow-xl">STOP</button>
+            </div>
+          </div>
+
+          <!-- EdgeLoop's own control strip: native controls are off, so a
+               key or a click on the picture can never resume it behind the
+               wearer's back. Play / Pause goes through the session transport
+               in Script mode. -->
+          <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+            <button id="playerPlayBtn" type="button" class="min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
+            <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="flex-1 min-w-[6rem] accent-sky-500 h-11 cursor-pointer">
+            <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
+            <button id="playerMuteBtn" type="button" class="min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Mute</button>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+            <span class="text-slate-400 font-semibold">Offset</span>
+            <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
+            <span id="playerOffsetValue" class="font-mono text-sky-300 font-bold w-16 text-center">0 ms</span>
+            <button id="playerOffsetPlus" type="button" aria-label="Strokes 50 ms later" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">+50</button>
+            <span class="text-slate-500 hidden sm:inline">keys [ ]</span>
+            <span class="flex-1"></span>
+            <button id="playerTheaterBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold cursor-pointer">Theater</button>
+            <button id="playerFullscreenBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold cursor-pointer">Fullscreen</button>
+          </div>
+          <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
+        </div>
+
+        <div class="lg:col-span-5 space-y-2 min-w-0">
+          <div id="playerDrop" data-over="off" class="p-2.5 rounded-xl border border-dashed border-slate-700 bg-slate-950 space-y-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="playerChooseBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold cursor-pointer">Choose files</button>
+              <button id="playerClearBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer">Clear</button>
+              <span class="text-[10px] text-slate-400">or drop them here</span>
+              <input id="playerFileInput" type="file" multiple accept=".funscript,video/*,.mp4,.m4v,.webm,.mkv,.mov,.ogv" class="hidden">
+            </div>
+            <p class="text-[9px] text-slate-400 leading-snug">A video and its script, named alike: <span class="font-mono">Movie.mp4</span> + <span class="font-mono">Movie.funscript</span>. On a phone, pick them one after the other.</p>
+            <div id="playerPackRow" class="hidden flex items-center gap-2 text-[10px]">
+              <label for="playerPackSelect" class="text-slate-400 font-semibold">Script</label>
+              <select id="playerPackSelect" class="flex-1 min-h-[44px] bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-200"></select>
+            </div>
+            <ul id="playerPairList" class="text-[10px] text-slate-300 leading-snug space-y-0.5 break-words"></ul>
+            <p id="playerError" role="alert" class="hidden text-[10px] font-semibold text-rose-300 leading-snug"></p>
+            <ul id="playerSummary" class="text-[10px] text-slate-400 leading-snug space-y-0.5"></ul>
+          </div>
+
+          <div class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Status</span>
+              <span id="playerPhase" class="text-[10px] font-bold font-mono text-sky-300">IDLE</span>
+            </div>
+            <ul id="playerToyNotes" class="text-[10px] text-slate-400 leading-snug space-y-0.5"></ul>
+            <!-- The whole row is the switch's touch target, at least 44 px tall. -->
+            <label for="beatSyncToggle" class="flex items-start gap-2 pt-1.5 min-h-[44px] border-t border-slate-900 cursor-pointer">
+              <input id="beatSyncToggle" type="checkbox" class="mt-0.5 w-5 h-5 shrink-0 accent-sky-500 cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Beat sync on The Handy</strong> (firmware 4): stroke for stroke over Handy's cloud. Off: The Handy plays the script's rhythm only. Asks once before it first goes on.</span>
+            </label>
+            <p id="beatSyncRoute" class="text-[10px] text-slate-400 leading-snug"></p>
+          </div>
+
+          <label class="flex items-center justify-between gap-2 text-[10px] text-slate-300">
+              <span class="font-semibold">Stroke model</span>
+              <select id="scriptStrokeModelSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-sky-300 font-bold outline-none">
+                <option value="cactus">Shorten and skip</option>
+                <option value="keep">Keep the script</option>
+              </select>
+            </label>
+            <p class="text-[9px] text-slate-400 leading-snug">Shorten and skip is Cactus's limiter: strokes get shorter as you climb, and at the edge the toy skips strokes while the video keeps playing. Keep the script leaves each stroke's shape alone and only turns the intensity down. A hold in the script is a real stop. The next stroke starts at the intensity your pulse allows. A stroke that is already faster than that intensity is shortened only so the toy can finish it on time.</p>
+            <p id="playerPrivacy" class="text-[9px] text-slate-400 leading-snug">Your video and script stay on this device. EdgeLoop uploads neither. With Beat sync on The Handy switched on, The Handy is sent the next few seconds of stroke positions through Handy's cloud as it plays. File names and the video never leave this device; your heart rate goes only to a partner you link with Share Control.</p>
+          <p class="text-[9px] text-slate-500 leading-snug">In a headset: run EdgeLoop on a PC, tablet or phone that reads your pulse. Inside the headset this page can play the video, but it cannot read a heart-rate monitor.</p>
+        </div>
+      </div>
+    </section>
 
     <!-- Two-Column Responsive Cockpit Grid (Desktop & Landscape Tablet) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
@@ -431,6 +543,14 @@
             </button>
           </div>
 
+            <button id="scriptModeCard" type="button" data-mode="script" disabled class="mode-card sm:col-span-2 text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between opacity-50">
+              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
+                <span>Script</span>
+                <span class="mode-check hidden text-sky-400">●</span>
+              </div>
+              <p id="scriptCardLine" class="text-[9px] text-slate-400 mt-0.5 leading-snug">Load a video and its .funscript in the Player first.</p>
+            </button>
+
           <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Goal</p>
           <!-- Goal row. Tease means the stroke runs with no game on top. -->
           <div id="gameModesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -534,7 +654,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.3</span>
+        <span id="appVersion" class="font-mono">v1.1.4</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
