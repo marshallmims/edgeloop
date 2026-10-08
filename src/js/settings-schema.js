@@ -25,6 +25,7 @@ import { clampEdgeHoldPercent } from './engine.js';
 import { clampStaleSeconds } from './hr-watchdog.js';
 import { clampEndMargin } from './hardware/handy-protocol.js';
 import { sanitizeVacuglideRole, clampSpeedCap, clampValvePulseMs } from './hardware/vacuglide-protocol.js';
+import { sanitizeKeybinds } from './keybinds.js';
 import { clampMicGate, clampMicBoostBpm } from './voice.js';
 import { clampEncourageSeconds, mergeVoiceCues } from './voice-cues.js';
 
@@ -130,6 +131,7 @@ export const SETTING_SANITIZERS = {
     minHr: passToOwner,
     maxHr: passToOwner,
     dualMaxHr: passToOwner,
+    keybinds: (value) => sanitizeKeybinds(value),
     speedSlowest: wholeNumber('speedSlowest', 0, 100),
     speedFastest: wholeNumber('speedFastest', 0, 100),
     vacuglideRole: (value) => sanitizeVacuglideRole(value),

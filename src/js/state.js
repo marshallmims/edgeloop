@@ -205,6 +205,14 @@ export const advancedSettings = {
     hrAutoResume: true,
     // Both-toys climax. Independent of the single-stim max.
     dualMaxHr: 125,
+    keybinds: {
+        toggleSession: { kind: 'key', code: 'Space' },
+        stop: { kind: 'key', code: 'Escape' },
+        cameEarly: { kind: 'key', code: 'ArrowLeft' },
+        forceOrgasm: { kind: 'key', code: 'ArrowRight' },
+        valvePlus: { kind: 'key', code: 'ArrowUp' },
+        valveMinus: { kind: 'key', code: 'ArrowDown' }
+    },
     // Session speed window. 0 and 100 leave the pattern alone. A stop is
     // still 0; everything above 0 is scaled into this pair.
     speedSlowest: 0,

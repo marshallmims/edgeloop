@@ -222,6 +222,8 @@
             </label>
           </div>
           <p class="text-[9px] text-slate-500 leading-tight">Strokes stay between these. 0 and 100 leave the pattern alone. A stop is still a stop.</p>
+          <div id="keybindList" class="grid grid-cols-2 gap-1 pt-1 text-[10px] text-slate-400"></div>
+          <p class="text-[9px] text-slate-500 leading-tight">Click a key name, then press a key or a controller button. Up and down move the VacuGlide valves when that toy is connected.</p>
         </div>
 
         <!-- Action Bar: Edges, Pauses, Came Early, Force Orgasm -->
@@ -259,6 +261,9 @@
 
             <button id="sessionResetBtn" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
               Reset
+            </button>
+            <button id="pipBtn" type="button" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video">
+              Pop out
             </button>
           </div>
         </div>
@@ -470,6 +475,29 @@
               <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
                 Holds the edge, then decides how you finish.
               </p>
+            </button>
+
+            <button type="button" data-mode="nnn" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between sm:col-span-2">
+              <div class="font-bold text-[11px] text-emerald-300 flex justify-between items-center gap-1">
+                <span>NNN practice</span>
+                <span class="flex items-center gap-1">
+                  <span class="mode-check hidden text-emerald-400">●</span>
+                </span>
+              </div>
+              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
+                A daily edge quota. Skip a day and the next one is harder. You can try it before November.
+              </p>
+              <div class="flex flex-wrap items-center gap-2 mt-1.5 pt-1.5 border-t border-slate-800 text-[9px] text-slate-400" data-nnn-settings>
+                <span id="nnnStatus" class="font-mono text-emerald-300">Today 0/3</span>
+                <label class="flex items-center gap-1 font-mono">Edges/day
+                  <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-10 bg-slate-900 border border-slate-700 rounded-md py-0.5 text-center text-emerald-300 font-bold outline-none">
+                </label>
+                <label class="flex items-center gap-1 font-mono">Denial
+                  <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-12 bg-slate-900 border border-slate-700 rounded-md py-0.5 text-center text-emerald-300 font-bold outline-none">
+                  %
+                </label>
+                <button id="nnnMissedDayBtn" type="button" class="px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-slate-300 cursor-pointer">Add a missed day</button>
+              </div>
             </button>
           </div>
         </div>
@@ -1025,15 +1053,15 @@
           <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
             <div class="flex items-center justify-between">
               <div>
-                <label class="text-xs font-bold text-slate-200 block">Spoken Voice Guidance</label>
-                <p class="text-[9px] text-slate-400 leading-snug">Shows each cue on the dashboard and speaks it with the browser's local voice.</p>
+                <label class="text-xs font-bold text-slate-200 block">On-screen cues</label>
+                <p class="text-[9px] text-slate-400 leading-snug">Build-up and the other lines show on the dashboard. They are not spoken. The browser voice sounded too robotic, so speech is off.</p>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <label class="relative inline-flex items-center cursor-pointer shrink-0 hidden" aria-hidden="true">
                 <input id="paramVoiceToggle" type="checkbox" class="sr-only peer">
                 <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
             </div>
-            <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
+            <div class="hidden items-center gap-2 pt-1 border-t border-slate-900">
               <select id="paramVoiceSelect" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-purple-500">
                 <option value="">Browser default</option>
               </select>
