@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { freshNnn, catchUpNnn, addMissedDay, tickNnnHold, recordNnnEdge, rollNnnOutcome, dateKey, describeNnn } from './nnn.js';
+import { freshNnn, catchUpNnn, addMissedDay, clearNnn, tickNnnHold, recordNnnEdge, rollNnnOutcome, dateKey, describeNnn } from './nnn.js';
 
 describe('NNN practice', () => {
     it('starts at the daily quota with no hold', () => {
@@ -52,6 +52,17 @@ describe('NNN practice', () => {
         assert.equal(done.counted, true);
     });
 
+    it('clears piled-up days without bringing them back on the next open', () => {
+        const piled = addMissedDay(addMissedDay(freshNnn(new Date('2026-10-08T12:00:00'), { dailyEdges: 3 })));
+        assert.ok(piled.quotaToday > 3);
+        const cleared = clearNnn(piled, new Date('2026-10-08T12:00:00'));
+        assert.equal(cleared.quotaToday, 3);
+        assert.equal(cleared.holdSeconds, 0);
+        assert.equal(cleared.edgesToday, 0);
+        const again = catchUpNnn(cleared, new Date('2026-10-08T18:00:00'));
+        assert.equal(again.quotaToday, 3);
+        assert.equal(again.holdSeconds, 0);
+    });
     it('finishes the quota and can deny or permit', () => {
         const recorded = recordNnnEdge(freshNnn(new Date('2026-10-08T12:00:00'), { dailyEdges: 1 }));
         assert.equal(recorded.justFinished, true);
