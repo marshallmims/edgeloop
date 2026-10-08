@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { freshNnn, catchUpNnn, addMissedDay, tickNnnHold, recordNnnEdge, rollNnnOutcome, dateKey } from './nnn.js';
+import { freshNnn, catchUpNnn, addMissedDay, tickNnnHold, recordNnnEdge, rollNnnOutcome, dateKey, describeNnn } from './nnn.js';
 
 describe('NNN practice', () => {
     it('starts at the daily quota with no hold', () => {
@@ -13,10 +13,22 @@ describe('NNN practice', () => {
     it('adds skipped days onto the next day and asks for a longer hold', () => {
         const state = freshNnn(new Date('2026-10-06T12:00:00'), { dailyEdges: 3 });
         const next = catchUpNnn(state, new Date('2026-10-08T12:00:00'));
-        assert.equal(next.lastDate, '2026-10-08');
+        assert.equal(next.lastOpened, '2026-10-08');
         assert.equal(next.quotaToday, 6, 'one skipped day adds one day of edges');
         assert.equal(next.holdSeconds, 15);
         assert.equal(next.edgesToday, 0);
+    });
+
+    it('counts days before the first open, and waits when the start date is still ahead', () => {
+        const started = freshNnn(new Date('2026-11-01T12:00:00'), { dailyEdges: 3, startDate: '2026-11-01', endDate: '2026-11-30' });
+        const late = catchUpNnn({ ...started, lastOpened: null }, new Date('2026-11-04T12:00:00'));
+        assert.equal(late.quotaToday, 12, 'Nov 1, 2, and 3 were missed, plus today');
+        assert.equal(late.holdSeconds, 45);
+        const early = catchUpNnn(started, new Date('2026-10-08T12:00:00'));
+        assert.equal(early.holdSeconds, 0);
+        assert.match(describeNnn(early, new Date('2026-10-08T12:00:00')), /Starts 2026-11-01/);
+        const during = catchUpNnn(freshNnn(new Date('2026-11-01T12:00:00'), { startDate: '2026-11-01', endDate: '2026-11-30' }), new Date('2026-11-01T12:00:00'));
+        assert.match(describeNnn(during, new Date('2026-11-01T12:00:00')), /Day 1 of 30/);
     });
 
     it('does not punish a day you already opened', () => {

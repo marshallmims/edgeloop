@@ -27,6 +27,9 @@ import {
     freshNnn,
     sanitizeNnn,
     catchUpNnn,
+    setNnnDates,
+    describeNnn,
+    nnnCalendar,
     addMissedDay,
     tickNnnHold,
     recordNnnEdge,
@@ -2443,7 +2446,7 @@ const MODE_DETAILS = {
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
-    nnn: 'A daily edge quota on top of the stroke you picked. Skip a day and those edges move to the next day, and you have to hold the edge before it counts. At the quota it either finishes you or denies you.'
+    nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.'
 };
 
 // The paragraph above the cards follows the goal when one is on, including
@@ -2463,12 +2466,13 @@ function highlightModeCard() {
             : (mode === state.teaseMode || mode === state.gameMode);
         const check = c.querySelector('.mode-check');
         const title = c.querySelector('.font-bold');
+        const wide = mode === 'nnn' ? ' sm:col-span-2' : '';
         if (on) {
-            c.className = "mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between";
+            c.className = `mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between${wide}`;
             if (title) title.className = "font-bold text-[11px] text-purple-300 flex justify-between items-center";
             check?.classList.remove('hidden');
         } else {
-            c.className = "mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between";
+            c.className = `mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between${wide}`;
             if (title) title.className = "font-bold text-[11px] text-slate-200 flex justify-between items-center";
             check?.classList.add('hidden');
         }
@@ -2540,17 +2544,19 @@ function saveNnn() {
 
 function paintNnn() {
     const el = document.getElementById('nnnStatus');
-    if (!el) return;
-    const hold = nnnState.holdSeconds > 0 ? ` · hold ${nnnState.holdProgress}/${nnnState.holdSeconds}s` : '';
-    const end = nnnState.outcome === 'denied' ? ' · denied' : nnnState.outcome === 'permitted' ? ' · permitted' : '';
-    el.textContent = `Today ${nnnState.edgesToday}/${nnnState.quotaToday}${hold}${end}`;
+    if (el) el.textContent = describeNnn(nnnState);
     const daily = document.getElementById('nnnDailyInput');
     const denial = document.getElementById('nnnDenialInput');
+    const start = document.getElementById('nnnStartInput');
+    const end = document.getElementById('nnnEndInput');
     if (daily && document.activeElement !== daily) daily.value = String(nnnState.dailyEdges);
     if (denial && document.activeElement !== denial) denial.value = String(nnnState.denialPercent);
+    if (start && document.activeElement !== start) start.value = nnnState.startDate;
+    if (end && document.activeElement !== end) end.value = nnnState.endDate;
 }
 
 function noteNnnEdge() {
+    if (nnnCalendar(nnnState).phase !== 'during') return;
     const recorded = recordNnnEdge(nnnState);
     nnnState = recorded.state;
     if (recorded.justFinished && !nnnState.outcome) {
@@ -2565,9 +2571,14 @@ function noteNnnEdge() {
 
 document.getElementById('nnnDailyInput')?.addEventListener('click', (e) => e.stopPropagation());
 document.getElementById('nnnDenialInput')?.addEventListener('click', (e) => e.stopPropagation());
+document.getElementById('nnnStartInput')?.addEventListener('click', (e) => e.stopPropagation());
+document.getElementById('nnnEndInput')?.addEventListener('click', (e) => e.stopPropagation());
 document.getElementById('nnnDailyInput')?.addEventListener('change', (e) => {
     const n = parseInt(e.target.value, 10);
-    nnnState = sanitizeNnn({ ...nnnState, dailyEdges: n, quotaToday: Math.max(nnnState.edgesToday + 1, n) });
+    nnnState = sanitizeNnn({ ...nnnState, dailyEdges: n });
+    if (nnnState.lastOpened === nnnState.startDate || nnnState.edgesToday === 0) {
+        nnnState = { ...nnnState, quotaToday: Math.max(nnnState.quotaToday, n) };
+    }
     saveNnn();
     paintNnn();
 });
@@ -2576,6 +2587,18 @@ document.getElementById('nnnDenialInput')?.addEventListener('change', (e) => {
     saveNnn();
     paintNnn();
 });
+document.getElementById('nnnStartInput')?.addEventListener('change', () => applyNnnDates());
+document.getElementById('nnnEndInput')?.addEventListener('change', () => applyNnnDates());
+
+function applyNnnDates() {
+    nnnState = setNnnDates(
+        nnnState,
+        document.getElementById('nnnStartInput')?.value,
+        document.getElementById('nnnEndInput')?.value
+    );
+    saveNnn();
+    paintNnn();
+}
 document.getElementById('nnnMissedDayBtn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     nnnState = addMissedDay(nnnState);
