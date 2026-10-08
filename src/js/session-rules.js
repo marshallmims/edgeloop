@@ -705,11 +705,13 @@ export function sanitizeStoredHrLimits(rawMin, rawMax) {
 
 // The both-toys climax, stored on its own. Missing or nonsense falls back
 // to the factory number. It does not have to sit under the single-stim max.
-export function sanitizeStoredDualMax(raw, fallback = DEFAULT_DUAL_MAX_HR) {
+export function sanitizeStoredDualMax(raw, fallback = DEFAULT_DUAL_MAX_HR, minHr = DEFAULT_MIN_HR) {
     const n = toInt(raw);
     const safe = Number.isFinite(fallback) ? fallback : DEFAULT_DUAL_MAX_HR;
-    if (n === null || n <= DEFAULT_MIN_HR || n > 250) return safe;
-    return n;
+    const floor = Number.isFinite(minHr) ? minHr : DEFAULT_MIN_HR;
+    if (n !== null && n > floor && n <= 250) return n;
+    if (safe > floor && safe <= 250) return safe;
+    return Math.min(250, floor + 1);
 }
 
 // The duration window, validated by the same parser the Session Setup fields
@@ -744,9 +746,10 @@ export function sanitizeStoredEndgame(value) {
 // import, so the stored form and the typed form can never drift apart. It is
 // idempotent: sanitizing an already sanitized set returns it unchanged.
 export function sanitizeSessionLimits(stored = {}) {
+    const hr = sanitizeStoredHrLimits(stored.minHr, stored.maxHr);
     return {
-        ...sanitizeStoredHrLimits(stored.minHr, stored.maxHr),
-        dualMaxHr: sanitizeStoredDualMax(stored.dualMaxHr),
+        ...hr,
+        dualMaxHr: sanitizeStoredDualMax(stored.dualMaxHr, DEFAULT_DUAL_MAX_HR, hr.minHr),
         ...sanitizeStoredDuration(stored),
         endgameType: sanitizeStoredEndgame(stored.endgameType)
     };

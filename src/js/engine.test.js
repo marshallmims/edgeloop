@@ -41,7 +41,7 @@ const running = {
 describe('engine modes', () => {
     it('lists every cockpit mode', () => {
         assert.deepEqual(ENGINE_MODES, [
-            'classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate'
+            'classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate'
         ]);
     });
 
@@ -477,7 +477,7 @@ describe('engine modes', () => {
     });
 
     it('every tease mode keeps the stroker working until the pulse is close to the mark', () => {
-        const modes = ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+        const modes = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
         for (const mode of modes) {
             for (const hr of [100, 120, 125]) {
                 let low = 100;
@@ -507,7 +507,9 @@ describe('engine modes', () => {
                 isEdged: true,
                 ceilingBehaviour: 'crawl'
             });
-            if (mode === 'ruin') {
+            if (mode === 'finisher') {
+                assert.equal(atMark.primaryPercent, 100, 'finisher stays at full speed on the mark');
+            } else if (mode === 'ruin') {
                 assert.ok(atMark.primaryPercent > CRAWL_PERCENT, 'ruin keeps stroking on the mark');
             } else {
                 assert.equal(atMark.primaryPercent, CRAWL_PERCENT, `${mode} crawls at the mark`);
@@ -1534,6 +1536,39 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
         }
     });
 
+    it('Finisher climbs with the pulse and stays at full speed on the mark', () => {
+        const mean = (hr) => {
+            let total = 0;
+            const samples = 40;
+            for (let sessionSeconds = 0; sessionSeconds < samples; sessionSeconds += 1) {
+                total += calculateEngineOutputs({
+                    ...running,
+                    activeMode: 'finisher',
+                    hr,
+                    edgeHr: hr,
+                    isEdged: false,
+                    ceilingBehaviour: 'crawl',
+                    sessionSeconds
+                }).primaryPercent;
+            }
+            return total / samples;
+        };
+        assert.ok(mean(90) < mean(120), 'a higher pulse drives a faster stroke');
+        assert.ok(mean(120) < mean(135), 'the climb keeps rising near the mark');
+        for (const ceilingBehaviour of ['stop', 'crawl']) {
+            const onTheMark = calculateEngineOutputs({
+                ...running,
+                activeMode: 'finisher',
+                hr: 140,
+                edgeHr: 140,
+                isEdged: true,
+                ceilingBehaviour
+            });
+            assert.equal(onTheMark.primaryPercent, 100, `finisher ignores ${ceilingBehaviour}`);
+            assert.equal(onTheMark.secondaryPercent, 100, `finisher secondary ignores ${ceilingBehaviour}`);
+        }
+    });
+
     it('Ruin & Leak rides through the edge, then the lockout is a dead stop', () => {
         // The ride ignores Crawl and Full Stop. The lockout is a dead stop
         // on the primary either way, with the secondary dropped low.
@@ -1602,6 +1637,7 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
         for (const mode of ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin']) {
             assert.equal(micBoostReachesMotors(mode), true, `${mode} teases down on the boosted pulse`);
         }
+        assert.equal(micBoostReachesMotors('finisher'), false, 'finisher rises on the measured pulse');
         assert.equal(micBoostReachesMotors('oracle'), false);
         assert.equal(micBoostReachesMotors('edgetrain'), false);
         // Survival's speeds run off its own clock; the boost can only shorten
@@ -1627,7 +1663,8 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
             { activeMode: 'edgetrain', trainingState: 'hold' },
             { activeMode: 'edgetrain', trainingState: 'recover' },
             { activeMode: 'survival' },
-            { activeMode: 'calibrate' }
+            { activeMode: 'calibrate' },
+            { activeMode: 'finisher' }
         ];
         let checked = 0;
         for (const probe of probes) {

@@ -115,15 +115,19 @@
               <button id="micReenableBtn" type="button" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 hover:bg-amber-900 ml-1 cursor-pointer" title="Browsers only grant the microphone after a tap">Tap to re-enable microphone</button>
             </div>
 
-            <!-- BPM Limits. Resting heart rate is assumed at 70. -->
-            <div class="flex items-center gap-2.5 text-xs">
+            <!-- BPM Limits. Resting defaults to 70 and can be typed. -->
+            <div class="flex items-center gap-2.5 text-xs flex-wrap">
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-slate-300 font-semibold">Resting:</span>
+                <input id="minHr" type="number" value="70" min="30" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
+              </div>
               <div class="flex items-center gap-1">
                 <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
-                <input id="maxHr" type="number" value="140" min="71" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
+                <input id="maxHr" type="number" value="140" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
               </div>
               <div class="flex items-center gap-1">
                 <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
-                <input id="dualMaxHr" type="number" value="125" min="71" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
+                <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
               </div>
               <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
             </div>
@@ -351,6 +355,18 @@
               </div>
               <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
                 Full strokes. Speed eases off as your pulse climbs.
+              </p>
+            </button>
+
+            <button type="button" data-mode="finisher" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
+                <span>Finisher</span>
+                <span class="flex items-center gap-1">
+                  <span class="mode-check hidden text-rose-500">●</span>
+                </span>
+              </div>
+              <p class="text-[9px] text-slate-400 mt-0.5 leading-snug">
+                Speed climbs with your pulse and stays full on the mark.
               </p>
             </button>
 
@@ -958,7 +974,7 @@
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">How long the toys take to come down after you mark an orgasm, or after you turn Force Orgasm off. They land on Crawl or Full Stop, above. In Survival the climb and the warm-up then start again, and the session timer keeps going. 0 cuts immediately.</p>
             <p class="text-[9px] text-slate-400 leading-snug">
-              What the strokers do once your pulse crosses the pullback percent of Climax HR below. <strong>Full Stop</strong> parks the primary at 0%; <strong>Crawl</strong> keeps a 10% micro-motion so the edge stays alive. This applies in every mode that teases you down, including every Edge Training and Oracle state you reach while on the mark (the training hold and its recover alike). It does not govern <strong>Survival Mode</strong> or <strong>Calibration</strong>, where the speed keeps climbing and each edge raises the mark itself, so the toys never park and the run does not end when you cross your old max, or <strong>Ruin &amp; Leak</strong>, which keeps stroking through the edge and then, after about 12 seconds on the mark, cuts the primary dead for 18 seconds whichever you picked. Force Orgasm overrides both.
+              What the strokers do once your pulse crosses the pullback percent of Climax HR below. <strong>Full Stop</strong> parks the primary at 0%; <strong>Crawl</strong> keeps a 10% micro-motion so the edge stays alive. This applies in every mode that teases you down, including every Edge Training and Oracle state you reach while on the mark (the training hold and its recover alike). It does not govern <strong>Survival Mode</strong> or <strong>Calibration</strong>, where the speed keeps climbing and each edge raises the mark itself, so the toys never park and the run does not end when you cross your old max, <strong>Finisher</strong>, which speeds up with your pulse and stays at full speed on the mark, or <strong>Ruin &amp; Leak</strong>, which keeps stroking through the edge and then, after about 12 seconds on the mark, cuts the primary dead for 18 seconds whichever you picked. Force Orgasm overrides both.
             </p>
           </div>
 
@@ -971,7 +987,7 @@
               </div>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">
-              100% is the climax heart rate for the toys that are on (single max, or dual max when both are live); 95% pulls back early. It never goes above 100%. Decay and the learned offset move the mark down with it (the preview below and the cockpit HOLD TO badge show where it sits right now). Crawl / Full Stop and the stall timers start at this mark, and it is always kept far enough above the assumed resting heart rate of 70 to leave a release band. The edge counter waits until your pulse reaches the max, and releases 5 BPM below that max.
+              100% is the climax heart rate for the toys that are on (single max, or dual max when both are live); 95% pulls back early. It never goes above 100%. Decay and the learned offset move the mark down with it (the preview below and the cockpit HOLD TO badge show where it sits right now). Crawl / Full Stop and the stall timers start at this mark, and it is always kept far enough above your resting heart rate to leave a release band. The edge counter waits until your pulse reaches the max, and releases 5 BPM below that max.
             </p>
             <p id="edgeHoldPreview" class="text-[10px] font-mono text-purple-300">Pullback at 140 BPM (100% of 140)</p>
           </div>
@@ -1060,15 +1076,15 @@
           <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
             <div class="flex items-center justify-between">
               <div>
-                <label class="text-xs font-bold text-slate-200 block">On-screen cues</label>
-                <p class="text-[9px] text-slate-400 leading-snug">Build-up and the other lines show on the dashboard. They are not spoken. The browser voice sounded too robotic, so speech is off.</p>
+                <label class="text-xs font-bold text-slate-200 block">Speak the cues</label>
+                <p class="text-[9px] text-slate-400 leading-snug">The lines always show on the dashboard. Speech stays off until you turn it on. An installed browser voice, such as Kokoro, shows up in the list.</p>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer shrink-0 hidden" aria-hidden="true">
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
                 <input id="paramVoiceToggle" type="checkbox" class="sr-only peer">
                 <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
             </div>
-            <div class="hidden items-center gap-2 pt-1 border-t border-slate-900">
+            <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
               <select id="paramVoiceSelect" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-purple-500">
                 <option value="">Browser default</option>
               </select>
@@ -1299,13 +1315,16 @@
       <div id="wizardStep2" class="wizard-pane space-y-2 text-center hidden">
         <p class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Step 3 of 3</p>
         <h3 class="text-base font-bold text-white">Set your ceiling and start</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">Resting heart rate is assumed at 70. Set the heart rate where you climax with one toy, and the heart rate where you climax with both. Open <strong class="text-slate-200">Session Setup</strong> for duration, warm-up, and guards.</p>
-        <div class="flex justify-center gap-3 text-xs">
+        <p class="text-xs text-slate-400 leading-relaxed">Set your resting heart rate, the heart rate where you climax with one toy, and the heart rate where you climax with both. Resting starts at 70. Open <strong class="text-slate-200">Session Setup</strong> for duration, warm-up, and guards.</p>
+        <div class="flex justify-center gap-3 text-xs flex-wrap">
+          <label class="flex items-center gap-1 text-slate-300 font-semibold">Resting
+            <input id="wizardMinHr" type="number" min="30" max="250" value="70" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400">
+          </label>
           <label class="flex items-center gap-1 text-rose-300 font-semibold">Single
-            <input id="wizardSingleMax" type="number" min="71" max="250" value="140" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500">
+            <input id="wizardSingleMax" type="number" min="31" max="250" value="140" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500">
           </label>
           <label class="flex items-center gap-1 text-purple-300 font-semibold">Dual
-            <input id="wizardDualMax" type="number" min="71" max="250" value="125" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500">
+            <input id="wizardDualMax" type="number" min="31" max="250" value="125" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500">
           </label>
         </div>
         <p class="text-[10px] text-slate-500 leading-relaxed">If you do not know those numbers, start <strong class="text-slate-200">Calibration</strong>. The first run is your primary stimulation device alone. When you orgasm, tap <strong>The app / Finished me</strong>. After a rest, a second run with both devices sets the dual max. You can change either number by hand.</p>

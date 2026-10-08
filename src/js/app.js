@@ -150,6 +150,8 @@ import {
 } from './webrtc.js';
 import {
     cancelSpeech,
+    speakNow,
+    speakPrompt,
     setMindgamePrompt,
     startMicMonitor,
     stopMicMonitor,
@@ -356,6 +358,9 @@ function renderWizardStep() {
         const dual = document.getElementById('wizardDualMax');
         const max = document.getElementById('maxHr');
         const dualMax = document.getElementById('dualMaxHr');
+        const resting = document.getElementById('wizardMinHr');
+        const min = document.getElementById('minHr');
+        if (resting && min) resting.value = min.value;
         if (single && max) single.value = max.value;
         if (dual && dualMax) dual.value = dualMax.value;
     }
@@ -502,22 +507,21 @@ function markInputValidity(input, ok) {
 // parse keeps the last known-good value and is flagged, so garbage can never
 // raise the ceiling.
 function readHrLimits() {
+    const minInput = document.getElementById('minHr');
     const maxInput = document.getElementById('maxHr');
     const dualInput = document.getElementById('dualMaxHr');
-    // Resting heart rate is assumed. The cockpit does not ask for it.
-    const limits = sanitizeHrLimits(DEFAULT_MIN_HR, maxInput?.value, state.lastGoodHrLimits || {});
-    limits.minHr = DEFAULT_MIN_HR;
+    const limits = sanitizeHrLimits(minInput?.value, maxInput?.value, state.lastGoodHrLimits || {});
     const dualRaw = parseInt(dualInput?.value, 10);
     const dualFallback = Number.isFinite(state.lastGoodHrLimits?.dualMaxHr)
         ? state.lastGoodHrLimits.dualMaxHr
         : (advancedSettings.dualMaxHr || 125);
-    const dualOk = Number.isFinite(dualRaw) && dualRaw > DEFAULT_MIN_HR && dualRaw <= 250;
+    const dualOk = Number.isFinite(dualRaw) && dualRaw > limits.minHr && dualRaw <= 250;
     limits.dualMaxHr = dualOk ? dualRaw : dualFallback;
-    limits.invalid = limits.invalid.filter((name) => name !== 'min');
     if (!dualOk && dualInput && String(dualInput.value).trim() !== '') limits.invalid.push('dual');
     if (limits.valid && dualOk) {
-        state.lastGoodHrLimits = { minHr: DEFAULT_MIN_HR, maxHr: limits.maxHr, dualMaxHr: limits.dualMaxHr };
+        state.lastGoodHrLimits = { minHr: limits.minHr, maxHr: limits.maxHr, dualMaxHr: limits.dualMaxHr };
     }
+    markInputValidity(minInput, !limits.invalid.includes('min'));
     markInputValidity(maxInput, !limits.invalid.includes('max'));
     markInputValidity(dualInput, !limits.invalid.includes('dual'));
     return limits;
@@ -1166,8 +1170,10 @@ function paintIdlePrompt() {
     setMindgamePrompt(text, Boolean(text));
 }
 
-// Paint the cue on the dashboard. Speech is off: the browser voice was too
-// robotic. An emptied phrase bank still leaves the last line up.
+// Paint the cue on the dashboard. Speech follows the Audio toggle and stays
+// off until the wearer turns it on, so a robotic browser voice is not the
+// default. An installed voice (Kokoro, for example) is picked in that list.
+// An emptied phrase bank still leaves the last line up and says nothing.
 function cueVoice(key, urgent = false) {
     const lastTemplate = state.lastCueTemplateById?.[key] || '';
     const { text, template } = resolveVoiceCue(
@@ -1186,6 +1192,10 @@ function cueVoice(key, urgent = false) {
         state.lastCueTemplateById[key] = template;
     }
     setMindgamePrompt(text, true);
+    if (!advancedSettings.voiceEnabled) return;
+    const voiceURI = advancedSettings.voiceURI || '';
+    if (urgent) speakNow(text, voiceURI);
+    else speakPrompt(true, text, voiceURI);
 }
 
 function warmupElapsedSeconds() {
@@ -1447,7 +1457,8 @@ function tickSessionGuardsAndGames() {
     // at the ceiling.
     const crawlAtCeiling = advancedSettings.ceilingBehaviour !== 'stop';
     const guardArmed = Boolean(advancedSettings.stallGuard) && crawlAtCeiling && !state.orgasmMode
-        && state.activeMode !== 'oracle' && !isUncappedClimb() && state.activeMode !== 'edgetrain';
+        && state.activeMode !== 'oracle' && !isUncappedClimb() && state.activeMode !== 'edgetrain'
+        && state.activeMode !== 'finisher';
     const guard = tickStallGuard(
         { holdSeconds: state.edgeStallSeconds, pauseSeconds: state.stallPauseElapsed, engaged: state.stallGuardEngaged },
         {
@@ -2413,8 +2424,8 @@ orgasmBtn?.addEventListener('click', () => {
 });
 
 // Typed HR limits take effect immediately (and are validated) rather than on
-// the next clock tick. Resting heart rate is assumed and has no field.
-['maxHr', 'dualMaxHr'].forEach((id) => {
+// the next clock tick.
+['minHr', 'maxHr', 'dualMaxHr'].forEach((id) => {
     const input = document.getElementById(id);
     // Persisted on every edit, not only on blur: a wearer who lowers the
     // ceiling mid-session and never leaves the field used to lose it on the
@@ -2438,6 +2449,7 @@ const modeCards = document.querySelectorAll('.mode-card');
 
 const MODE_DETAILS = {
     classic: 'Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical, then Crawl or Full Stop at the ceiling.',
+    finisher: 'Speed rises with your heart rate and stays at full speed on the mark, so it can carry you over. "At the ceiling" does not slow it down. Room noise does not speed it up either: the climb follows the pulse the sensor measured.',
     milker: 'The stroker eases off as you climb and the internal toy takes over. Short bursts and the on-off pulse wait until your pulse is close to the heart rate you set.',
     shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Classic. The secondary channel stays low.',
     headplay: 'Full strokes until your pulse is close to the heart rate you set, then the stroke climbs toward the head. Speed eases off with your pulse, and the stroke opens back up when your pulse drops.',
@@ -2762,9 +2774,9 @@ document.getElementById('wizardCalibrateBtn')?.addEventListener('click', () => {
     closeWizard();
 });
 
-['wizardSingleMax', 'wizardDualMax'].forEach((id) => {
+['wizardMinHr', 'wizardSingleMax', 'wizardDualMax'].forEach((id) => {
     const from = document.getElementById(id);
-    const toId = id === 'wizardDualMax' ? 'dualMaxHr' : 'maxHr';
+    const toId = id === 'wizardMinHr' ? 'minHr' : (id === 'wizardDualMax' ? 'dualMaxHr' : 'maxHr');
     const push = () => {
         const to = document.getElementById(toId);
         if (!from || !to) return;
@@ -3328,9 +3340,11 @@ function syncParamsUI() {
     if (!isRemotePage) {
         // Seeded here, and only here: a remote page keeps the factory pair
         // until the host's telemetry arrives.
-        state.lastGoodHrLimits = { minHr: DEFAULT_MIN_HR, maxHr: advancedSettings.maxHr, dualMaxHr: advancedSettings.dualMaxHr };
+        state.lastGoodHrLimits = { minHr: advancedSettings.minHr, maxHr: advancedSettings.maxHr, dualMaxHr: advancedSettings.dualMaxHr };
+        const minInput = document.getElementById('minHr');
         const maxInput = document.getElementById('maxHr');
         const dualMaxInput = document.getElementById('dualMaxHr');
+        if (minInput) minInput.value = String(advancedSettings.minHr);
         if (maxInput) maxInput.value = String(advancedSettings.maxHr);
         if (dualMaxInput) dualMaxInput.value = String(advancedSettings.dualMaxHr || 125);
         const fixedInput = document.getElementById('paramFixedInput');
@@ -3444,7 +3458,10 @@ if (window.speechSynthesis) {
 }
 
 document.getElementById('paramVoicePreviewBtn')?.addEventListener('click', () => {
-    setMindgamePrompt('This line shows on the dashboard. It is not spoken.', true);
+    const sample = 'This is the voice EdgeLoop will use.';
+    setMindgamePrompt(sample, true);
+    if (!document.getElementById('paramVoiceToggle')?.checked) return;
+    speakNow(sample, document.getElementById('paramVoiceSelect')?.value || '');
 });
 
 function escapeAttr(value) {
@@ -3510,7 +3527,10 @@ document.getElementById('voiceCuesList')?.addEventListener('click', (e) => {
     const btn = e.target?.closest?.('[data-voice-preview]');
     if (!btn) return;
     const { text } = resolveVoiceCue(currentVoiceCues().cues, btn.getAttribute('data-voice-preview'), sessionVoiceVars());
-    if (text) setMindgamePrompt(text, true);
+    if (!text) return;
+    setMindgamePrompt(text, true);
+    if (!document.getElementById('paramVoiceToggle')?.checked) return;
+    speakNow(text, document.getElementById('paramVoiceSelect')?.value || '');
 });
 
 document.getElementById('voiceCuesResetBtn')?.addEventListener('click', () => {
@@ -4178,7 +4198,8 @@ document.getElementById('modalBleScanBtn')?.addEventListener('click', async () =
                 const name = state.hrDeviceName || 'Heart-rate monitor';
                 state.bleBattery = null;
                 setBadgeState('Ble', 'disconnected', intentional ? 'Disconnected' : 'Lost');
-                setBleStatus(intentional ? 'Disconnected.' : `${name} dropped and did not answer ${attempts} reconnect attempts.`, intentional ? 'idle' : 'error');
+                const gattHint = 'Turn the sensor off and on, or forget it in the computer\'s Bluetooth list and pair it again. A reboot is not required.';
+                setBleStatus(intentional ? 'Disconnected.' : `${name} dropped and did not answer ${attempts} reconnect attempts. ${gattHint}`, intentional ? 'idle' : 'error');
                 document.getElementById('modalBleDisconnectBtn')?.classList.add('hidden');
                 document.getElementById('modalBleBatteryDisplay')?.classList.add('hidden');
                 const devName = document.getElementById('modalBleDeviceName');
@@ -4191,7 +4212,7 @@ document.getElementById('modalBleScanBtn')?.addEventListener('click', async () =
                     if (sessionLive) triggerDisconnectAlert(`${name} (heart-rate monitor) was disconnected. Motors paused for safety.`);
                 } else {
                     const silentMs = Math.max(0, Date.now() - (hrWatchdog.lastValidAt || Date.now()));
-                    triggerDisconnectAlert(`${name} (heart-rate monitor) dropped and did not answer ${attempts} reconnect attempts; no reading for ${Math.round(silentMs / 1000)} s. Motors paused for safety.`);
+                    triggerDisconnectAlert(`${name} (heart-rate monitor) dropped and did not answer ${attempts} reconnect attempts; no reading for ${Math.round(silentMs / 1000)} s. Motors paused for safety. Turn the sensor off and on, or forget it in the computer's Bluetooth list and pair it again. A reboot is not required.`);
                     // A drop is a signal loss too: once the sensor is paired
                     // again and readings return, the session may auto-resume.
                     if (sessionLive && state.sessionStatus === 'PAUSED') {

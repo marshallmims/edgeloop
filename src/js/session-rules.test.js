@@ -461,6 +461,8 @@ describe('calibration readings', () => {
         assert.equal(sanitizeStoredDualMax(160), 160);
         assert.equal(sanitizeStoredDualMax(50), DEFAULT_DUAL_MAX_HR);
         assert.equal(sanitizeStoredDualMax(undefined), DEFAULT_DUAL_MAX_HR);
+        assert.equal(sanitizeStoredDualMax(60, DEFAULT_DUAL_MAX_HR, 55), 60);
+        assert.equal(sanitizeStoredDualMax(125, DEFAULT_DUAL_MAX_HR, 130), 131);
     });
 });
 
@@ -1135,8 +1137,8 @@ describe('app.js persists and restores the typed session limits', () => {
     });
 
     it('is wired to every field the wearer can type', () => {
-        // #maxHr / #dualMaxHr, the duration window, the three mode buttons and
-        // the endgame cards. Resting HR is assumed. Each typed field used to be lost on reload.
+        // #minHr / #maxHr / #dualMaxHr, the duration window, the three mode buttons and
+        // the endgame cards. Each typed field used to be lost on reload.
         // persistSessionLimits(true) writes on the spot, persistSessionLimits()
         // joins the coalescing window; both count as wired. The function's own
         // declaration is not a call.
@@ -1144,7 +1146,7 @@ describe('app.js persists and restores the typed session limits', () => {
             - (src.match(/function persistSessionLimits\(/g) || []).length;
         assert.ok(calls >= 7, `only ${calls} persist calls: a field is still unsaved`);
         // The typed HR pair, saved as it is typed rather than only on blur.
-        const hrAt = src.indexOf("['maxHr', 'dualMaxHr'].forEach(");
+        const hrAt = src.indexOf("['minHr', 'maxHr', 'dualMaxHr'].forEach(");
         assert.ok(hrAt >= 0, 'the HR inputs are no longer wired in one place - move this guard with them');
         const hrBlock = src.slice(hrAt, hrAt + 700);
         assert.ok(/persistSessionLimits\(/.test(hrBlock), 'a typed HR limit must be saved');
@@ -1168,7 +1170,7 @@ describe('app.js persists and restores the typed session limits', () => {
         const guardBody = src.slice(guard, src.indexOf('\n}', guard));
         assert.ok(!/lastGoodHrLimits/.test(guardBody),
             'syncGuardSettings runs on every page: it must not seed the fallback pair');
-        const at = src.indexOf('state.lastGoodHrLimits = { minHr: DEFAULT_MIN_HR, maxHr: advancedSettings.maxHr');
+        const at = src.indexOf('state.lastGoodHrLimits = { minHr: advancedSettings.minHr, maxHr: advancedSettings.maxHr');
         assert.ok(at >= 0, 'the fallback pair is seeded nowhere - a host page needs it');
         const before = src.slice(Math.max(0, at - 900), at);
         assert.ok(/if \(!isRemotePage\) \{/.test(before),
@@ -1189,7 +1191,7 @@ describe('app.js persists and restores the typed session limits', () => {
         const close = body.indexOf('\n    }', open);
         assert.ok(close > open, 'the host-only branch never closes');
         const hostOnly = body.slice(open, close);
-        for (const restored of ['maxHr', 'dualMaxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
+        for (const restored of ['minHr', 'maxHr', 'dualMaxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
             assert.ok(hostOnly.includes(`getElementById('${restored}')`),
                 `${restored} is restored outside the host-only branch`);
         }
@@ -1212,7 +1214,7 @@ describe('app.js persists and restores the typed session limits', () => {
         const at = src.indexOf('function syncParamsUI');
         assert.ok(at >= 0, 'syncParamsUI not found');
         const body = src.slice(at, src.indexOf('\n}\n', at));
-        for (const id of ['maxHr', 'dualMaxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
+        for (const id of ['minHr', 'maxHr', 'dualMaxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
             assert.ok(body.includes(`getElementById('${id}')`), `${id} is not restored on boot`);
         }
         assert.ok(/highlightEndgameCard\(/.test(body), 'the endgame trigger is not restored on boot');
