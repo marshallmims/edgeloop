@@ -23,6 +23,8 @@ import {
     VIDEO_STALL_PAUSE_MS,
     HUD_HIDE_MS,
     OFFSET_NUDGE_MS,
+    describeVideoFormats,
+    classifyVideoLink,
     CLOCK_READ_EVERY_MS,
     VIDEO_READY_STATE,
     MAX_PICKED_FILES,
@@ -82,6 +84,7 @@ export function createPlayer({
     const video = els.video || null;
     let picked = [];
     let videoFile = null;
+    let remoteVideo = false;
     let videoUrl = null;
     let videoError = '';
     let scriptFile = null;
@@ -329,6 +332,7 @@ export function createPlayer({
             videoUrl = null;
         }
         videoFile = file || null;
+        remoteVideo = false;
         videoError = '';
         if (!video) return;
         if (!videoFile) {
@@ -344,6 +348,40 @@ export function createPlayer({
         }
         call(handlers, 'onVideo', { hasVideo: Boolean(videoFile) });
         readinessChanged();
+    }
+
+    function setVideoAddress(href) {
+        const block = call(handlers, 'canChangeFiles');
+        if (typeof block === 'string' && block) {
+            setError(block);
+            return false;
+        }
+        stopClock();
+        edgeHold = false;
+        if (videoUrl) {
+            try { urls.revokeObjectURL(videoUrl); } catch (e) {}
+            videoUrl = null;
+        }
+        remoteVideo = true;
+        videoFile = { name: href, remote: true };
+        videoError = '';
+        if (!video) return false;
+        video.preload = 'auto';
+        video.src = href;
+        try { video.load(); } catch (e) {}
+        setError('');
+        call(handlers, 'onVideo', { hasVideo: true });
+        readinessChanged();
+        return true;
+    }
+
+    function useVideoLink(raw) {
+        const link = classifyVideoLink(raw);
+        if (link.kind !== 'file') {
+            setError(link.message || '');
+            return false;
+        }
+        return setVideoAddress(link.url);
     }
 
     function clearScript(reason = '') {
@@ -587,7 +625,17 @@ export function createPlayer({
             addFiles(files);
             try { e.target.value = ''; } catch (x) {}
         });
+        const formats = describeVideoFormats();
+        if (els.chooseBtn) els.chooseBtn.textContent = formats.button;
+        if (els.formatHint) els.formatHint.textContent = formats.hint;
         els.chooseBtn?.addEventListener('click', () => els.fileInput?.click());
+        els.videoUrlBtn?.addEventListener('click', () => useVideoLink(els.videoUrl?.value));
+        els.videoUrl?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                useVideoLink(els.videoUrl.value);
+            }
+        });
         els.clearBtn?.addEventListener('click', () => clearFiles());
         const drop = els.dropZone;
         if (drop) {
@@ -600,7 +648,12 @@ export function createPlayer({
                 e.preventDefault();
                 drop.dataset.over = 'off';
                 const files = e.dataTransfer && e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
-                addFiles(files);
+                if (files.length) addFiles(files);
+                else {
+                    const text = e.dataTransfer ? (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')) : '';
+                    const first = String(text || '').split(/\s+/)[0];
+                    if (first) useVideoLink(first);
+                }
             });
         }
         els.packSelect?.addEventListener('change', () => {

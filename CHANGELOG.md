@@ -11,10 +11,13 @@ The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release o
 ### Player
 - **Your video and your funscript.** Nothing is uploaded. Load them from disk. The Player button is in the header. Intiface linear axes play the script stroke for stroke. (Cactus / Purple Palm)
 - **Two stroke models.** Shorten and skip is Cactus's limiter: strokes get shorter as you climb, and at the edge the toy skips strokes while the video keeps playing. Keep the script leaves each stroke's shape alone and only turns the intensity down. A hold written in the script is a real stop. The next stroke starts at the intensity your pulse allows. A stroke already faster than that intensity is shortened only so the toy can finish it on time.
+- **The Handy and Intiface both follow the script.** Intiface linear toys play each stroke. The Handy, with Beat sync on and firmware 4, plays each stroke over Handy's own API. With Beat sync off, The Handy follows the script's rhythm (speed and depth). A page link from a video site cannot play here. Choose MP4, M4V, WebM, MKV, MOV, or OGV, or paste a direct file address. MP4 (H.264) and WebM play in the most browsers.
 
 ## 1.1.3
 
 Calibration, two climax numbers, and one card for the stroke and the goal. Released on edgeloop.app after testing on dev.edgeloop.app. The footer DEV badge is the host, not a second version.
+
+- **VacuGlide 2.** The device card no longer says experimental. STOP still stops the motor and closes both valves. Keep the power button in reach.
 
 ### Calibration
 - **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.

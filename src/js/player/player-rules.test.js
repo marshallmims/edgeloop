@@ -25,7 +25,9 @@ import {
     scriptPhaseLabel,
     PRIVACY_LINE,
     BEAT_SYNC_CONSENT_TEXT,
-    MAX_REMEMBERED_OFFSETS
+    MAX_REMEMBERED_OFFSETS,
+    describeVideoFormats,
+    classifyVideoLink
 } from './player-rules.js';
 import { stats } from './script-track.js';
 import { clampScriptOffset } from './script-governor.js';
@@ -337,5 +339,27 @@ describe('the words', () => {
         assert.match(BEAT_SYNC_CONSENT_TEXT, /Application ID/);
         assert.match(describeVideoPlayRefused('NotAllowedError'), /\(NotAllowedError\)/);
         assert.doesNotMatch(describeVideoPlayRefused(''), /\(\)/);
+    });
+});
+
+describe('video files and links', () => {
+    it('names the containers the chooser accepts', () => {
+        const formats = describeVideoFormats();
+        for (const name of ['MP4', 'M4V', 'WEBM', 'MKV', 'MOV', 'OGV']) {
+            assert.match(formats.button, new RegExp(name));
+            assert.match(formats.hint, new RegExp(name));
+        }
+        assert.match(formats.hint, /funscript/);
+        assert.match(formats.hint, /MP4 \(H\.264\) and WebM/);
+    });
+
+    it('accepts a direct file address and refuses a page', () => {
+        assert.equal(classifyVideoLink('https://cdn.example.com/clip.mp4').kind, 'file');
+        assert.equal(classifyVideoLink('https://cdn.example.com/clip.webm?token=1').kind, 'file');
+        const page = classifyVideoLink('https://www.pornhub.com/view_video.php?viewkey=abc');
+        assert.equal(page.kind, 'page');
+        assert.match(page.message, /page link cannot play/);
+        assert.equal(classifyVideoLink('not a link').kind, 'invalid');
+        assert.equal(classifyVideoLink('').kind, 'empty');
     });
 });
