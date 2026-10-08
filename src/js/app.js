@@ -11,6 +11,28 @@ import {
     CRAWL_PERCENT
 } from './engine.js';
 import {
+    KEYBIND_ACTIONS,
+    KEYBIND_LABELS,
+    defaultKeybinds,
+    sanitizeKeybinds,
+    describeBind,
+    bindFromKey,
+    bindFromPad,
+    actionForKey,
+    actionForPad,
+    keyEventIsTyping
+} from './keybinds.js';
+import {
+    NNN_STORAGE_KEY,
+    freshNnn,
+    sanitizeNnn,
+    catchUpNnn,
+    addMissedDay,
+    tickNnnHold,
+    recordNnnEdge,
+    rollNnnOutcome
+} from './nnn.js';
+import {
     ORGASM_BOOST_CAP,
     computeEffectiveCeiling,
     sanitizeHrLimits,
@@ -123,8 +145,6 @@ import {
     peerLibraryAvailable
 } from './webrtc.js';
 import {
-    speakPrompt,
-    speakNow,
     cancelSpeech,
     setMindgamePrompt,
     startMicMonitor,
@@ -1010,6 +1030,7 @@ function updateEngine() {
         if (edgeEl) edgeEl.textContent = state.edges;
         reverseIntifaceRotation('edge');
         cueVoice('edge');
+        if (state.gameMode === 'nnn' && nnnState.holdSeconds <= 0) noteNnnEdge();
     }
 
     state.isEdged = result.isEdged;
@@ -1138,11 +1159,11 @@ function dashboardIdlePrompt() {
 
 function paintIdlePrompt() {
     const text = state.lastSpokenPrompt || dashboardIdlePrompt();
-    setMindgamePrompt(text, Boolean(advancedSettings.voiceEnabled && text));
+    setMindgamePrompt(text, Boolean(text));
 }
 
-// Queue a spoken cue. Voice guidance ON both paints the dashboard line and
-// speaks it. An `urgent` cue (signal lost, stop) jumps the TTS queue.
+// Paint the cue on the dashboard. Speech is off: the browser voice was too
+// robotic. An emptied phrase bank still leaves the last line up.
 function cueVoice(key, urgent = false) {
     const lastTemplate = state.lastCueTemplateById?.[key] || '';
     const { text, template } = resolveVoiceCue(
@@ -1151,19 +1172,7 @@ function cueVoice(key, urgent = false) {
         sessionVoiceVars(),
         { lastTemplate }
     );
-    // "Muted" and "voice guidance off" are different states. An emptied
-    // phrase bank resolves to '' with voice still ON: that cue simply says
-    // nothing this tick, so the dashboard must keep whatever the last unmuted
-    // cue wrote. Hiding the box there wiped a live edge warning one second
-    // after it appeared, every encouragement interval, all session.
-    if (!text) {
-        if (!advancedSettings.voiceEnabled) setMindgamePrompt('', false);
-        return;
-    }
-    if (!advancedSettings.voiceEnabled) {
-        setMindgamePrompt(text, false);
-        return;
-    }
+    if (!text) return;
     const now = Date.now();
     if (!urgent && text === state.lastSpokenPrompt && (now - (state.lastSpokenAt || 0) < 7000)) return;
     state.lastSpokenPrompt = text;
@@ -1173,8 +1182,6 @@ function cueVoice(key, urgent = false) {
         state.lastCueTemplateById[key] = template;
     }
     setMindgamePrompt(text, true);
-    if (urgent) speakNow(text, advancedSettings.voiceURI);
-    else speakPrompt(true, text, advancedSettings.voiceURI);
 }
 
 function warmupElapsedSeconds() {
@@ -1460,8 +1467,7 @@ function tickSessionGuardsAndGames() {
 
     const encourageEvery = clampEncourageSeconds(advancedSettings.voiceEncourageSeconds);
     if (
-        advancedSettings.voiceEnabled
-        && encourageEvery > 0
+        encourageEvery > 0
         && state.sessionStatus === 'RUNNING'
         && !state.orgasmMode
         && state.sessionSeconds > 0
@@ -1587,6 +1593,12 @@ function tickSessionGuardsAndGames() {
             if (!state.orgasmMode) setOrgasmMode(true);
             cueVoice('trainFinish');
         }
+    } else if (state.gameMode === 'nnn' && state.sessionStatus === 'RUNNING') {
+        const held = tickNnnHold(nnnState, state.isEdged);
+        nnnState = held.state;
+        if (held.counted) noteNnnEdge();
+        saveNnn();
+        paintNnn();
     }
 }
 
@@ -2417,7 +2429,7 @@ orgasmBtn?.addEventListener('click', () => {
 // Stroke and goal sit on the same card. A tease mode owns the stroke. A
 // goal, while selected, owns the speeds and uses that stroke. Tease is the
 // goal with no game. Clicking the selected goal again also turns it off.
-const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain'];
+const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain', 'nnn'];
 const modeCards = document.querySelectorAll('.mode-card');
 
 const MODE_DETAILS = {
@@ -2430,7 +2442,8 @@ const MODE_DETAILS = {
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
-    edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.'
+    edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
+    nnn: 'A daily edge quota on top of the stroke you picked. Skip a day and those edges move to the next day, and you have to hold the edge before it counts. At the quota it either finishes you or denies you.'
 };
 
 // The paragraph above the cards follows the goal when one is on, including
@@ -2496,11 +2509,217 @@ function applyModeSelection(mode, enabled) {
         state.ruinHoldSeconds = 0;
         state.ruinRideSeconds = 0;
     }
-    state.activeMode = state.gameMode || state.teaseMode;
+    state.activeMode = state.gameMode === 'nnn' ? state.teaseMode : (state.gameMode || state.teaseMode);
     highlightModeCard();
     renderModeDetail();
     updateEngine();
+    if (mode === 'nnn' || state.gameMode === 'nnn') {
+        nnnState = catchUpNnn(nnnState);
+        saveNnn();
+        paintNnn();
+    }
 }
+
+function loadNnn() {
+    const raw = safeGet(NNN_STORAGE_KEY, '');
+    if (!raw) return catchUpNnn(freshNnn());
+    try {
+        return catchUpNnn(sanitizeNnn(JSON.parse(raw)));
+    } catch (e) {
+        return catchUpNnn(freshNnn());
+    }
+}
+
+let nnnState = loadNnn();
+let listeningBind = null;
+const padWasDown = new Map();
+
+function saveNnn() {
+    safeSet(NNN_STORAGE_KEY, JSON.stringify(nnnState));
+}
+
+function paintNnn() {
+    const el = document.getElementById('nnnStatus');
+    if (!el) return;
+    const hold = nnnState.holdSeconds > 0 ? ` · hold ${nnnState.holdProgress}/${nnnState.holdSeconds}s` : '';
+    const end = nnnState.outcome === 'denied' ? ' · denied' : nnnState.outcome === 'permitted' ? ' · permitted' : '';
+    el.textContent = `Today ${nnnState.edgesToday}/${nnnState.quotaToday}${hold}${end}`;
+    const daily = document.getElementById('nnnDailyInput');
+    const denial = document.getElementById('nnnDenialInput');
+    if (daily && document.activeElement !== daily) daily.value = String(nnnState.dailyEdges);
+    if (denial && document.activeElement !== denial) denial.value = String(nnnState.denialPercent);
+}
+
+function noteNnnEdge() {
+    const recorded = recordNnnEdge(nnnState);
+    nnnState = recorded.state;
+    if (recorded.justFinished && !nnnState.outcome) {
+        const outcome = rollNnnOutcome(nnnState.denialPercent);
+        nnnState = { ...nnnState, outcome };
+        if (outcome === 'permitted') setOrgasmMode(true, { voice: true });
+        else beginSettle({ endsSession: true, outcome: 'Denied', voiceText: 'Denied.' });
+    }
+    saveNnn();
+    paintNnn();
+}
+
+document.getElementById('nnnDailyInput')?.addEventListener('click', (e) => e.stopPropagation());
+document.getElementById('nnnDenialInput')?.addEventListener('click', (e) => e.stopPropagation());
+document.getElementById('nnnDailyInput')?.addEventListener('change', (e) => {
+    const n = parseInt(e.target.value, 10);
+    nnnState = sanitizeNnn({ ...nnnState, dailyEdges: n, quotaToday: Math.max(nnnState.edgesToday + 1, n) });
+    saveNnn();
+    paintNnn();
+});
+document.getElementById('nnnDenialInput')?.addEventListener('change', (e) => {
+    nnnState = sanitizeNnn({ ...nnnState, denialPercent: parseInt(e.target.value, 10) });
+    saveNnn();
+    paintNnn();
+});
+document.getElementById('nnnMissedDayBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    nnnState = addMissedDay(nnnState);
+    saveNnn();
+    paintNnn();
+});
+
+function runKeyAction(action) {
+    if (isRemoteViewer) return;
+    if ((action === 'valvePlus' || action === 'valveMinus') && !isVacuglideConnected()) return;
+    if (action === 'valvePlus') pulseValve('plus', advancedSettings.vacuglideValvePulseMs);
+    else if (action === 'valveMinus') pulseValve('minus', advancedSettings.vacuglideValvePulseMs);
+    else if (action === 'toggleSession') document.getElementById('sessionPlayPauseBtn')?.click();
+    else if (action === 'stop') document.getElementById('sessionStopBtn')?.click();
+    else if (action === 'cameEarly') document.getElementById('cameEarlyBtn')?.click();
+    else if (action === 'forceOrgasm') document.getElementById('orgasmBtn')?.click();
+}
+
+function paintKeybinds() {
+    const list = document.getElementById('keybindList');
+    if (!list) return;
+    const binds = sanitizeKeybinds(advancedSettings.keybinds);
+    list.replaceChildren();
+    for (const action of KEYBIND_ACTIONS) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'flex items-center justify-between gap-1 px-1.5 py-1 rounded-md bg-slate-950 border border-slate-800 text-left cursor-pointer';
+        const name = document.createElement('span');
+        name.textContent = KEYBIND_LABELS[action];
+        const key = document.createElement('span');
+        key.className = 'font-mono text-slate-200';
+        key.textContent = listeningBind === action ? 'Press…' : describeBind(binds[action]);
+        row.append(name, key);
+        row.addEventListener('click', () => {
+            listeningBind = listeningBind === action ? null : action;
+            paintKeybinds();
+        });
+        list.appendChild(row);
+    }
+}
+
+function assignBind(bind) {
+    if (!listeningBind || !bind) return;
+    const next = sanitizeKeybinds(advancedSettings.keybinds);
+    for (const action of KEYBIND_ACTIONS) {
+        const current = next[action];
+        const sameKey = bind.kind === 'key' && current.kind === 'key' && current.code === bind.code;
+        const samePad = bind.kind === 'pad' && current.kind === 'pad' && current.button === bind.button;
+        if (sameKey || samePad) next[action] = defaultKeybinds()[action];
+    }
+    next[listeningBind] = bind;
+    advancedSettings.keybinds = next;
+    listeningBind = null;
+    persistSettings();
+    paintKeybinds();
+}
+
+document.addEventListener('keydown', (event) => {
+    if (listeningBind) {
+        event.preventDefault();
+        assignBind(bindFromKey(event.code));
+        return;
+    }
+    if (keyEventIsTyping(event.target)) return;
+    if (event.code === 'Escape' && document.getElementById('modalOverlay') && !document.getElementById('modalOverlay').classList.contains('hidden')) {
+        closeModal();
+        return;
+    }
+    const action = actionForKey(advancedSettings.keybinds, event.code);
+    if (!action) return;
+    event.preventDefault();
+    runKeyAction(action);
+});
+
+function pollGamepads() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const pad of pads) {
+        if (!pad) continue;
+        pad.buttons.forEach((button, index) => {
+            const down = button.pressed || button.value > 0.5;
+            const was = padWasDown.get(`${pad.index}:${index}`) === true;
+            padWasDown.set(`${pad.index}:${index}`, down);
+            if (!down || was) return;
+            if (listeningBind) {
+                assignBind(bindFromPad(index));
+                return;
+            }
+            const action = actionForPad(advancedSettings.keybinds, index);
+            if (action) runKeyAction(action);
+        });
+    }
+    requestAnimationFrame(pollGamepads);
+}
+
+document.getElementById('pipBtn')?.addEventListener('click', async () => {
+    if (!window.documentPictureInPicture) {
+        alert('This browser cannot float a window over a video. Chrome or Edge can.');
+        return;
+    }
+    const pip = await documentPictureInPicture.requestWindow({ width: 340, height: 230 });
+    for (const sheet of document.querySelectorAll('link[rel="stylesheet"], style')) {
+        pip.document.head.appendChild(sheet.cloneNode(true));
+    }
+    pip.document.body.className = 'bg-slate-950 text-slate-200 p-3 font-sans';
+    pip.document.body.innerHTML = `
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between font-mono"><span id="pipHr">--</span><span id="pipEdges">0 edges</span></div>
+        <div class="h-1.5 bg-slate-800 rounded"><div id="pipBar" class="h-1.5 bg-rose-500 rounded" style="width:0%"></div></div>
+        <div class="flex gap-2">
+          <button id="pipPlay" type="button" class="flex-1 bg-slate-800 rounded-lg py-2 font-bold cursor-pointer">Start</button>
+          <button id="pipStop" type="button" class="bg-rose-950 text-rose-200 rounded-lg px-3 py-2 font-bold cursor-pointer">Stop</button>
+        </div>
+        <div class="flex gap-2">
+          <button id="pipEarly" type="button" class="flex-1 bg-amber-950 text-amber-200 rounded-lg py-2 cursor-pointer">Came Early</button>
+          <button id="pipOrgasm" type="button" class="flex-1 bg-rose-900 rounded-lg py-2 cursor-pointer">Force Orgasm</button>
+        </div>
+        <p id="pipLine" class="text-[10px] text-slate-400 leading-snug"></p>
+      </div>`;
+    const click = (id, target) => pip.document.getElementById(id)?.addEventListener('click', () => document.getElementById(target)?.click());
+    click('pipPlay', 'sessionPlayPauseBtn');
+    click('pipStop', 'sessionStopBtn');
+    click('pipEarly', 'cameEarlyBtn');
+    click('pipOrgasm', 'orgasmBtn');
+    const sync = () => {
+        if (pip.closed) return;
+        const hr = pip.document.getElementById('pipHr');
+        const edges = pip.document.getElementById('pipEdges');
+        const bar = pip.document.getElementById('pipBar');
+        const play = pip.document.getElementById('pipPlay');
+        const line = pip.document.getElementById('pipLine');
+        if (hr) hr.textContent = `${Math.round(state.hrCurrent || 0)} BPM`;
+        if (edges) edges.textContent = `${state.edges || 0} edges`;
+        if (bar) bar.style.width = `${state.strokerSpeed || 0}%`;
+        if (play) play.textContent = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' ? 'Pause' : 'Start';
+        if (line) line.textContent = state.lastSpokenPrompt || '';
+    };
+    sync();
+    const timer = setInterval(sync, 250);
+    pip.addEventListener('pagehide', () => clearInterval(timer));
+});
+
+paintNnn();
+paintKeybinds();
+requestAnimationFrame(pollGamepads);
 
 document.getElementById('wizardCalibrateBtn')?.addEventListener('click', () => {
     if (!offerCalibration()) return;
@@ -3189,10 +3408,7 @@ if (window.speechSynthesis) {
 }
 
 document.getElementById('paramVoicePreviewBtn')?.addEventListener('click', () => {
-    const select = document.getElementById('paramVoiceSelect');
-    if (select) advancedSettings.voiceURI = select.value;
-    const { text } = resolveVoiceCue(currentVoiceCues().cues, 'preview', sessionVoiceVars());
-    if (text) speakNow(text, advancedSettings.voiceURI);
+    setMindgamePrompt('This line shows on the dashboard. It is not spoken.', true);
 });
 
 function escapeAttr(value) {
@@ -3258,7 +3474,7 @@ document.getElementById('voiceCuesList')?.addEventListener('click', (e) => {
     const btn = e.target?.closest?.('[data-voice-preview]');
     if (!btn) return;
     const { text } = resolveVoiceCue(currentVoiceCues().cues, btn.getAttribute('data-voice-preview'), sessionVoiceVars());
-    if (text) speakNow(text, advancedSettings.voiceURI);
+    if (text) setMindgamePrompt(text, true);
 });
 
 document.getElementById('voiceCuesResetBtn')?.addEventListener('click', () => {
