@@ -4,6 +4,14 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4
+
+The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release on edgeloop.app.
+
+### Player
+- **Your video and your funscript.** Nothing is uploaded. Load them from disk. The Player button is in the header. Intiface linear axes play the script stroke for stroke. (Cactus / Purple Palm)
+- **Two stroke models.** Shorten and skip is Cactus's limiter: strokes get shorter as you climb, and at the edge the toy skips strokes while the video keeps playing. Keep the script leaves each stroke's shape alone and only turns the intensity down. A hold written in the script is a real stop. The next stroke starts at the intensity your pulse allows. A stroke already faster than that intensity is shortened only so the toy can finish it on time.
+
 ## 1.1.3
 
 Calibration, two climax numbers, and one card for the stroke and the goal. Released on edgeloop.app after testing on dev.edgeloop.app. The footer DEV badge is the host, not a second version.

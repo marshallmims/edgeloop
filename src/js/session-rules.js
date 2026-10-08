@@ -351,6 +351,13 @@ export function clampStallPauseSeconds(value, fallback = DEFAULT_STALL_PAUSE_SEC
 // holdTimeoutSeconds: how long you may stay edged before the primary is cut.
 // pauseTimeoutSeconds: how long that halt lasts, then crawl resumes and the
 // hold window starts over. Disarm or leaving the edge clears both clocks.
+// The stall guard only arms for Crawl, and never in Script mode: a script
+// either skips at the edge or holds a floor, and neither is a crawl to cut.
+export function stallGuardArmed({ enabled = false, ceilingBehaviour = 'crawl', activeMode = '' } = {}) {
+    if (!enabled || activeMode === 'script') return false;
+    return ceilingBehaviour === 'crawl';
+}
+
 export function tickStallGuard(
     { holdSeconds = 0, pauseSeconds = 0, engaged = false, seconds } = {},
     { armed = false, isEdged = false, holdTimeoutSeconds, pauseTimeoutSeconds, timeoutSeconds } = {}

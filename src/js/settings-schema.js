@@ -22,6 +22,18 @@
 import { SETTING_DEFAULTS } from './state.js';
 import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, clampOrgasmSettleSeconds, MAX_SESSION_MINUTES } from './session-rules.js';
 import { clampEdgeHoldPercent } from './engine.js';
+import {
+    clampReactBpm,
+    clampFloor,
+    resolveApproach,
+    resolveEdgeAction,
+    clampRejoinSeconds,
+    clampMaxSpeed,
+    resolveInvert,
+    resolveSecondChannel,
+    resolveVideoEnd,
+    resolveStrokeModel
+} from './player/script-governor.js';
 import { clampStaleSeconds } from './hr-watchdog.js';
 import { clampEndMargin } from './hardware/handy-protocol.js';
 import { sanitizeVacuglideRole, clampSpeedCap, clampValvePulseMs } from './hardware/vacuglide-protocol.js';
@@ -133,6 +145,16 @@ export const SETTING_SANITIZERS = {
     dualMaxHr: passToOwner,
     keybinds: (value) => sanitizeKeybinds(value),
     speedSlowest: wholeNumber('speedSlowest', 0, 100),
+    scriptStrokeModel: (value) => resolveStrokeModel(value),
+    scriptReactBpm: (value) => clampReactBpm(value),
+    scriptFloorPercent: (value) => clampFloor(value),
+    scriptApproach: (value) => resolveApproach(value),
+    scriptEdgeAction: (value) => resolveEdgeAction(value),
+    scriptRejoinSeconds: (value) => clampRejoinSeconds(value),
+    scriptMaxSpeed: (value) => clampMaxSpeed(value),
+    scriptInvert: (value) => resolveInvert(value),
+    scriptSecondChannel: (value) => resolveSecondChannel(value),
+    scriptVideoEnd: (value) => resolveVideoEnd(value),
     speedFastest: wholeNumber('speedFastest', 0, 100),
     vacuglideRole: (value) => sanitizeVacuglideRole(value),
     vacuglideMaxCap: (value) => clampSpeedCap(value),

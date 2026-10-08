@@ -77,6 +77,7 @@ import { RUIN_RIDE_SECONDS, RUIN_LOCK_SECONDS } from './patterns.js';
 import { APP_VERSION, parseChangelog, GITHUB_CHANGELOG_URL, GITHUB_RELEASES_URL } from './version.js';
 import {
     connectIntifaceServer,
+    setIntifaceScriptFeed,
     disconnectIntiface,
     rescanIntiface,
     dispatchIntiface,
@@ -174,6 +175,10 @@ import {
     serializeVoiceCues,
     clampEncourageSeconds
 } from './voice-cues.js';
+import { createScriptFeed } from './player/script-feed.js';
+import { createPlayer } from './player/player.js';
+import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo } from './player/script-governor.js';
+import { offsetFor, rememberOffset, readOffsets, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY } from './player/player-rules.js';
 
 // Load persisted settings. The old 15/85 default envelope is migrated to
 // 0/100 exactly once (flagged), so a user who deliberately types 15/85 later
@@ -284,6 +289,9 @@ const viewerRoom = urlParams.get('group_sub');
 export const isRemoteController = Boolean(partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
+let player = null;
+const scriptFeed = isRemotePage ? null : createScriptFeed();
+if (scriptFeed) setIntifaceScriptFeed(scriptFeed);
 const remoteRoom = isRemoteController ? partnerRoom : viewerRoom;
 const remoteRoleLabel = isRemoteViewer ? 'Viewer' : 'Remote Controller';
 // Set when the host link died (peer close / error / silent telemetry).
@@ -457,6 +465,7 @@ function pauseSession(voiceText = 'Paused.') {
     renderTransport('PAUSED');
     clearMicBoost(state);
     dispatchHardware(0, 0, 0, 100, true);
+    if (player && player.isPlaying()) player.pause();
     if (voiceText) cueVoice('paused');
     return true;
 }
@@ -602,6 +611,11 @@ function transportWaitingReason(now = Date.now()) {
     if (!toyReady) return "WAITING FOR TOY CONNECTION";
     if (state.sessionStatus === 'PAUSED' && state.hrSignalPaused) return "WAITING FOR PULSE";
     if (!pulseIsFresh(now)) return "WAITING FOR PULSE";
+    if ((state.activeMode === 'script' || state.teaseMode === 'script') && !scriptFeed?.hasTrack()) return 'WAITING FOR A SCRIPT';
+    if (state.activeMode === 'script' || state.teaseMode === 'script') {
+        const video = document.getElementById('playerVideo');
+        if (video && video.readyState < 2) return 'WAITING FOR THE VIDEO';
+    }
     return null;
 }
 
@@ -1029,8 +1043,23 @@ function updateEngine() {
         orgasmFromPrimary: state.orgasmFromPrimary,
         orgasmFromSecondary: state.orgasmFromSecondary,
         orgasmFromStrokeMin: state.orgasmFromStrokeMin,
-        orgasmFromStrokeMax: state.orgasmFromStrokeMax
+        orgasmFromStrokeMax: state.orgasmFromStrokeMax,
+        scriptSettings: advancedSettings,
+        scriptReleasedAt: state.scriptReleasedAt
     });
+    if (result.scriptReleasedAt !== undefined) state.scriptReleasedAt = result.scriptReleasedAt;
+    if (scriptFeed) {
+        scriptFeed.setSettings(sanitizeScriptSettings(advancedSettings));
+        scriptFeed.setActive(state.activeMode === 'script');
+        scriptFeed.setAllowance(state.activeMode === 'script' ? result.primaryPercent : 0);
+    }
+    if (player && state.activeMode === 'script') {
+        const pauseVideo = advancedSettings.scriptStrokeModel !== 'keep' && edgeActionPausesVideo(advancedSettings.scriptEdgeAction);
+        if (pauseVideo && result.isEdged) player.holdForEdge();
+        else if (player.edgeHeld()) player.releaseEdge();
+    }
+    const phaseEl = document.getElementById('playerPhase');
+    if (phaseEl && state.activeMode === 'script' && result.script) phaseEl.textContent = describeScriptPhase(result.script);
 
     if (result.newEdgeTriggered && !(state.settleSecondsLeft > 0)) {
         state.edges += 1;
@@ -1458,7 +1487,7 @@ function tickSessionGuardsAndGames() {
     const crawlAtCeiling = advancedSettings.ceilingBehaviour !== 'stop';
     const guardArmed = Boolean(advancedSettings.stallGuard) && crawlAtCeiling && !state.orgasmMode
         && state.activeMode !== 'oracle' && !isUncappedClimb() && state.activeMode !== 'edgetrain'
-        && state.activeMode !== 'finisher';
+        && state.activeMode !== 'finisher' && state.activeMode !== 'script';
     const guard = tickStallGuard(
         { holdSeconds: state.edgeStallSeconds, pauseSeconds: state.stallPauseElapsed, engaged: state.stallGuardEngaged },
         {
@@ -1968,6 +1997,10 @@ function startOrResumeSession() {
     clearHrSignalPause();
     document.getElementById('rampdownNotice')?.classList.toggle('hidden', !resumingRampdown);
     renderTransport(state.sessionStatus);
+    if ((state.activeMode === 'script' || state.teaseMode === 'script') && player && !player.isPlaying()) {
+        player.play();
+    }
+    if (state.activeMode === 'script') state.scriptReleasedAt = state.sessionSeconds;
     return true;
 }
 
@@ -2122,6 +2155,7 @@ function stopSession(outcome = "Stopped", voiceText = null) {
     state.strokerSpeed = 0;
     state.prostateSpeed = 0;
     dispatchHardware(0, 0, 0, 100, true);
+    if (player && player.isPlaying()) player.pause();
     setOrgasmMode(false, { settle: false });
     clearHrSignalPause();
     try {
@@ -2459,7 +2493,8 @@ const MODE_DETAILS = {
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
-    nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.'
+    nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.',
+    script: 'Your video and its funscript. Shorten and skip makes strokes shorter as you climb and skips them at the edge. Keep the script leaves the stroke shape alone and only turns the intensity down.'
 };
 
 // The paragraph above the cards follows the goal when one is on, including
@@ -2479,7 +2514,7 @@ function highlightModeCard() {
             : (mode === state.teaseMode || mode === state.gameMode);
         const check = c.querySelector('.mode-check');
         const title = c.querySelector('.font-bold');
-        const wide = mode === 'nnn' ? ' sm:col-span-2' : '';
+        const wide = mode === 'nnn' || mode === 'script' ? ' sm:col-span-2' : '';
         if (on) {
             c.className = `mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between${wide}`;
             if (title) title.className = "font-bold text-[11px] text-purple-300 flex justify-between items-center";
@@ -2497,6 +2532,9 @@ function applyModeSelection(mode, enabled) {
     // primary run and the later both-toys run. A mode command must not
     // skip that.
     if (mode === 'calibrate') return;
+    if (mode === 'script' && !scriptFeed?.hasTrack()) return;
+    if (mode === 'script') state.gameMode = null;
+    if (GAME_CARD_MODES.includes(mode) && state.teaseMode === 'script') return;
     // Tease clears the goal. It is not a stroke, so it must not land in the
     // tease-mode branch (that would store a mode the engine does not run).
     if (mode === 'goal-off') {
@@ -5278,6 +5316,114 @@ document.getElementById('copyShareUrlBtn')?.addEventListener('click', () => {
 document.getElementById('copyGroupUrlBtn')?.addEventListener('click', () => {
     copyLinkFrom('groupShareUrl', 'copyGroupUrlBtn').catch(() => {});
 });
+
+let loadedScriptHash = '';
+function storedScriptOffsets() {
+    try {
+        return readOffsets(JSON.parse(safeGet(SCRIPT_OFFSETS_STORAGE_KEY, '') || 'null'));
+    } catch (e) {
+        return {};
+    }
+}
+if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
+    const byId = (id) => document.getElementById(id);
+    player = createPlayer({
+        feed: scriptFeed,
+        els: {
+            video: byId('playerVideo'),
+            stage: byId('playerStage'),
+            hud: byId('playerHud'),
+            hudHr: byId('hudHr'),
+            hudMark: byId('hudMark'),
+            hudPhase: byId('hudPhase'),
+            hudEdges: byId('hudEdges'),
+            hudTimer: byId('hudTimer'),
+            hudNotice: byId('hudNotice'),
+            hudBar: byId('hudBar'),
+            hudPause: byId('hudPauseBtn'),
+            hudStop: byId('hudStopBtn'),
+            fileInput: byId('playerFileInput'),
+            chooseBtn: byId('playerChooseBtn'),
+            clearBtn: byId('playerClearBtn'),
+            dropZone: byId('playerDrop'),
+            packRow: byId('playerPackRow'),
+            packSelect: byId('playerPackSelect'),
+            pairList: byId('playerPairList'),
+            error: byId('playerError'),
+            playBtn: byId('playerPlayBtn'),
+            muteBtn: byId('playerMuteBtn'),
+            seek: byId('playerSeek'),
+            time: byId('playerTime'),
+            offsetMinus: byId('playerOffsetMinus'),
+            offsetPlus: byId('playerOffsetPlus'),
+            offsetValue: byId('playerOffsetValue'),
+            theaterBtn: byId('playerTheaterBtn'),
+            fullscreenBtn: byId('playerFullscreenBtn')
+        },
+        handlers: {
+            transport: () => ({ coupled: state.activeMode === 'script', sessionStatus: state.sessionStatus }),
+            canChangeFiles: () => (state.activeMode === 'script' && (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN')
+                ? 'Press STOP before changing the files.'
+                : null),
+            onScript: (script) => {
+                loadedScriptHash = script.hash || '';
+                scriptFeed.setTrack(script.track, script.meta);
+                player?.setOffset(offsetFor(storedScriptOffsets(), script.hash));
+                const card = document.getElementById('scriptModeCard');
+                if (card) card.disabled = false;
+                card?.classList.remove('opacity-50');
+                checkReadiness();
+            },
+            onScriptCleared: () => {
+                loadedScriptHash = '';
+                scriptFeed.setTrack(null);
+                if (state.teaseMode === 'script') applyModeSelection('classic');
+                const card = document.getElementById('scriptModeCard');
+                if (card) {
+                    card.disabled = true;
+                    card.classList.add('opacity-50');
+                }
+                checkReadiness();
+            },
+            onPlayRequest: () => playPauseBtn?.click(),
+            onPauseRequest: () => {
+                if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') pauseSession('Paused.');
+            },
+            onEnded: () => {
+                if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' || state.sessionStatus === 'PAUSED') stopSession('Video ended');
+            },
+            onStall: (seconds) => {
+                if (state.activeMode === 'script' && state.sessionStatus === 'RUNNING') triggerDisconnectAlert(describeVideoStall(seconds));
+            },
+            onMediaError: (message) => {
+                if (state.activeMode === 'script' && state.sessionStatus !== 'IDLE') triggerDisconnectAlert(`${message} Every toy was stopped and the session paused.`);
+            },
+            onOffset: (ms) => {
+                if (!loadedScriptHash) return;
+                const next = rememberOffset(storedScriptOffsets(), loadedScriptHash, ms, Date.now());
+                safeSet(SCRIPT_OFFSETS_STORAGE_KEY, JSON.stringify(next));
+            },
+            onHudPause: () => { if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') playPauseBtn?.click(); },
+            onHudStop: () => stopBtn?.click(),
+            onPlayButton: () => playPauseBtn?.click()
+        }
+    });
+    const modelSelect = document.getElementById('scriptStrokeModelSelect');
+    if (modelSelect) {
+        modelSelect.value = advancedSettings.scriptStrokeModel === 'keep' ? 'keep' : 'cactus';
+        modelSelect.addEventListener('change', () => {
+            advancedSettings.scriptStrokeModel = modelSelect.value === 'keep' ? 'keep' : 'cactus';
+            persistSettings();
+            updateEngine();
+        });
+    }
+    document.getElementById('playerHeaderBtn')?.addEventListener('click', () => {
+        document.getElementById('playerBody')?.classList.toggle('hidden');
+    });
+    document.getElementById('playerToggleBtn')?.addEventListener('click', () => {
+        document.getElementById('playerBody')?.classList.toggle('hidden');
+    });
+}
 
 // Boot Initialization
 initHandyRoleUI();

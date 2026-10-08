@@ -74,6 +74,7 @@ export const state = {
     // The tease mode owns the stroke. A game, when set, owns the speeds
     // and borrows this stroke. Neither is restored on reload on purpose.
     teaseMode: 'classic',
+    scriptReleasedAt: null,
     gameMode: null,
     lastHrTimestamp: Date.now(),
     // Heart-rate watchdog (hr-watchdog.js): last verdict, whether packets
@@ -217,6 +218,16 @@ export const advancedSettings = {
     // still 0; everything above 0 is scaled into this pair.
     speedSlowest: 0,
     speedFastest: 100,
+    scriptStrokeModel: 'cactus',
+    scriptReactBpm: 10,
+    scriptFloorPercent: 30,
+    scriptApproach: 'shorten',
+    scriptEdgeAction: 'skip',
+    scriptRejoinSeconds: 8,
+    scriptMaxSpeed: 300,
+    scriptInvert: false,
+    scriptSecondChannel: 'hr',
+    scriptVideoEnd: 'stop',
     // Autoblow VacuGlide 2. Speed only. The token lives in its own store.
     vacuglideRole: 'primary',
     vacuglideMaxCap: 100,
