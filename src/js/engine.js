@@ -9,8 +9,8 @@
 import { normalizeEnvelope } from './hardware/handy-protocol.js';
 import { teaseFrame, warmupShape, placeStroke, orgasmFrame } from './patterns.js';
 
-export const TEASE_MODES = ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
-export const GAME_MODES = ['oracle', 'survival', 'edgetrain'];
+export const TEASE_MODES = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+export const GAME_MODES = ['oracle', 'survival', 'edgetrain', 'calibrate'];
 
 export function resolveTeaseMode(strokeMode, activeMode) {
     if (TEASE_MODES.includes(strokeMode)) return strokeMode;
@@ -20,6 +20,7 @@ export function resolveTeaseMode(strokeMode, activeMode) {
 
 export const ENGINE_MODES = [
     'classic',
+    'finisher',
     'milker',
     'shortener',
     'headplay',
@@ -27,8 +28,13 @@ export const ENGINE_MODES = [
     'ruin',
     'oracle',
     'survival',
-    'edgetrain'
+    'edgetrain',
+    'calibrate'
 ];
+
+function isUncappedClimb(mode) {
+    return mode === 'survival' || mode === 'calibrate';
+}
 
 // Hysteresis: once edged, the flag only clears when HR drops MORE than this
 // many BPM below the typed climax ceiling, so a reading hovering at the
@@ -127,8 +133,8 @@ export function resolveEngineMode(mode) {
 // which is a no-op at full depth.
 export function micBoostReachesMotors(activeMode, { edgeStrokeDepth = 100 } = {}) {
     const mode = resolveEngineMode(activeMode);
-    if (mode === 'oracle' || mode === 'edgetrain') return false;
-    if (mode === 'survival') return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
+    if (mode === 'oracle' || mode === 'edgetrain' || mode === 'finisher') return false;
+    if (isUncappedClimb(mode)) return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
     return true;
 }
 
@@ -178,6 +184,26 @@ function safeEnvelope(hwMin, hwMax) {
     return normalizeEnvelope(Math.min(lo, hi), Math.max(lo, hi));
 }
 
+export function clampSpeedBound(value, fallback = 0) {
+    const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+// Slowest and fastest are the session's speed window. A pattern percent above
+// 0 lands inside it: 100 becomes fastest, a quiet moment becomes slowest.
+// 0 stays 0, so STOP, Full Stop, and the bottom of an ease-down still stop.
+export function mapSessionSpeed(percent, slowest = 0, fastest = 100) {
+    const p = Number(percent);
+    if (!Number.isFinite(p) || p <= 0) return 0;
+    let lo = clampSpeedBound(slowest, 0);
+    let hi = clampSpeedBound(fastest, 100);
+    if (hi < lo) [lo, hi] = [hi, lo];
+    const capped = Math.min(100, p);
+    if (lo === 0 && hi === 100) return Math.round(capped);
+    return Math.round(lo + (capped / 100) * (hi - lo));
+}
+
 export function calculateEngineOutputs({
     hr,
     // The sensor's own pulse. `hr` may carry the microphone boost, which
@@ -200,11 +226,14 @@ export function calculateEngineOutputs({
     orgasmBoost = 0,
     gamma = 2.0,
     intensityValue = 50,
+    speedSlowest = 0,
+    speedFastest = 100,
     edgeStrokeDepth = 100,
     handyHwMin = 0,
     handyHwMax = 100,
     sessionSeconds = 0,
     warmupMinutes = 0,
+    warmupElapsedSeconds = undefined,
     cadenceBreathing = false,
     milkingWave = false,
     stallGuardEngaged = false,
@@ -214,7 +243,20 @@ export function calculateEngineOutputs({
     strokeMode,
     oracleState = 'IDLE',
     survivalSpeedFloor = 30,
-    trainingState = 'climb'
+    trainingState = 'climb',
+    settleSecondsLeft = 0,
+    settleSpan = 45,
+    settleFromPrimary = 0,
+    settleFromSecondary = 0,
+    settleFromStrokeMin = null,
+    settleFromStrokeMax = null,
+    settleFloor = 0,
+    // Speeds and stroke last sent, captured when Force Orgasm was armed.
+    // Absent means blend from this tick's own output.
+    orgasmFromPrimary = null,
+    orgasmFromSecondary = null,
+    orgasmFromStrokeMin = null,
+    orgasmFromStrokeMax = null
 }) {
     const mode = resolveEngineMode(activeMode);
     const teaseMode = resolveTeaseMode(strokeMode, mode);
@@ -256,6 +298,9 @@ export function calculateEngineOutputs({
 
     const triggerHr = resolveEdgeTriggerHr(maxHr, edgeHoldPercent, minHr);
     const edgeSource = Number.isFinite(edgeHr) ? edgeHr : hr;
+    // Hold to is where the toys ease off. An edge is the pulse reaching the
+    // max itself. A lower Hold to must not count one early.
+    const atPullback = edgeSource >= triggerHr;
 
     // Force Orgasm FREEZES the edge flag; it never clears it. The overdrive
     // raises the working ceiling 1 BPM per second, and the pullback mark
@@ -267,12 +312,12 @@ export function calculateEngineOutputs({
     // never left the mark. New edges were already suppressed here; releases
     // are too, so the flag stays whatever the pulse last really said and the
     // first tick after a cancel judges it against the real ceiling again.
-    if (edgeSource >= triggerHr) {
+    if (edgeSource >= maxHr) {
         if (!isEdged && !orgasmMode && sessionStatus !== 'RAMPDOWN') {
             newEdgeTriggered = true;
             nextIsEdged = true;
         }
-    } else if (!orgasmMode && hasReleasedEdge(edgeSource, maxHr, triggerHr)) {
+    } else if (!orgasmMode && hasReleasedEdge(edgeSource, maxHr, maxHr)) {
         nextIsEdged = false;
     }
 
@@ -312,14 +357,14 @@ export function calculateEngineOutputs({
         shapedProgress: progress,
         sensorRaw: sensorRawProgress,
         climbProgress,
-        atPeak: nextIsEdged && !orgasmMode,
+        atPeak: atPullback && !orgasmMode,
         crawlPercent,
         stallGuardEngaged,
         seconds,
         ruinHoldSeconds
     };
     const stroke = teaseFrame(teaseArgs);
-    const isGame = mode === 'oracle' || mode === 'survival' || mode === 'edgetrain';
+    const isGame = mode === 'oracle' || mode === 'edgetrain' || isUncappedClimb(mode);
 
     if (sessionStatus === 'RAMPDOWN') {
         const rampFactor = Math.max(0, rampLeft / 45);
@@ -329,7 +374,7 @@ export function calculateEngineOutputs({
         const oracle = applyOracle(oracleState, climbProgress, nextIsEdged, orgasmMode, seconds, crawlPercent);
         primaryPercent = oracle.primary;
         secondaryPercent = oracle.secondary;
-    } else if (mode === 'survival') {
+    } else if (isUncappedClimb(mode)) {
         const floor = clamp(finiteOr(survivalSpeedFloor, 30), 5, 100);
         // Force Orgasm ramps from this floor; it does not replace it with a flat 100.
         primaryPercent = floor;
@@ -350,23 +395,6 @@ export function calculateEngineOutputs({
     strokeMinPercent = stroke.strokeMin;
     strokeMaxPercent = stroke.strokeMax;
 
-    // Force Orgasm eases both channels up from whatever the mode was doing
-    // and keeps a wave at the top. It never drops a toy that was already
-    // hotter, and the stroke opens toward the full travel window. The
-    // working ceiling climbs on the same clock (app.js), so the pulse is
-    // allowed past the typed max until the wearer finishes.
-    if (orgasmMode && sessionStatus === 'RUNNING') {
-        const frame = orgasmFrame(seconds, orgasmBoost);
-        const ease = frame.ease;
-        primaryPercent = Math.round(primaryPercent * (1 - ease) + frame.primary * ease);
-        secondaryPercent = Math.round(secondaryPercent * (1 - ease) + frame.secondary * ease);
-        const openMin = strokeMinPercent * (1 - ease);
-        const openMax = strokeMaxPercent + (100 - strokeMaxPercent) * ease;
-        const opened = placeStroke(openMin, openMax, frame.depth, 'low');
-        strokeMinPercent = opened.min;
-        strokeMaxPercent = opened.max;
-    }
-
     if (stallGuardEngaged && !orgasmMode && sessionStatus === 'RUNNING') {
         primaryPercent = 0;
     }
@@ -376,7 +404,8 @@ export function calculateEngineOutputs({
     // a short slow stroke. The stroke still starts at the bottom of whatever
     // window the mode asked for, which is already inside the travel envelope.
     if (!orgasmMode && sessionStatus === 'RUNNING') {
-        const wake = warmupShape(seconds, warmupMinutes);
+        const wakeClock = Number.isFinite(warmupElapsedSeconds) ? Math.max(0, warmupElapsedSeconds) : seconds;
+        const wake = warmupShape(wakeClock, warmupMinutes);
         if (wake.depth < 1 || wake.speed < 1) {
             const woken = placeStroke(strokeMinPercent, strokeMaxPercent, wake.depth, 'low');
             strokeMinPercent = woken.min;
@@ -395,12 +424,15 @@ export function calculateEngineOutputs({
     }
 
     const intensityScale = 0.5 + (intensitySafe / 100);
+    const inWindow = (percent) => mapSessionSpeed(percent, speedSlowest, speedFastest);
     if (primaryPercent > 0) {
         primaryPercent = Math.min(100, Math.round(primaryPercent * intensityScale));
     }
     if (secondaryPercent > 0) {
         secondaryPercent = Math.min(100, Math.round(secondaryPercent * intensityScale));
     }
+    primaryPercent = inWindow(primaryPercent);
+    secondaryPercent = inWindow(secondaryPercent);
 
     // Zone sanity: whatever the mode and warm-up cap did, the zone must stay
     // ordered and at least MIN_ZONE_WIDTH wide. The cap (upper bound) wins,
@@ -422,6 +454,48 @@ export function calculateEngineOutputs({
     let physicalMin = clamp(Math.round(env.min + (strokeMinPercent / 100) * envSpan), env.min, env.max);
     let physicalMax = clamp(Math.round(env.min + (strokeMaxPercent / 100) * envSpan), env.min, env.max);
     if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+
+    // Force Orgasm eases from the speed and stroke last sent, not from this
+    // tick's ceiling cut. Armed on the mark, that cut is 0% or crawl, so a
+    // blend that started there stopped the toy and then climbed. The first
+    // tick sends what was already sent. Later ticks walk toward the high wave.
+    if (orgasmMode && sessionStatus === 'RUNNING') {
+        const frame = orgasmFrame(seconds, orgasmBoost);
+        const ease = frame.ease;
+        const fromP = Number.isFinite(orgasmFromPrimary) ? orgasmFromPrimary : primaryPercent;
+        const fromS = Number.isFinite(orgasmFromSecondary) ? orgasmFromSecondary : secondaryPercent;
+        const targetP = inWindow(Math.min(100, Math.round(frame.primary * intensityScale)));
+        const targetS = inWindow(Math.min(100, Math.round(frame.secondary * intensityScale)));
+        primaryPercent = Math.round(fromP * (1 - ease) + targetP * ease);
+        secondaryPercent = Math.round(fromS * (1 - ease) + targetS * ease);
+        const full = placeStroke(0, 100, frame.depth, 'low');
+        const goalMin = clamp(Math.round(env.min + (full.min / 100) * envSpan), env.min, env.max);
+        const goalMax = clamp(Math.round(env.min + (full.max / 100) * envSpan), env.min, env.max);
+        const fromMin = Number.isFinite(orgasmFromStrokeMin) ? orgasmFromStrokeMin : physicalMin;
+        const fromMax = Number.isFinite(orgasmFromStrokeMax) ? orgasmFromStrokeMax : physicalMax;
+        physicalMin = clamp(Math.round(fromMin * (1 - ease) + goalMin * ease), env.min, env.max);
+        physicalMax = clamp(Math.round(fromMax * (1 - ease) + goalMax * ease), env.min, env.max);
+        if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+    }
+
+    // An orgasm was indicated, or Force Orgasm was cancelled. Ease from the
+    // speed and stroke the toys were at down to Crawl or a full stop, and
+    // toward the stroke the mode would use once the ease is over.
+    if (settleSecondsLeft > 0) {
+        const span = Math.max(1, finiteOr(settleSpan, 45));
+        const t = clamp(settleSecondsLeft / span, 0, 1);
+        const floor = clamp(finiteOr(settleFloor, 0), 0, 100);
+        const fromPrimary = clamp(finiteOr(settleFromPrimary, 0), 0, 100);
+        const fromSecondary = clamp(finiteOr(settleFromSecondary, 0), 0, 100);
+        primaryPercent = Math.round(fromPrimary * t + floor * (1 - t));
+        secondaryPercent = Math.round(fromSecondary * t + floor * (1 - t));
+        if (Number.isFinite(settleFromStrokeMin) && Number.isFinite(settleFromStrokeMax)) {
+            physicalMin = clamp(Math.round(settleFromStrokeMin * t + physicalMin * (1 - t)), env.min, env.max);
+            physicalMax = clamp(Math.round(settleFromStrokeMax * t + physicalMax * (1 - t)), env.min, env.max);
+            if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+        }
+        newEdgeTriggered = false;
+    }
 
     return {
         primaryPercent: clamp(finiteOr(primaryPercent, 0), 0, 100),

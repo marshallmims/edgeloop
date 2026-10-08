@@ -205,3 +205,24 @@ export function describeHandyInfo(info) {
     if (model) parts.push(String(model));
     return parts.join(', ');
 }
+
+// Outcomes of a stop sent to a cloud toy after a page died. VacuGlide uses
+// the same names. A conclusive outcome means the device is no longer our
+// problem.
+export const RECOVERY_STOP = Object.freeze({
+    STOPPED: 'stopped',
+    ALREADY_STOPPED: 'already-stopped',
+    NOT_HAMP: 'not-hamp',
+    OFFLINE: 'offline',
+    FAILED: 'failed',
+    CONNECTED: 'connected',
+    LINKED: 'linked'
+});
+
+export function isRecoveryStopConclusive(outcome) {
+    return outcome === RECOVERY_STOP.STOPPED
+        || outcome === RECOVERY_STOP.ALREADY_STOPPED
+        || outcome === RECOVERY_STOP.NOT_HAMP
+        || outcome === RECOVERY_STOP.CONNECTED
+        || outcome === RECOVERY_STOP.LINKED;
+}

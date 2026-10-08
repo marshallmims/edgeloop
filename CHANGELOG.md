@@ -4,10 +4,37 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
-## Unreleased
+## 1.1.3
+
+Calibration, two climax numbers, and one card for the stroke and the goal. Released on edgeloop.app after testing on dev.edgeloop.app. The footer DEV badge is the host, not a second version.
+
+### Calibration
+- **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
+- **Force Orgasm and the ease-down start from the speed the toys are at.** Arming Force Orgasm on the mark used to begin at the ceiling cut, 0% or crawl, and then climb. Marking an orgasm used to open the stroke to a fresh pattern while the speed eased. Both now start from the speed and stroke just sent, then ramp up or ease down from there.
+- **An indicated orgasm eases down.** Calibration and Came Early no longer cut the toys the moment you say you came. Cancelling Force Orgasm no longer snaps back to full speed. The toys ease from the speed they were at down to Crawl or Full Stop, whichever you set for the ceiling. The length is **Ease down after orgasm** on the Guards tab (0–180 seconds, 45 by default). 0 cuts immediately. An ending then stops the session. Cancelling Force Orgasm hands the mode back after the ease. STOP still cuts immediately.
+- **Survival can go again.** Finished me eases down, then the climb and the warm-up start over. The session timer keeps running, so one session can hold more than one orgasm.
+- **A session can set its slowest and fastest speed.** The intensity slider only goes from half speed to one and a half. Slowest and Fastest sit under it (0–100, default 0 and 100). Strokes are scaled into that window. A real stop is still 0. (Jfre90)
+- **Keys and a controller.** Space starts or pauses. Escape stops, and closes an open panel first. Left is Came Early, right is Force Orgasm. Up and down pulse the VacuGlide valves when that toy is connected. Click a binding to change it with a key or a controller button.
+- **NNN practice.** A goal on the stroke card, with a start date and an end date. The app knows which day of that window it is. A day you do not open the app adds that day's edges to the next day you do, and asks you to hold the edge before it counts. At the quota it permits or denies you. Clear drops the piled-up days and today's progress. The dates stay. (Teasey)
+- **Pop out.** On a computer, Chrome or Edge can float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable in that window. The button stays hidden on a phone, where that window cannot take taps.
+- **Cues stay on screen, and speech is optional.** Build-up and the other lines still show on the dashboard. Speech stays off until you turn it on under Audio & Mic. The list is whatever voices the browser has, so an installed voice such as Kokoro can be picked. (Ultari123)
+- **Resting heart rate is a field again.** It sits next to the two climax numbers and starts at 70. A lower resting rate, down to 30, gives the first climb a real band when your pulse is already near the old assumption. Dual max has to stay above it. (TwistedPythonVR)
+- **Finisher.** A stroke mode whose speed rises with your heart rate and stays at full speed on the mark. Crawl, Full Stop, and the stall guard do not slow it down. Room noise does not speed it up. (funonly)
+- **A dropped heart-rate link says what to try next.** After the reconnect attempts fail, the alert asks you to power-cycle the sensor or forget it in the computer's Bluetooth list and pair it again. A reboot is not required. The motors still pause. (Ultari123)
+- **A Hold to below 100% still eases the speed and starts Crawl or Full Stop there.** The edge counter, Survival's step, and Ruin's ride wait until your pulse reaches the max, and the edge releases 5 BPM below that max.
+- **OSSM through Intiface is one motor.** Intiface lists Position and Oscillate as two axes. They are one motor, and driving both tripped the machine's emergency stop. Position is on by default and strokes inside the travel range. STOP holds where it is, within about a fifth of a second. The first stroke after connecting still runs to its end, up to about 2 seconds. Oscillate uses the whole rail, so it only turns on when the travel range is 0-100%. (X333)
+- **VacuGlide 2, experimental.** Speed follows the channel you pick. Valve + and Valve - are buttons you press; the app does not move them on its own. STOP closes both valves as well as stopping the motor. If the page closes, the next open finishes a stop the page could not confirm. If you stop it from Autoblow's app during a session, EdgeLoop pauses. A connected VacuGlide counts as the toy, so START is not left waiting for another device. The device token stays in this browser. Keep the power button in reach. (Prince Aster, Redbird)
+- **Intiface vibrators can pulse.** Each vibrate axis is Constant or Pulsed. Pulsed is on for half of 0.8, 1.6, or 2.4 seconds and off for the other half. The intensity the engine already sends is the peak, and it stays under that axis's cap. STOP, pause, and OFF cut the pulse at once. The choice is saved with the toy and comes back in a backup. (Umbra250)
+- **Calibrate again replaces the number you already have.** The button follows whichever devices are on. Primary only replaces the single max. Both devices replace the dual max. It no longer insists the next run has to be the other one, and it no longer refuses because a max is already saved.
+- **Decay stays off during Calibration.** Adaptive ceiling decay does not lower the mark, and the DECAY badge stays hidden, so the climb is not pulled back. The setting itself is left alone for every other mode. Changing the stroke keeps the calibration running. Tease, another goal, the Calibrating button, Stop, and Reset still leave it.
+- **Calibration talks about your devices, not The Handy.** The first run is your primary stimulation device alone. When you orgasm, tap The app / Finished me. After a rest of about a day, a second run with primary and secondary together sets the dual max. Either number can be changed by hand. That explanation stays in the popup. The line under the heart-rate fields appears only while Calibration is on.
+
+### Cockpit
+- **Start, Stop, and Reset sit with the heart rate.** Those buttons are in the left column, under the edge and orgasm controls, so the mode list on the right is not carrying the transport as well.
+- **Stroke and goal on one card.** The Modes and Games tabs are gone. The stroke sits on the top row. The goal sits under it: Tease, Survival, Edge Training, and The Oracle. Tease means no game, so the stroke runs on its own. Edge Training's hold time and edge count stay on that card. Session Setup is unchanged.
 
 ### Site
-- **dev.edgeloop.app.** A separate copy for development. Pushes to the `dev` branch publish there. `main` still publishes edgeloop.app. The footer shows DEV on that host. Settings and pairings on the dev site are its own, not the live site's.
+- **dev.edgeloop.app.** A separate copy for development. Pushes to the `dev` branch publish there. `main` still publishes edgeloop.app. The footer shows DEV on that host. Settings and pairings on the dev site are its own, not the live site's. The version number is the release number, shared with production when this build ships.
 
 ## 1.1.2
 

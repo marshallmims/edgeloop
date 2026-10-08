@@ -22,6 +22,9 @@ import {
     countSurvivalBreach,
     isSurvivalDefeated,
     survivalDrive,
+    calibrationReading,
+    sanitizeStoredDualMax,
+    DEFAULT_DUAL_MAX_HR,
     SURVIVAL_START_FLOOR,
     SURVIVAL_OVERDRIVE_CAP,
     SURVIVAL_EDGE_BPM,
@@ -87,13 +90,12 @@ describe('computeEffectiveCeiling', () => {
         assert.equal(out.orgasmBoost, 0);
     });
 
-    it('stacks learned, dual-stim and decay offsets downward', () => {
+    it('uses the dual-stim max when both toys are live, then learned and decay', () => {
         const out = computeEffectiveCeiling({
             ...base,
+            dualMaxHr: 125,
             learnedOffset: 5,
             dualStimActive: true,
-            dualDampening: true,
-            dualDampeningBpm: 15,
             adaptiveDecay: true,
             edges: 4,
             decayEdgeCount: 2,
@@ -101,10 +103,17 @@ describe('computeEffectiveCeiling', () => {
             decayFloor: 100
         });
         assert.equal(out.learnedOffset, 5);
-        assert.equal(out.dualOffset, 15);
+        assert.equal(out.usingDual, true);
+        assert.equal(out.dualMaxHr, 125);
         assert.equal(out.totalDecay, 4);
         assert.equal(out.appliedDecay, 4);
-        assert.equal(out.maxHr, 140 - 5 - 15 - 4);
+        assert.equal(out.maxHr, 125 - 5 - 4);
+    });
+
+    it('leaves the single-stim max in charge when only one toy is live', () => {
+        const out = computeEffectiveCeiling({ ...base, dualMaxHr: 110, dualStimActive: false });
+        assert.equal(out.maxHr, 140);
+        assert.equal(out.usingDual, false);
     });
 
     it('decay floor stops the decay but never raises the ceiling', () => {
@@ -137,7 +146,7 @@ describe('computeEffectiveCeiling', () => {
     });
 
     it('offsets never pull the ceiling below min + gap', () => {
-        const out = computeEffectiveCeiling({ minHr: 120, maxHr: 140, learnedOffset: 30, dualStimActive: true, dualDampening: true });
+        const out = computeEffectiveCeiling({ minHr: 120, maxHr: 160, dualMaxHr: 155, learnedOffset: 30, dualStimActive: true });
         assert.equal(out.maxHr, 120 + MIN_CEILING_GAP);
     });
 
@@ -414,22 +423,46 @@ describe('survival climb', () => {
         assert.equal(src.includes('isSurvivalDefeated'), false);
     });
 
-    it('saves the run peak from the Came Early button only after the wearer confirms', () => {
+    it('saves a primary calibration from Finished me, and a both-toys gap as the offset', () => {
         const src = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
         const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
         assert.equal(html.includes('survivalCameBtn'), false);
+        assert.equal(html.includes('survivalCalibrateToggle'), false);
         assert.match(html, /id="cameEarlyLabel"[^>]*>Came Early</);
-        assert.match(html, /id="survivalCalibrateToggle"/);
+        assert.match(html, /id="calibrateBtn"/);
         assert.match(html, /id="wizardCalibrateBtn"/);
         assert.match(src, /Finished me/);
-        assert.match(src, /survivalCalibrating/);
-        const handler = src.match(/cameEarlyBtn\?\.addEventListener\([\s\S]*?stopSession\('Survival calibration'/);
+        const handler = src.match(/cameEarlyBtn\?\.addEventListener\([\s\S]*?beginSettle\(\{ endsSession: true, outcome: 'Premature Release'/);
         assert.ok(handler, 'Finished me has no handler on the Came Early button');
+        assert.match(handler[0], /activeMode === 'calibrate'/);
         assert.match(handler[0], /activeMode === 'survival'/);
+        assert.match(handler[0], /saveDualClimax/);
+        assert.match(handler[0], /savePrimaryClimax/);
         assert.match(handler[0], /confirm\(/);
-        assert.equal(handler[0].includes('suggestedMaxHrOffset'), false);
+        const calibrateBranch = handler[0].split("activeMode === 'survival'")[0];
+        assert.equal(calibrateBranch.includes('suggestedMaxHrOffset'), false);
         assert.match(handler[0], /isRemotePage/);
         assert.match(src, /suggestedMaxHrOffset/);
+    });
+});
+
+describe('calibration readings', () => {
+    it('keeps a climax heart rate and refuses anything outside 40–220', () => {
+        assert.equal(calibrationReading(135.4), 135);
+        assert.equal(calibrationReading(40), 40);
+        assert.equal(calibrationReading(220), 220);
+        assert.equal(calibrationReading(39), null);
+        assert.equal(calibrationReading(221), null);
+        assert.equal(calibrationReading(NaN), null);
+    });
+
+    it('stores a dual-stim max on its own, and falls back when the number is missing', () => {
+        assert.equal(sanitizeStoredDualMax(135), 135);
+        assert.equal(sanitizeStoredDualMax(160), 160);
+        assert.equal(sanitizeStoredDualMax(50), DEFAULT_DUAL_MAX_HR);
+        assert.equal(sanitizeStoredDualMax(undefined), DEFAULT_DUAL_MAX_HR);
+        assert.equal(sanitizeStoredDualMax(60, DEFAULT_DUAL_MAX_HR, 55), 60);
+        assert.equal(sanitizeStoredDualMax(125, DEFAULT_DUAL_MAX_HR, 130), 131);
     });
 });
 
@@ -665,8 +698,8 @@ describe('the endgame and a latched Force Orgasm', () => {
             /endgameKeepsOrgasmLatch\(/.test(fn[0]),
             `the endgame must decide what happens to the latch: ${fn[0]}`
         );
-        assert.ok(/setOrgasmMode\(false\)/.test(fn[0]), 'and actually clear it');
-        const clear = fn[0].indexOf('setOrgasmMode(false)');
+        assert.ok(/setOrgasmMode\(false, \{ settle: false \}\)/.test(fn[0]), 'and actually clear it without starting a second ease-down');
+        const clear = fn[0].indexOf('setOrgasmMode(false, { settle: false })');
         const ramp = fn[0].indexOf("'rampdown'");
         assert.ok(clear >= 0 && ramp >= 0 && clear < ramp, 'the latch must be cleared before the rampdown starts');
     });
@@ -710,13 +743,13 @@ describe('the cockpit game banner', () => {
             describeGameNotice({ activeMode: 'survival', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4 }),
             /SURVIVAL: FLOOR 42%/
         );
-        assert.equal(
-            describeGameNotice({ activeMode: 'survival', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4 }).includes('CALIBRATING'),
-            false
+        assert.match(
+            describeGameNotice({ activeMode: 'calibrate', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4, calibrationPass: 'primary' }),
+            /CALIBRATION: PRIMARY TOY — FLOOR 42%/
         );
         assert.match(
-            describeGameNotice({ activeMode: 'survival', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4, survivalCalibrating: true }),
-            /SURVIVAL: CALIBRATING — FLOOR 42%/
+            describeGameNotice({ activeMode: 'calibrate', sessionStatus: 'RUNNING', survivalSpeedFloor: 18, calibrationPass: 'dual', survivalOverdrive: 3 }),
+            /CALIBRATION: BOTH TOYS — FLOOR 18% — \+3 BPM/
         );
     });
 
@@ -732,7 +765,8 @@ describe('the cockpit game banner', () => {
             { ...oracle, sessionStatus: 'RAMPDOWN', oracleState: 'RAMPDOWN' },
             { ...train, sessionStatus: 'RAMPDOWN', trainState: 'climb', trainEdgesGoal: 5 },
             { ...train, sessionStatus: 'RAMPDOWN', trainState: 'hold', trainHoldSeconds: 3 },
-            { activeMode: 'survival', sessionStatus: 'RAMPDOWN', survivalSpeedFloor: 42 }
+            { activeMode: 'survival', sessionStatus: 'RAMPDOWN', survivalSpeedFloor: 42 },
+            { activeMode: 'calibrate', sessionStatus: 'RAMPDOWN', survivalSpeedFloor: 42, calibrationPass: 'dual' }
         ];
         for (const landing of landings) {
             const text = describeGameNotice(landing);
@@ -864,16 +898,18 @@ describe('describeStallPauseNotice', () => {
         }
     });
 
-    it('says the speed comes back in Survival, which never parks on the mark', () => {
-        // Survival ignores the "At the ceiling" setting the way Ruin & Leak
+    it('says the speed comes back in Survival and Calibration, which never park on the mark', () => {
+        // Those climbs ignore the "At the ceiling" setting the way Ruin & Leak
         // does - the speed climbs on its own clock - so Full Stop must not
-        // make this sentence promise a 0% Survival is not going to give.
-        for (const behaviour of ['crawl', 'stop', undefined]) {
-            assert.equal(
-                describeStallPauseNotice({ mode: 'survival', ceilingBehaviour: behaviour }),
-                'STALL PAUSE: PRIMARY HALTED — SPEED RESUMES AFTER THE PAUSE',
-                `Survival under ${behaviour}`
-            );
+        // make this sentence promise a 0% the climb is not going to give.
+        for (const mode of ['survival', 'calibrate']) {
+            for (const behaviour of ['crawl', 'stop', undefined]) {
+                assert.equal(
+                    describeStallPauseNotice({ mode, ceilingBehaviour: behaviour }),
+                    'STALL PAUSE: PRIMARY HALTED — SPEED RESUMES AFTER THE PAUSE',
+                    `${mode} under ${behaviour}`
+                );
+            }
         }
     });
 
@@ -1040,7 +1076,8 @@ describe('sanitizeSessionLimits', () => {
         durationFixedMinutes: DEFAULT_FIXED_MINUTES,
         durationMinMinutes: DEFAULT_RANGE_MIN_MINUTES,
         durationMaxMinutes: DEFAULT_RANGE_MAX_MINUTES,
-        endgameType: DEFAULT_ENDGAME_TYPE
+        endgameType: DEFAULT_ENDGAME_TYPE,
+        dualMaxHr: DEFAULT_DUAL_MAX_HR
     };
 
     it('gives a brand-new install exactly the defaults index.html ships', () => {
@@ -1056,7 +1093,8 @@ describe('sanitizeSessionLimits', () => {
             durationFixedMinutes: 40,
             durationMinMinutes: 20,
             durationMaxMinutes: 50,
-            endgameType: 'rampdown'
+            endgameType: 'rampdown',
+            dualMaxHr: 118
         };
         assert.deepEqual(sanitizeSessionLimits(typed), typed);
     });
@@ -1099,8 +1137,8 @@ describe('app.js persists and restores the typed session limits', () => {
     });
 
     it('is wired to every field the wearer can type', () => {
-        // #minHr / #maxHr, the duration window, the three mode buttons and
-        // the endgame cards. Each one used to be lost on reload.
+        // #minHr / #maxHr / #dualMaxHr, the duration window, the three mode buttons and
+        // the endgame cards. Each typed field used to be lost on reload.
         // persistSessionLimits(true) writes on the spot, persistSessionLimits()
         // joins the coalescing window; both count as wired. The function's own
         // declaration is not a call.
@@ -1108,7 +1146,7 @@ describe('app.js persists and restores the typed session limits', () => {
             - (src.match(/function persistSessionLimits\(/g) || []).length;
         assert.ok(calls >= 7, `only ${calls} persist calls: a field is still unsaved`);
         // The typed HR pair, saved as it is typed rather than only on blur.
-        const hrAt = src.indexOf("['minHr', 'maxHr'].forEach(");
+        const hrAt = src.indexOf("['minHr', 'maxHr', 'dualMaxHr'].forEach(");
         assert.ok(hrAt >= 0, 'the HR inputs are no longer wired in one place - move this guard with them');
         const hrBlock = src.slice(hrAt, hrAt + 700);
         assert.ok(/persistSessionLimits\(/.test(hrBlock), 'a typed HR limit must be saved');
@@ -1132,7 +1170,7 @@ describe('app.js persists and restores the typed session limits', () => {
         const guardBody = src.slice(guard, src.indexOf('\n}', guard));
         assert.ok(!/lastGoodHrLimits/.test(guardBody),
             'syncGuardSettings runs on every page: it must not seed the fallback pair');
-        const at = src.indexOf('state.lastGoodHrLimits = { minHr: advancedSettings.minHr');
+        const at = src.indexOf('state.lastGoodHrLimits = { minHr: advancedSettings.minHr, maxHr: advancedSettings.maxHr');
         assert.ok(at >= 0, 'the fallback pair is seeded nowhere - a host page needs it');
         const before = src.slice(Math.max(0, at - 900), at);
         assert.ok(/if \(!isRemotePage\) \{/.test(before),
@@ -1153,7 +1191,7 @@ describe('app.js persists and restores the typed session limits', () => {
         const close = body.indexOf('\n    }', open);
         assert.ok(close > open, 'the host-only branch never closes');
         const hostOnly = body.slice(open, close);
-        for (const restored of ['minHr', 'maxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
+        for (const restored of ['minHr', 'maxHr', 'dualMaxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
             assert.ok(hostOnly.includes(`getElementById('${restored}')`),
                 `${restored} is restored outside the host-only branch`);
         }
@@ -1176,7 +1214,7 @@ describe('app.js persists and restores the typed session limits', () => {
         const at = src.indexOf('function syncParamsUI');
         assert.ok(at >= 0, 'syncParamsUI not found');
         const body = src.slice(at, src.indexOf('\n}\n', at));
-        for (const id of ['minHr', 'maxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
+        for (const id of ['minHr', 'maxHr', 'dualMaxHr', 'paramFixedInput', 'paramMinInput', 'paramMaxInput']) {
             assert.ok(body.includes(`getElementById('${id}')`), `${id} is not restored on boot`);
         }
         assert.ok(/highlightEndgameCard\(/.test(body), 'the endgame trigger is not restored on boot');

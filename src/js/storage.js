@@ -67,6 +67,21 @@ export function safeSet(key, value, storage = defaultStorage()) {
     }
 }
 
+export function safeKeys(storage = defaultStorage()) {
+    if (!storage) return [];
+    try {
+        const keys = [];
+        const count = Number(storage.length) || 0;
+        for (let i = 0; i < count; i++) {
+            const key = storage.key(i);
+            if (typeof key === 'string') keys.push(key);
+        }
+        return keys;
+    } catch (e) {
+        return [];
+    }
+}
+
 export function safeRemove(key, storage = defaultStorage()) {
     if (!storage) return false;
     try {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
     calculateEngineOutputs,
+    mapSessionSpeed,
     ENGINE_MODES,
     resolveEngineMode,
     resolveCeilingBehaviour,
@@ -40,7 +41,7 @@ const running = {
 describe('engine modes', () => {
     it('lists every cockpit mode', () => {
         assert.deepEqual(ENGINE_MODES, [
-            'classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain'
+            'classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate'
         ]);
     });
 
@@ -440,7 +441,20 @@ describe('engine modes', () => {
             sessionSeconds: 4
         };
         const armed = calculateEngineOutputs({ ...parked, orgasmMode: true, orgasmBoost: 0 });
-        assert.ok(armed.primaryPercent < 40, 'the first second does not slam the toys');
+        assert.ok(armed.primaryPercent < 40, 'without a remembered speed the first second stays with the stopped mode');
+        const fromWhereItWas = calculateEngineOutputs({
+            ...parked,
+            orgasmMode: true,
+            orgasmBoost: 0,
+            orgasmFromPrimary: 62,
+            orgasmFromSecondary: 40,
+            orgasmFromStrokeMin: 15,
+            orgasmFromStrokeMax: 70
+        });
+        assert.equal(fromWhereItWas.primaryPercent, 62, 'the first tick sends the speed the toys were already at');
+        assert.equal(fromWhereItWas.secondaryPercent, 40);
+        assert.equal(fromWhereItWas.strokeMinPercent, 15);
+        assert.equal(fromWhereItWas.strokeMaxPercent, 70);
         const mid = calculateEngineOutputs({ ...parked, orgasmMode: true, orgasmBoost: 14 });
         const full = [];
         for (let sessionSeconds = 0; sessionSeconds < 36; sessionSeconds += 1) {
@@ -463,7 +477,7 @@ describe('engine modes', () => {
     });
 
     it('every tease mode keeps the stroker working until the pulse is close to the mark', () => {
-        const modes = ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+        const modes = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
         for (const mode of modes) {
             for (const hr of [100, 120, 125]) {
                 let low = 100;
@@ -493,7 +507,9 @@ describe('engine modes', () => {
                 isEdged: true,
                 ceilingBehaviour: 'crawl'
             });
-            if (mode === 'ruin') {
+            if (mode === 'finisher') {
+                assert.equal(atMark.primaryPercent, 100, 'finisher stays at full speed on the mark');
+            } else if (mode === 'ruin') {
                 assert.ok(atMark.primaryPercent > CRAWL_PERCENT, 'ruin keeps stroking on the mark');
             } else {
                 assert.equal(atMark.primaryPercent, CRAWL_PERCENT, `${mode} crawls at the mark`);
@@ -569,9 +585,19 @@ describe('engine modes', () => {
         assert.equal(climbing.newEdgeTriggered, false);
     });
 
-    it('survival uses the accelerating floor', () => {
-        const result = calculateEngineOutputs({ ...running, activeMode: 'survival', survivalSpeedFloor: 61 });
-        assert.equal(result.primaryPercent, 61);
+    it('survival and calibration use the accelerating floor', () => {
+        const survival = calculateEngineOutputs({ ...running, activeMode: 'survival', survivalSpeedFloor: 61 });
+        const calibrate = calculateEngineOutputs({ ...running, activeMode: 'calibrate', survivalSpeedFloor: 61 });
+        assert.equal(survival.primaryPercent, 61);
+        assert.equal(calibrate.primaryPercent, 61);
+    });
+
+    it('calibration drops decay and a stroke change does not leave the climb', () => {
+        const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+        assert.match(app, /adaptiveDecay: isUncappedClimb\(\) \? false/);
+        assert.match(app, /decayBadge\?\.classList\.toggle\('hidden', isUncappedClimb\(\) \|\| !\(ceiling\.totalDecay > 0\)\)/);
+        assert.match(app, /A stroke change keeps Calibration running/);
+        assert.equal(app.includes('A stroke is not a way to keep Calibration'), false);
     });
 
     it('edge training pulls on the climb and obeys the ceiling rule on a hold', () => {
@@ -707,7 +733,7 @@ describe('engine safety guards', () => {
     });
 
     it('no mode, pattern, game, warm-up or orgasm leaves the travel envelope', () => {
-        const games = ['oracle', 'survival', 'edgetrain'];
+        const games = ['oracle', 'survival', 'edgetrain', 'calibrate'];
         for (const mode of ENGINE_MODES) {
             for (const sessionSeconds of [0, 3, 7, 12, 20, 40]) {
                 for (const hr of [70, 105, 140]) {
@@ -777,14 +803,19 @@ describe('engine safety guards', () => {
         }
     });
 
-    it('hysteresis: the edge only releases below ceiling minus the release band', () => {
+    it('hysteresis: the edge only releases below the max minus the release band', () => {
         assert.equal(EDGE_RELEASE_BPM, 5);
         assert.equal(hasReleasedEdge(134, 140), true);
         assert.equal(hasReleasedEdge(135, 140), false);
         assert.equal(hasReleasedEdge(NaN, 140), false);
+        // 136 is under a 100% Hold to (the max) and still inside the latch,
+        // so the tease curve is allowed to move again while the edge stays on.
         const stillEdged = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 136, isEdged: true });
         assert.equal(stillEdged.isEdged, true);
-        assert.equal(stillEdged.primaryPercent, 0);
+        assert.ok(stillEdged.primaryPercent > 0, 'speed follows Hold to, not the edge latch');
+        const atMax = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 140, isEdged: true });
+        assert.equal(atMax.isEdged, true);
+        assert.equal(atMax.primaryPercent, 0);
         const boundary = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 135, isEdged: true });
         assert.equal(boundary.isEdged, true);
         const released = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 134, isEdged: true });
@@ -939,8 +970,18 @@ describe('engine safety guards', () => {
             ceilingBehaviour: 'crawl',
             edgeHoldPercent: 95
         });
-        assert.equal(early.newEdgeTriggered, true);
+        assert.equal(early.newEdgeTriggered, false, 'Hold to slows the toys and does not count an edge');
+        assert.equal(early.isEdged, false);
         assert.equal(early.primaryPercent, CRAWL_PERCENT);
+        const atMax = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 140,
+            isEdged: false,
+            ceilingBehaviour: 'crawl',
+            edgeHoldPercent: 95
+        });
+        assert.equal(atMax.newEdgeTriggered, true, 'the edge waits for the max');
         const below = calculateEngineOutputs({
             ...running,
             activeMode: 'classic',
@@ -957,6 +998,41 @@ describe('engine safety guards', () => {
         assert.equal(orgasm.newEdgeTriggered, false);
         const ramp = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 150, sessionStatus: 'RAMPDOWN' });
         assert.equal(ramp.newEdgeTriggered, false);
+    });
+
+    it('an orgasm settle eases from the current speed down to the ceiling floor', () => {
+        const start = calculateEngineOutputs({
+            ...running,
+            activeMode: 'calibrate',
+            survivalSpeedFloor: 80,
+            settleSecondsLeft: 45,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 56,
+            settleFloor: 10
+        });
+        assert.equal(start.primaryPercent, 80);
+        assert.equal(start.secondaryPercent, 56);
+        const mid = calculateEngineOutputs({
+            ...running,
+            settleSecondsLeft: 22.5,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 40,
+            settleFloor: 0
+        });
+        assert.equal(mid.primaryPercent, 40);
+        assert.equal(mid.secondaryPercent, 20);
+        const end = calculateEngineOutputs({
+            ...running,
+            settleSecondsLeft: 0.01,
+            settleSpan: 45,
+            settleFromPrimary: 80,
+            settleFromSecondary: 40,
+            settleFloor: 10
+        });
+        assert.ok(end.primaryPercent <= 11);
+        assert.equal(end.newEdgeTriggered, false);
     });
 
     it('rampdown scales linearly from 50% to 0% over 45 seconds', () => {
@@ -982,6 +1058,33 @@ describe('engine safety guards', () => {
         assert.ok(intense.primaryPercent <= 100);
         const cut = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 140, isEdged: true, intensityValue: 100 });
         assert.equal(cut.primaryPercent, 0, 'intensity must never revive a cut motor');
+    });
+
+    it('scales strokes into the slowest and fastest window and still stops at 0', () => {
+        assert.equal(mapSessionSpeed(0, 8, 30), 0);
+        assert.equal(mapSessionSpeed(100, 8, 30), 30);
+        assert.equal(mapSessionSpeed(50, 8, 30), 19);
+        assert.equal(mapSessionSpeed(40, 0, 100), 40);
+        const open = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 90, speedSlowest: 0, speedFastest: 100 });
+        const boxed = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 90, speedSlowest: 8, speedFastest: 30 });
+        assert.ok(boxed.primaryPercent >= 8 && boxed.primaryPercent <= 30);
+        assert.ok(boxed.primaryPercent < open.primaryPercent);
+        const stopped = calculateEngineOutputs({
+            ...running, activeMode: 'classic', hr: 140, isEdged: true, ceilingBehaviour: 'stop', speedSlowest: 8, speedFastest: 30
+        });
+        assert.equal(stopped.primaryPercent, 0);
+        const easing = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 100,
+            speedSlowest: 8,
+            speedFastest: 30,
+            settleSecondsLeft: 45,
+            settleSpan: 45,
+            settleFromPrimary: 30,
+            settleFloor: 0
+        });
+        assert.equal(easing.primaryPercent, 30, 'an ease-down starts from the speed just sent');
     });
 
     it('non-finite inputs yield zero output, never NaN', () => {
@@ -1102,7 +1205,7 @@ describe('game-side edge release', () => {
             isEdged: false,
             edgeHoldPercent: 90
         });
-        assert.equal(phantom.newEdgeTriggered, true, 'clearing the flag at 130 costs one phantom edge');
+        assert.equal(phantom.newEdgeTriggered, false, '130 is above Hold to and still under the max, so it is not an edge');
     });
 
     it('gameEdgeReleased refuses to answer without a pullback mark', () => {
@@ -1419,15 +1522,50 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
         // two modes Full Stop / Crawl does not govern. The run does not end
         // there. Each edge raises the mark instead.
         for (const ceilingBehaviour of ['stop', 'crawl']) {
+            for (const activeMode of ['survival', 'calibrate']) {
+                const onTheMark = calculateEngineOutputs({
+                    ...running,
+                    activeMode,
+                    survivalSpeedFloor: 61,
+                    hr: 140,
+                    isEdged: true,
+                    ceilingBehaviour
+                });
+                assert.equal(onTheMark.primaryPercent, 61, `${activeMode} ignores ${ceilingBehaviour} by design`);
+            }
+        }
+    });
+
+    it('Finisher climbs with the pulse and stays at full speed on the mark', () => {
+        const mean = (hr) => {
+            let total = 0;
+            const samples = 40;
+            for (let sessionSeconds = 0; sessionSeconds < samples; sessionSeconds += 1) {
+                total += calculateEngineOutputs({
+                    ...running,
+                    activeMode: 'finisher',
+                    hr,
+                    edgeHr: hr,
+                    isEdged: false,
+                    ceilingBehaviour: 'crawl',
+                    sessionSeconds
+                }).primaryPercent;
+            }
+            return total / samples;
+        };
+        assert.ok(mean(90) < mean(120), 'a higher pulse drives a faster stroke');
+        assert.ok(mean(120) < mean(135), 'the climb keeps rising near the mark');
+        for (const ceilingBehaviour of ['stop', 'crawl']) {
             const onTheMark = calculateEngineOutputs({
                 ...running,
-                activeMode: 'survival',
-                survivalSpeedFloor: 61,
+                activeMode: 'finisher',
                 hr: 140,
+                edgeHr: 140,
                 isEdged: true,
                 ceilingBehaviour
             });
-            assert.equal(onTheMark.primaryPercent, 61, `survival ignores ${ceilingBehaviour} by design`);
+            assert.equal(onTheMark.primaryPercent, 100, `finisher ignores ${ceilingBehaviour}`);
+            assert.equal(onTheMark.secondaryPercent, 100, `finisher secondary ignores ${ceilingBehaviour}`);
         }
     });
 
@@ -1474,12 +1612,18 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
         }
         const app = read('src/js/app.js');
         const survivalDetail = app.match(/survival: '([^']*)'/);
+        const calibrateDetail = app.match(/calibrate: '([^']*)'/);
         const ruinDetail = app.match(/ruin: '([^']*)'/);
         assert.ok(survivalDetail, 'Survival detail anchor missing');
+        assert.ok(calibrateDetail, 'Calibration detail anchor missing');
         assert.ok(ruinDetail, 'Ruin & Leak detail anchor missing');
         assert.ok(
             /At the ceiling/.test(survivalDetail[1]),
             `the Survival detail must say the rule does not govern it: ${survivalDetail[1]}`
+        );
+        assert.ok(
+            /At the ceiling/.test(calibrateDetail[1]),
+            `the Calibration detail must say the rule does not govern it: ${calibrateDetail[1]}`
         );
         assert.ok(
             /At the ceiling/.test(ruinDetail[1]),
@@ -1493,12 +1637,15 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
         for (const mode of ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin']) {
             assert.equal(micBoostReachesMotors(mode), true, `${mode} teases down on the boosted pulse`);
         }
+        assert.equal(micBoostReachesMotors('finisher'), false, 'finisher rises on the measured pulse');
         assert.equal(micBoostReachesMotors('oracle'), false);
         assert.equal(micBoostReachesMotors('edgetrain'), false);
         // Survival's speeds run off its own clock; the boost can only shorten
         // the stroke zone, and at full depth there is no contraction at all.
         assert.equal(micBoostReachesMotors('survival', { edgeStrokeDepth: 100 }), false);
         assert.equal(micBoostReachesMotors('survival', { edgeStrokeDepth: 40 }), true);
+        assert.equal(micBoostReachesMotors('calibrate', { edgeStrokeDepth: 100 }), false);
+        assert.equal(micBoostReachesMotors('calibrate', { edgeStrokeDepth: 40 }), true);
         assert.equal(micBoostReachesMotors('not-a-mode'), true, 'unknown modes are classic');
     });
 
@@ -1515,7 +1662,9 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
             { activeMode: 'edgetrain', trainingState: 'climb' },
             { activeMode: 'edgetrain', trainingState: 'hold' },
             { activeMode: 'edgetrain', trainingState: 'recover' },
-            { activeMode: 'survival' }
+            { activeMode: 'survival' },
+            { activeMode: 'calibrate' },
+            { activeMode: 'finisher' }
         ];
         let checked = 0;
         for (const probe of probes) {

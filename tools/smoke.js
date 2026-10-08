@@ -251,14 +251,6 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     for (const id of ['edge', 'encourage', 'forceOrgasm', 'cameEarly']) {
       if (!(await page.locator(`[data-voice-cue="${id}"]`).count())) throw new Error('missing phrase bank ' + id);
     }
-    await page.locator('#paramVoiceToggle').evaluate((el) => { el.checked = true; });
-    const edgeCue = page.locator('[data-voice-cue="edge"]');
-    if (await edgeCue.count()) await edgeCue.fill('Edge at {hr}. Back off.');
-    await page.locator('#paramVoicePreviewBtn').click(); await sleep(200);
-    const previewSpoken = await page.evaluate(() => window.__edgeloopSpoken || []);
-    if (!previewSpoken.some((t) => /voice preview|Stay right on the edge/i.test(t))) {
-      throw new Error('Preview did not speak: ' + JSON.stringify(previewSpoken));
-    }
     const apply = page.locator('#applyParamsBtn');
     if (await apply.isVisible().catch(() => false)) { await apply.click(); await sleep(300); }
     await closeModal();
@@ -281,12 +273,16 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     await closeModal(); await sleep(1200); await shot('09-after-hr-sweep');
   });
   await step('mode cards click', async () => {
+    if (await page.locator('#expTabGameBtn').count()) throw new Error('modes/games tabs should be gone');
+    if (!(await page.locator('#bioProfilesGrid').isVisible())) throw new Error('stroke row hidden');
+    if (!(await page.locator('#gameModesGrid').isVisible())) throw new Error('goal row hidden');
     await page.getByText(/prostate milker/i).first().click().catch(() => {}); await sleep(200);
     await page.getByText(/classic tease/i).first().click().catch(() => {}); await sleep(200);
-    await page.locator('#expTabGameBtn').click().catch(() => {}); await sleep(150);
+    if (!(await page.locator('[data-mode="goal-off"]').count())) throw new Error('tease goal missing');
     if (!(await page.locator('[data-mode="edgetrain"]').count())) throw new Error('edge training game missing');
     await page.locator('[data-mode="edgetrain"]').click(); await sleep(150);
-    if (!(await page.locator('#trainHoldSecondsInput').count())) throw new Error('edge training hold input missing');
+    if (!(await page.locator('#trainHoldSecondsInput').isVisible())) throw new Error('edge training hold input missing');
+    await page.locator('[data-mode="goal-off"]').click(); await sleep(150);
   });
   await step('connect the mocked Handy', async () => {
     await page.locator('#cardHandy').click(); await sleep(300);
@@ -309,9 +305,9 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     handyCalls.length = 0;
     await play.click(); await sleep(1500);
     if ((await playText()) !== 'PAUSE') throw new Error('expected PAUSE after START, got: ' + await playText());
-    const spoken = await page.evaluate(() => window.__edgeloopSpoken || []);
-    if (!spoken.some((t) => /Session started/i.test(t))) throw new Error('spoken voice did not say session start: ' + JSON.stringify(spoken));
-    if (!(await page.locator('#mindgameContainer').isVisible())) throw new Error('dashboard cue text hidden while spoken guidance is on');
+    const cue = ((await page.locator('#mindgamePromptText').textContent()) || '').trim();
+    if (!/Session started/i.test(cue)) throw new Error('dashboard cue did not say session start: ' + cue);
+    if (!(await page.locator('#mindgameContainer').isVisible())) throw new Error('dashboard cue text hidden');
     const seq = handyCalls.map(c => c.method + ' ' + c.path);
     const slideAt = seq.indexOf('PUT /slide'), startAt = seq.indexOf('PUT /hamp/start');
     if (startAt < 0) throw new Error('no PUT /hamp/start after START: ' + JSON.stringify(seq));
@@ -325,8 +321,8 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     handyCalls.length = 0;
     await play.click(); await sleep(700);
     if ((await playText()) !== 'RESUME') throw new Error('expected RESUME after PAUSE, got: ' + await playText());
-    const spokenPause = await page.evaluate(() => window.__edgeloopSpoken || []);
-    if (!spokenPause.some((t) => /^Paused/i.test(t))) throw new Error('spoken voice did not say paused: ' + JSON.stringify(spokenPause));
+    const cuePause = ((await page.locator('#mindgamePromptText').textContent()) || '').trim();
+    if (!/Paused/i.test(cuePause)) throw new Error('dashboard cue did not say paused: ' + cuePause);
     if (!handyCalls.some(c => c.path === '/hamp/stop')) throw new Error('PAUSE sent no PUT /hamp/stop: ' + JSON.stringify(handyCalls));
     await play.click(); await sleep(1200);
     if ((await playText()) !== 'PAUSE') throw new Error('expected PAUSE after RESUME, got: ' + await playText());

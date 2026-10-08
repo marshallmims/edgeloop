@@ -147,6 +147,21 @@ describe('device maps survive the round trip and hostile ones are declawed', () 
         });
     });
 
+    it('keeps a pulsed vibrator and drops a period this build does not know', () => {
+        const map = sanitizeDeviceMap({
+            edge: {
+                axes: {
+                    'scalar:0': { role: 'secondary', maxCap: 80, invert: false, vibeMode: 'pulsed', pulsePeriodMs: 800 },
+                    'scalar:1': { role: 'secondary', maxCap: 80, invert: false, vibeMode: 'strobe', pulsePeriodMs: 1000 }
+                }
+            }
+        }, { extras: true });
+        assert.equal(map.edge.axes['scalar:0'].vibeMode, 'pulsed');
+        assert.equal(map.edge.axes['scalar:0'].pulsePeriodMs, 800);
+        assert.equal(map.edge.axes['scalar:1'].vibeMode, undefined);
+        assert.equal(map.edge.axes['scalar:1'].pulsePeriodMs, undefined);
+    });
+
     it('keeps the TCode shape whole', () => {
         const map = sanitizeDeviceMap(STORES.tcodeDevices, { extras: false });
         assert.deepEqual(map['OSR2 v3.3'], {

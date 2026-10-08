@@ -26,6 +26,28 @@ export const state = {
     // Force Orgasm raises the WORKING ceiling by 1 BPM/s (capped) instead of
     // rewriting the typed Climax HR input; cleared by stop/reset.
     orgasmBoost: 0,
+    // What the toys were last sent when Force Orgasm was armed. The ramp
+    // starts there. Null until the button is on.
+    orgasmFromPrimary: null,
+    orgasmFromSecondary: null,
+    orgasmFromStrokeMin: null,
+    orgasmFromStrokeMax: null,
+    // Post-orgasm ease-down. 0 means it is not running. The from-speeds are
+    // what the toys were doing when it started; the floor is Crawl or 0.
+    settleSecondsLeft: 0,
+    settleSpan: 45,
+    settleRestartsSurvival: false,
+    // Seconds already on the session clock when warm-up last started. Survival
+    // sets this after an orgasm so the warm-up runs again without zeroing the timer.
+    warmupOriginSeconds: 0,
+    settleFromPrimary: 0,
+    settleFromSecondary: 0,
+    settleFromStrokeMin: null,
+    settleFromStrokeMax: null,
+    settleFloor: 0,
+    settleEndsSession: false,
+    settleOutcome: null,
+    settleVoice: null,
     // Ceiling and HR the engine actually used on the last tick, after every
     // offset; guards and games compare against these, never the raw input.
     effectiveMinHr: 70,
@@ -98,6 +120,8 @@ export const state = {
     // across ticks by a slow source counts as one breach reading.
     survivalLastReadingAt: null,
     trainState: 'climb',
+    // Which Calibration run is armed: 'primary', 'dual', or null.
+    calibrationPass: null,
     trainHoldSeconds: 0,
     trainEdgesDone: 0,
     lastSpokenPrompt: '',
@@ -148,6 +172,7 @@ export const advancedSettings = {
     endgameType: 'orgasm',
     gammaCurve: 2.0,
     warmupMinutes: 5,
+    orgasmSettleSeconds: 45,
     edgeStrokeDepth: 100,
     cadenceBreathing: true,
     milkingWave: true,
@@ -172,15 +197,30 @@ export const advancedSettings = {
     edgeHoldPercent: 100,
     trainHoldSeconds: 15,
     trainEdges: 5,
-    // Survival can be marked as the run that finds your top heart rate.
-    // Off by default; the first-run wizard offers to turn it on.
-    survivalCalibrating: false,
+    // The single-stim climax Calibration saved. Null until that run is saved.
+    calibrationPrimaryHr: null,
     // Heart-rate signal-loss timeout (seconds, 3-20) and whether a session
     // the watchdog paused resumes by itself once readings return.
     hrStaleSeconds: 8,
     hrAutoResume: true,
-    dualDampening: true,
-    dualDampeningBpm: 15,
+    // Both-toys climax. Independent of the single-stim max.
+    dualMaxHr: 125,
+    keybinds: {
+        toggleSession: { kind: 'key', code: 'Space' },
+        stop: { kind: 'key', code: 'Escape' },
+        cameEarly: { kind: 'key', code: 'ArrowLeft' },
+        forceOrgasm: { kind: 'key', code: 'ArrowRight' },
+        valvePlus: { kind: 'key', code: 'ArrowUp' },
+        valveMinus: { kind: 'key', code: 'ArrowDown' }
+    },
+    // Session speed window. 0 and 100 leave the pattern alone. A stop is
+    // still 0; everything above 0 is scaled into this pair.
+    speedSlowest: 0,
+    speedFastest: 100,
+    // Autoblow VacuGlide 2. Speed only. The token lives in its own store.
+    vacuglideRole: 'primary',
+    vacuglideMaxCap: 100,
+    vacuglideValvePulseMs: 1000,
     adaptiveDecay: true,
     decayEdgeCount: 2,
     decayBpm: 2,

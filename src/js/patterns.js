@@ -230,6 +230,19 @@ export function teaseFrame({
         };
     }
 
+    if (mode === 'finisher') {
+        // The climb reads the measured pulse, never the microphone boost.
+        // On the mark the stroke stays at full speed: Crawl and Full Stop
+        // are for the modes that ease off, and this one is here to carry
+        // the wearer over.
+        const beat = motion(seconds, 2.2, sensor);
+        const rising = 18 + climb * 82;
+        const primary = atPeak ? 100 : roundPct(rising * beat.speed);
+        const secondary = atPeak ? 100 : roundPct((18 + climb * 70) * beat.secondary);
+        const stroke = placeStroke(0, 100, atPeak ? 1 : beat.depth, 'low');
+        return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
+    }
+
     const beat = motion(seconds, 0.6, sensor);
     const falling = (1 - shaped) * 100;
     const primary = atPeak ? atCeiling(crawlPercent) : roundPct(falling * beat.speed);

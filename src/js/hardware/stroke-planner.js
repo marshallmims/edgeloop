@@ -56,12 +56,13 @@ export function normalizePlannerInput({ speed = 0, zoneMin = 0, zoneMax = 1, cap
     return { speed: clampPercent(speed), cap: capPct, effectiveSpeed, zoneMin: min, zoneMax: max, enabled: enabled !== false, legTravel: travelBase };
 }
 
-export function createStrokePlanner({ restMs = REST_MOVE_MS } = {}) {
+export function createStrokePlanner({ restMs = REST_MOVE_MS, hold = false } = {}) {
     let input = normalizePlannerInput({});
     let legEndsAt = 0;
     let lastPosition = null;      // null: position unknown (fresh axis)
     let atRest = false;           // a rest move has been issued and nothing since
     let goingUp = true;           // direction of the next stroke leg
+    let aimFromPlace = false;
 
     function isInFlight(now) {
         return now < legEndsAt;
@@ -75,6 +76,7 @@ export function createStrokePlanner({ restMs = REST_MOVE_MS } = {}) {
             const wasEnabled = input.enabled;
             input = normalizePlannerInput({ ...input, ...next });
             if (wasEnabled && !input.enabled) legEndsAt = 0;
+            if (hold && !(input.enabled && input.effectiveSpeed > 0)) legEndsAt = 0;
         },
         getInput() {
             return { ...input };
@@ -98,23 +100,41 @@ export function createStrokePlanner({ restMs = REST_MOVE_MS } = {}) {
                 if (atRest) return null;
                 atRest = true;
                 goingUp = true;
+                // A holding planner (OSSM position mode) stays where it is.
+                // A rest move would be another trip along the rail.
+                if (hold) {
+                    legEndsAt = now;
+                    return { position: null, durationMs: 0, kind: 'hold' };
+                }
                 lastPosition = input.zoneMin;
                 legEndsAt = now + restMs;
                 return { position: input.zoneMin, durationMs: restMs, kind: 'rest' };
             }
             atRest = false;
+            if (hold && aimFromPlace && lastPosition !== null) {
+                goingUp = (input.zoneMax - lastPosition) >= (lastPosition - input.zoneMin);
+            }
+            aimFromPlace = false;
             const travel = input.zoneMax - input.zoneMin;
             const position = goingUp ? input.zoneMax : input.zoneMin;
             // Size the leg by what it really has to cover: the zone width
             // (or legTravel) at least, the distance from the last position
             // when that is longer (first leg after a rest or a zone shift).
             const base = input.legTravel !== null ? input.legTravel : travel;
-            const distance = lastPosition === null ? 0 : Math.abs(position - lastPosition);
+            let distance = lastPosition === null ? 0 : Math.abs(position - lastPosition);
+            if (hold && lastPosition === null) distance = Math.max(position, 1 - position);
             const durationMs = legDurationMs(input.effectiveSpeed, Math.max(base, distance));
             goingUp = !goingUp;
             lastPosition = position;
             legEndsAt = now + durationMs;
             return { position, durationMs, kind: 'stroke' };
+        },
+        // Where a holding axis really is, or null when nobody knows. The next
+        // leg is sized from there.
+        place(position) {
+            const n = Number(position);
+            lastPosition = position === null || position === undefined || !Number.isFinite(n) ? null : Math.max(0, Math.min(1, n));
+            aimFromPlace = lastPosition !== null;
         },
         // Forget the in-flight leg (device removed, socket closed). The next
         // call to next() with speed 0 issues a fresh rest move.
@@ -123,6 +143,7 @@ export function createStrokePlanner({ restMs = REST_MOVE_MS } = {}) {
             lastPosition = null;
             atRest = false;
             goingUp = true;
+            aimFromPlace = false;
         }
     };
 }
