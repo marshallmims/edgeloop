@@ -71,7 +71,9 @@ import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError } from './hardware/ble-protocol.js';
 import { createHrWatchdog, clampStaleSeconds } from './hr-watchdog.js';
-import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers } from './hardware/handy.js';
+import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey } from './hardware/handy.js';
+import { createHandyHsp } from './hardware/handy-hsp.js';
+import { handyScriptRoute, resolveApplicationId, HANDY_APP_ID_STORAGE_KEY } from './hardware/handy-hsp-protocol.js';
 import { normalizeEnvelope, applyEndMargin, clampEndMargin } from './hardware/handy-protocol.js';
 import { RUIN_RIDE_SECONDS, RUIN_LOCK_SECONDS } from './patterns.js';
 import { APP_VERSION, parseChangelog, GITHUB_CHANGELOG_URL, GITHUB_RELEASES_URL } from './version.js';
@@ -178,7 +180,9 @@ import {
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
 import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo } from './player/script-governor.js';
-import { offsetFor, rememberOffset, readOffsets, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY } from './player/player-rules.js';
+import { offsetFor, rememberOffset, readOffsets, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
+import { rhythmAt, hampTarget } from './player/script-rhythm.js';
+import { effectiveInvert } from './player/script-shaper.js';
 
 // Load persisted settings. The old 15/85 default envelope is migrated to
 // 0/100 exactly once (flagged), so a user who deliberately types 15/85 later
@@ -292,6 +296,16 @@ const isRemotePage = isRemoteController || isRemoteViewer;
 let player = null;
 const scriptFeed = isRemotePage ? null : createScriptFeed();
 if (scriptFeed) setIntifaceScriptFeed(scriptFeed);
+const handyHsp = (!isRemotePage && scriptFeed) ? createHandyHsp({
+    feed: scriptFeed,
+    getKey: () => getHandyKey(),
+    getAppId: () => resolveApplicationId(safeGet(HANDY_APP_ID_STORAGE_KEY, '') || ''),
+    handlers: {
+        onPause: (reason) => triggerDisconnectAlert(reason),
+        onOffline: (reason) => triggerDisconnectAlert(reason || 'The Handy went offline.')
+    }
+}) : null;
+let handyHspReleasing = null;
 const remoteRoom = isRemoteController ? partnerRoom : viewerRoom;
 const remoteRoleLabel = isRemoteViewer ? 'Viewer' : 'Remote Controller';
 // Set when the host link died (peer close / error / silent telemetry).
@@ -1135,6 +1149,68 @@ function effectiveStrokeRange(strokeMin, strokeMax) {
     return { min: strokeMin, max: strokeMax, env };
 }
 
+function handyHspWindow() {
+    const env = normalizeEnvelope(advancedSettings.handyHwMin, advancedSettings.handyHwMax);
+    return { envMin: env.min, envMax: env.max, endMargin: advancedSettings.handyEndMargin };
+}
+
+function handyBeatSyncWanted() {
+    return Boolean(handyHsp && scriptFeed && scriptFeed.hasTrack())
+        && state.activeMode === 'script'
+        && handyConnected
+        && state.handyRole === 'primary'
+        && handyHsp.beatSync()
+        && !handyHsp.unavailable();
+}
+
+function releaseHandyHsp() {
+    if (!handyHsp || handyHspReleasing) return handyHspReleasing || Promise.resolve(true);
+    handyHspReleasing = handyHsp.release().catch(() => false).finally(() => { handyHspReleasing = null; });
+    return handyHspReleasing;
+}
+
+function handyRhythmTarget(primarySpeed, range) {
+    const settings = scriptFeed.settings();
+    const t = scriptFeed.scriptNow();
+    const rhythm = rhythmAt(scriptFeed.track(), t === null ? NaN : t, { invert: effectiveInvert(scriptFeed.meta(), settings) });
+    const limits = handyHsp ? handyHsp.deviceLimits() : {};
+    const approach = settings.scriptStrokeModel === 'keep' ? 'slow' : settings.scriptApproach;
+    return hampTarget(rhythm, primarySpeed, {
+        envMin: range.env.min,
+        envMax: range.env.max,
+        travelMm: limits.travelMm,
+        maxSpeedMmS: limits.maxSpeedMmS,
+        maxSpeed: settings.scriptMaxSpeed,
+        approach
+    });
+}
+
+function routeTheHandy(primarySpeed, targetHandySpeed, range, force) {
+    const route = handyScriptRoute({
+        scriptDrives: Boolean(scriptFeed && scriptFeed.isActive()),
+        hspOwns: Boolean(handyHsp && handyHsp.owns()),
+        releasing: Boolean(handyHspReleasing),
+        role: state.handyRole
+    });
+    if (route === 'hsp' && !(force && state.sessionStatus === 'IDLE')) {
+        const allowance = state.handyRole === 'primary' ? primarySpeed : 0;
+        if (!force && handyHsp.owns()) handyHsp.setWindow(handyHspWindow()).catch(() => {});
+        handyHsp.dispatch({ allowance, cap: state.handyMaxCap, force });
+        return null;
+    }
+    if (route === 'hsp' || route === 'release') {
+        if (force) handyHsp.dispatch({ allowance: 0, force: true });
+        if (!handyHspReleasing) releaseHandyHsp();
+        return null;
+    }
+    if (route === 'rhythm') {
+        const target = handyRhythmTarget(primarySpeed, range);
+        const handyCap = (state.handyMaxCap ?? 100) / 100;
+        return { speed: Math.round(target.speed * handyCap), min: target.strokeMin, max: target.strokeMax };
+    }
+    return { speed: targetHandySpeed, min: range.min, max: range.max };
+}
+
 function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, force = false) {
     if (isRemotePage) return;
 
@@ -1155,7 +1231,8 @@ function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, fo
     // driver and the funscript export still records what the engine asked
     // for. A T-Code or Intiface linear axis takes a wider zone as a longer,
     // slower stroke rather than a faster one, so they keep the envelope as is.
-    dispatchHandy(targetHandySpeed, range.min, range.max, force, range.env.min, range.env.max, advancedSettings.handyEndMargin);
+    const handyPlan = routeTheHandy(primarySpeed, targetHandySpeed, range, force);
+    if (handyPlan) dispatchHandy(handyPlan.speed, handyPlan.min, handyPlan.max, force, range.env.min, range.env.max, advancedSettings.handyEndMargin);
     // Intiface linear axes run on their own per-leg timers; this call only
     // updates the planner inputs (and, with force, issues StopAllDevices).
     dispatchIntiface(primarySpeed, secondarySpeed, range.min, range.max, range.env.min, range.env.max, force);
@@ -2005,7 +2082,7 @@ function startOrResumeSession() {
 }
 
 // Session Controls Handlers
-playPauseBtn?.addEventListener('click', () => {
+playPauseBtn?.addEventListener('click', async () => {
     if (isRemoteViewer) return;
     if (isRemoteController) {
         // Ask the host; the button re-renders from the telemetry it sends back.
@@ -2014,7 +2091,16 @@ playPauseBtn?.addEventListener('click', () => {
         return;
     }
     if (state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED') {
-        startOrResumeSession();
+        if (handyBeatSyncWanted()) {
+            const ready = await handyHsp.prepare(handyHspWindow());
+            if (!ready.ok) {
+                triggerDisconnectAlert(ready.reason || 'Beat sync could not start. Switch it off to play the script as a rhythm.');
+                checkReadiness();
+                return;
+            }
+        }
+        const started = startOrResumeSession();
+        if (!started && handyHsp?.owns()) releaseHandyHsp();
     } else if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
         pauseSession('Paused.');
     }
@@ -2156,6 +2242,7 @@ function stopSession(outcome = "Stopped", voiceText = null) {
     state.prostateSpeed = 0;
     dispatchHardware(0, 0, 0, 100, true);
     if (player && player.isPlaying()) player.pause();
+    if (handyHsp && (handyHsp.owns() || handyHspReleasing)) releaseHandyHsp();
     setOrgasmMode(false, { settle: false });
     clearHrSignalPause();
     try {
@@ -4467,8 +4554,8 @@ document.getElementById('modalHandyDisconnectBtn')?.addEventListener('click', as
 // Best effort: a keepalive stop to The Handy when the page goes away or is
 // frozen. The motor is driven through the cloud and cannot notice that the
 // app is gone, so this is the only stop it would ever get.
-window.addEventListener('pagehide', () => { stopHandyOnUnload(); });
-document.addEventListener('freeze', () => { stopHandyOnUnload(); });
+window.addEventListener('pagehide', () => { stopHandyOnUnload(); handyHsp?.stopOnUnload(); });
+document.addEventListener('freeze', () => { stopHandyOnUnload(); handyHsp?.stopOnUnload(); });
 
 // Intiface Central WebSocket. The driver reports its state through
 // onStatus; the modal label, the summary badge and the buttons follow it.
@@ -5358,7 +5445,10 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             offsetPlus: byId('playerOffsetPlus'),
             offsetValue: byId('playerOffsetValue'),
             theaterBtn: byId('playerTheaterBtn'),
-            fullscreenBtn: byId('playerFullscreenBtn')
+            fullscreenBtn: byId('playerFullscreenBtn'),
+            formatHint: byId('playerFormatHint'),
+            videoUrl: byId('playerVideoUrl'),
+            videoUrlBtn: byId('playerVideoUrlBtn')
         },
         handlers: {
             transport: () => ({ coupled: state.activeMode === 'script', sessionStatus: state.sessionStatus }),
@@ -5423,6 +5513,30 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => {
         document.getElementById('playerBody')?.classList.toggle('hidden');
     });
+    const beatToggle = document.getElementById('beatSyncToggle');
+    if (beatToggle && handyHsp) {
+        const savedOn = safeGet(BEAT_SYNC_CONSENT_KEY, '') === 'yes' && safeGet(BEAT_SYNC_STORAGE_KEY, '') === 'on';
+        beatToggle.checked = savedOn;
+        if (savedOn) handyHsp.setBeatSync(true);
+        beatToggle.addEventListener('change', () => {
+            if (beatToggle.checked && safeGet(BEAT_SYNC_CONSENT_KEY, '') !== 'yes') {
+                if (!window.confirm(BEAT_SYNC_CONSENT_TEXT)) {
+                    beatToggle.checked = false;
+                    return;
+                }
+                safeSet(BEAT_SYNC_CONSENT_KEY, 'yes');
+            }
+            handyHsp.setBeatSync(beatToggle.checked);
+            safeSet(BEAT_SYNC_STORAGE_KEY, beatToggle.checked ? 'on' : 'off');
+            const line = document.getElementById('beatSyncRoute');
+            if (line) {
+                line.textContent = beatToggle.checked
+                    ? 'Beat sync sends the next few seconds of script positions to The Handy. Firmware 4 or later. Intiface linear toys still follow the script point by point.'
+                    : 'Beat sync is off. The Handy follows the script’s rhythm (speed and depth). Intiface linear toys still follow each stroke.';
+            }
+        });
+        beatToggle.dispatchEvent(new Event('change'));
+    }
 }
 
 // Boot Initialization

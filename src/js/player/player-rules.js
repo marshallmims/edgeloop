@@ -9,8 +9,44 @@
 // the START / RESUME gate may refuse.
 
 import { scriptSpeedCap, handySpeedCeiling, HANDY_DEFAULT_TRAVEL_MM } from './script-shaper.js';
+import { VIDEO_EXTENSIONS } from './script-pairing.js';
 
 export const VIDEO_STALL_PAUSE_MS = 30000;
+
+// The containers the player will try to open. MP4 (H.264) and WebM play in
+// the most browsers. MKV and MOV only play where that browser can decode them.
+export function describeVideoFormats() {
+    const names = VIDEO_EXTENSIONS.map((ext) => ext.toUpperCase());
+    return {
+        button: `Choose ${names.join(', ')}`,
+        hint: `${names.join(', ')}, plus a .funscript with the same name. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them.`
+    };
+}
+
+// A link the wearer pasted or dropped. A direct file address can be given
+// to the video element. A page on a video site is not a file: those sites
+// do not hand the video to another page, so the link is refused.
+export function classifyVideoLink(raw) {
+    const text = String(raw ?? '').trim();
+    if (!text) return { kind: 'empty', message: 'Paste a direct video file address.' };
+    let url;
+    try {
+        url = new URL(text);
+    } catch (e) {
+        return { kind: 'invalid', message: 'That is not a link. Paste a direct video file address, such as one ending in .mp4 or .webm.' };
+    }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+        return { kind: 'invalid', message: 'The link has to start with https://.' };
+    }
+    const path = decodeURIComponent(url.pathname).toLowerCase();
+    const dot = path.lastIndexOf('.');
+    const ext = dot > 0 ? path.slice(dot + 1) : '';
+    if (VIDEO_EXTENSIONS.includes(ext)) return { kind: 'file', url: url.href, ext };
+    return {
+        kind: 'page',
+        message: 'A page link cannot play here. Video sites do not hand the file to another page. Download the video and choose the file, or paste a direct address ending in .mp4, .m4v, .webm, .mkv, .mov, or .ogv.'
+    };
+}
 export const HUD_HIDE_MS = 4000;
 export const OFFSET_NUDGE_MS = 50;
 export const CLOCK_READ_EVERY_MS = 250;
