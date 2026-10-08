@@ -175,6 +175,23 @@ export function addMissedDay(state) {
     };
 }
 
+// Drop the piled-up days and today's progress. The start, end, edges per
+// day, and denial percent stay. Today counts as opened, so the missed days
+// do not come back on the next reload.
+export function clearNnn(state, date = new Date()) {
+    const current = sanitizeNnn(state, date);
+    return {
+        ...current,
+        lastOpened: dateKey(date),
+        edgesToday: 0,
+        quotaToday: current.dailyEdges,
+        holdSeconds: 0,
+        holdProgress: 0,
+        finished: false,
+        outcome: null
+    };
+}
+
 // One second on the edge. With no hold requirement the caller counts the
 // edge itself. With a hold, the edge counts only after the pulse stays up.
 export function tickNnnHold(state, edged) {

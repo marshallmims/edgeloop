@@ -31,6 +31,7 @@ import {
     describeNnn,
     nnnCalendar,
     addMissedDay,
+    clearNnn,
     tickNnnHold,
     recordNnnEdge,
     rollNnnOutcome
@@ -2602,6 +2603,12 @@ function applyNnnDates() {
 document.getElementById('nnnMissedDayBtn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     nnnState = addMissedDay(nnnState);
+    saveNnn();
+    paintNnn();
+});
+document.getElementById('nnnClearBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    nnnState = clearNnn(nnnState);
     saveNnn();
     paintNnn();
 });
