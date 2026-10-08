@@ -2700,24 +2700,14 @@ function pollGamepads() {
     requestAnimationFrame(pollGamepads);
 }
 
-document.getElementById('pipBtn')?.addEventListener('click', async () => {
-    if (window.documentPictureInPicture) {
-        try {
-            await openDocumentPip();
-        } catch (e) {
-            alert('The floating window did not open. Tap Pop out again from this tab.');
-        }
-        return;
+const pipBtn = document.getElementById('pipBtn');
+if (pipBtn && window.documentPictureInPicture) pipBtn.classList.remove('hidden');
+pipBtn?.addEventListener('click', async () => {
+    try {
+        await openDocumentPip();
+    } catch (e) {
+        alert('The floating window did not open. Click Pop out again from this tab.');
     }
-    if (document.pictureInPictureEnabled && HTMLVideoElement.prototype.requestPictureInPicture) {
-        try {
-            await openVideoPip();
-        } catch (e) {
-            alert('This phone blocked the floating window. Stay on this tab, then tap Pop out again.');
-        }
-        return;
-    }
-    alert('This browser cannot float a window over another app.');
 });
 
 async function openDocumentPip() {
@@ -2761,66 +2751,6 @@ async function openDocumentPip() {
     sync();
     const timer = setInterval(sync, 250);
     pip.addEventListener('pagehide', () => clearInterval(timer));
-}
-
-// Android Chrome can float a video, not a page. The cockpit is drawn onto
-// that video. The phone's picture play button starts or pauses the session.
-// Taps inside the picture do not press the buttons on the page.
-async function openVideoPip() {
-    if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-        return;
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 360;
-    const ctx = canvas.getContext('2d');
-    const video = document.createElement('video');
-    video.muted = true;
-    video.playsInline = true;
-    video.setAttribute('playsinline', '');
-    video.style.cssText = 'position:fixed;width:2px;height:2px;opacity:0;pointer-events:none';
-    video.srcObject = canvas.captureStream(4);
-    document.body.appendChild(video);
-    const draw = () => {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#e2e8f0';
-        ctx.font = 'bold 64px sans-serif';
-        ctx.fillText(`${Math.round(state.hrCurrent || 0)} BPM`, 36, 100);
-        ctx.font = '32px sans-serif';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`${state.edges || 0} edges`, 36, 160);
-        ctx.fillText(`Speed ${Math.round(state.strokerSpeed || 0)}%`, 36, 214);
-        const running = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
-        ctx.fillStyle = running ? '#fbbf24' : '#34d399';
-        ctx.fillText(running ? 'Running' : (state.sessionStatus === 'PAUSED' ? 'Paused' : 'Ready'), 36, 268);
-        ctx.fillStyle = '#cbd5e1';
-        ctx.font = '24px sans-serif';
-        const line = String(state.lastSpokenPrompt || '').replace(/\s+/g, ' ').slice(0, 42);
-        ctx.fillText(line, 36, 320);
-    };
-    draw();
-    await video.play();
-    await video.requestPictureInPicture();
-    const timer = setInterval(draw, 250);
-    const stop = () => {
-        clearInterval(timer);
-        video.srcObject = null;
-        video.remove();
-    };
-    video.addEventListener('leavepictureinpicture', stop);
-    if (navigator.mediaSession) {
-        try {
-            navigator.mediaSession.metadata = new MediaMetadata({ title: 'EdgeLoop', artist: 'Session' });
-            const toggle = () => {
-                document.getElementById('sessionPlayPauseBtn')?.click();
-                video.play().catch(() => {});
-            };
-            navigator.mediaSession.setActionHandler('play', toggle);
-            navigator.mediaSession.setActionHandler('pause', toggle);
-        } catch (e) { /* the picture still shows the numbers */ }
-    }
 }
 
 paintNnn();
