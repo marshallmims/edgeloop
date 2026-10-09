@@ -1,0 +1,61 @@
+<p class="lede">On <a href="https://dev.edgeloop.app">dev.edgeloop.app</a> (1.1.4) you can play your own video and a funscript, with your pulse as the limiter. The live site, <a href="https://edgeloop.app">edgeloop.app</a> (1.1.3), does not have this player yet.</p>
+
+<h2>Before the video will play</h2>
+
+<p>Connect a heart-rate monitor and a toy first. Play does nothing until both are there and a reading is coming in. You can still scrub through the video and see the picture. The line under the scrub bar says what is missing. The Start button says the same wait, in fewer words.</p>
+
+<p>Space starts or pauses the session, and the video goes with it. Escape stops, unless you are in theater or fullscreen: then Escape leaves that picture first, and it does not stop the session.</p>
+
+<h2>What you can load</h2>
+
+<p>Nothing is uploaded. The video and the scripts stay in this browser tab.</p>
+
+<p>Video files: MP4, M4V, WebM, MKV, MOV, and OGV. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them. A page link from a video site cannot play here. Those sites do not hand the file to another page. Paste a direct address that ends in the file type, or download the file and choose it.</p>
+
+<p>The primary script is a <code>.funscript</code>. That is the stroker. The secondary is a <code>.v0.funscript</code>. That is the other toy. A <code>.vib.funscript</code> is the same secondary channel under an older name. Drop them with the video, or use <strong>Primary script</strong> and <strong>Secondary script</strong>. Once a script is loaded, that button switches the heat map instead of asking for another file. <strong>Both</strong> draws them together: the color is the primary, and a white line is the secondary.</p>
+
+<p><strong>Clear scripts</strong> drops the scripts and keeps the video. Choosing a different video drops the scripts too. With no secondary file, the other toy follows the primary: quiet on a hold, busier when the script is moving, still limited by your pulse.</p>
+
+<h2>The heat map and a climax</h2>
+
+<p>The scrub bar is the heat map, and the white dot you grab rides on that same bar. Green is a pause. Yellow is moderate. Red is fast. A gold stripe is a climax you marked.</p>
+
+<p>Scrub to the moment you want and press <strong>Climax here</strong>. The toys start climbing about 45 seconds before that moment. They stay at a full climax for the seconds you set in <strong>Climax lasts</strong> (5 to 180, 20 if you leave it), then ease back into the script over about 15 seconds. The script keeps going. A mark does not end the session.</p>
+
+<p>Each mark is also a chip under the bar, with the time on it. Click the time to jump there. Click the × to remove it. You do not have to park the dot on the exact second. The marks stay on this device for that script, so the next time you load it they are already there.</p>
+
+<h2>Two ways the pulse limits the script</h2>
+
+<p><strong>Shorten and skip.</strong> Strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going.</p>
+
+<p><strong>Keep the script.</strong> Strokes stay the shape in the file. Your heart rate only turns them down. A pause written in the file is a real stop. The next stroke starts at the intensity your pulse allows.</p>
+
+<p>They are buttons, like the stroke and goal cards. The line under them is the one you picked.</p>
+
+<h2>How long the session is</h2>
+
+<p>With a video and a script, the session is the length of the video. <strong>Continue after the video</strong> leaves the timer you already set in charge. When the video ends, the toys go back to Classic.</p>
+
+<h2>The Handy and Intiface</h2>
+
+<p>Intiface linear toys play each stroke. The Handy, with <strong>Beat sync</strong> on and firmware 4, plays each stroke over Handy's own API. The first time you turn Beat sync on, it asks. With Beat sync off, The Handy follows the script's rhythm: speed and depth, not each point. <a href="/toys/#the-handy">Connect a toy</a> is the connection key, the travel range, and the end-stop margin.</p>
+
+<h2>Theater and fullscreen</h2>
+
+<p><strong>Theater</strong> grows the video inside the page until it hits the window's width or its height, whichever comes first. The rest of EdgeLoop stays underneath, so you can scroll down to it.</p>
+
+<p><strong>Fullscreen</strong> fills the screen with the video.</p>
+
+<p>Both use the same overlay: play and pause, stop, a scrub bar, volume, mute, and exit. Move the mouse or tap the picture and it comes back. After a few seconds of sitting still, it fades. <strong>Exit theater</strong> or <strong>Exit fullscreen</strong> is on that bar. Escape does the same thing, and it does not stop the session while you are still in the picture.</p>
+
+<h2>What stays on this device</h2>
+
+<p>Your video and your scripts are not uploaded. File names never leave this device. With Beat sync on, The Handy is sent the next few seconds of stroke positions through Handy's cloud, and nothing else from the file. Your heart rate goes only to a partner you link with <a href="/partner/">Share Control</a>.</p>
+
+<p>In a headset, run EdgeLoop on a PC, tablet, or phone that can read your pulse. This page can play the video inside a headset, but it cannot read a heart-rate monitor there. Do not let the headset app and EdgeLoop both drive the same Handy.</p>
+
+<h2>A session log, on Dev</h2>
+
+<p>On dev.edgeloop.app, History has a <strong>Session log</strong> next to the <code>.funscript</code> and <code>.v0.funscript</code> downloads. It is a JSON file of the run: the pulse once a second, what the toys were sent, the settings, and which toys were connected. It does not include a Handy key, a device token, a video address, or a script file name.</p>
+
+<p>Download it and post it in <a href="https://discord.gg/ZFrkehxAC">Discord</a> when a session needs diagnosis or tuning. edgeloop.app does not record that log. The funscript downloads are still how you take the motion itself to another player. Session history stays out of a settings backup. <a href="/session/#what-this-browser-remembers">What this browser remembers</a>.</p>

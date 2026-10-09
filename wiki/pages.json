@@ -5,7 +5,7 @@
     "title": "EdgeLoop wiki",
     "nav": "Start here",
     "section": "Start",
-    "description": "How to connect a heart-rate monitor and a toy, and what EdgeLoop does with your pulse. Written for 1.1.3."
+    "description": "How to connect a heart-rate monitor and a toy, what EdgeLoop does with your pulse, and the video player on the dev site."
   },
   {
     "slug": "bluetooth",
@@ -38,6 +38,14 @@
     "nav": "How a toy is driven",
     "section": "How it runs",
     "description": "What EdgeLoop does with a pulse: the clocks, the curve, and how each toy turns those numbers into motion."
+  },
+  {
+    "slug": "player",
+    "file": "player.html",
+    "title": "Your video and a funscript",
+    "nav": "Your video and a funscript",
+    "section": "How it runs",
+    "description": "The video player on dev.edgeloop.app: scripts, the heat map, climax marks, stroke models, theater, fullscreen, and what never leaves this device."
   },
   {
     "slug": "session",

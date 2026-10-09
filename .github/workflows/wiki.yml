@@ -2,10 +2,9 @@ name: Wiki
 
 on:
   push:
-    # dev publishes the copy under test. main publishes it again when a
-    # release ships. The feature branch publishes the first copy, so the
-    # pages can be read at wiki.edgeloop.app before that merge.
-    branches: [dev, main, cursor/wiki-edgeloop-f9a6]
+    # The wiki branch is the copy at wiki.edgeloop.app. dev and main
+    # publish it again when this workflow is on those branches.
+    branches: [wiki, dev, main]
 
 jobs:
   deploy:
