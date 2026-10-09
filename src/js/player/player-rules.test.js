@@ -368,9 +368,9 @@ describe('video files and links', () => {
             assert.match(formats.hint, new RegExp(name));
         }
         assert.match(formats.hint, /funscript/);
-        assert.match(heatColor(0), /^hsl\(120 /);
-        assert.match(heatColor(1), /^hsl\(0 /);
-        assert.match(heatColor(0.5), /^hsl\(60 /);
+        assert.equal(heatColor(0), 'rgb(34, 197, 94)');
+        assert.equal(heatColor(0.5), 'rgb(250, 204, 21)');
+        assert.equal(heatColor(1), 'rgb(239, 68, 68)');
         assert.match(formats.hint, /MP4 \(H\.264\) and WebM/);
     });
 

@@ -32,6 +32,7 @@ import {
     formatOffset,
     editClimaxMarks,
     heatColor,
+    heatLevel,
     describeMediaError,
     videoEventAction,
     isAudible
@@ -681,17 +682,14 @@ export function createPlayer({
         press(els.secondaryBtn, hasSecondary && (heatmapView === 'secondary' || heatmapView === 'both'));
         press(els.bothBtn, heatmapView === 'both');
         els.bothBtn?.classList?.toggle('hidden', !(hasPrimary && hasSecondary));
-        if (els.clearScriptsBtn) {
-            els.clearScriptsBtn.disabled = !(hasPrimary || hasSecondary);
-            els.clearScriptsBtn.classList?.toggle('opacity-40', !(hasPrimary || hasSecondary));
-        }
+        if (els.clearScriptsBtn) els.clearScriptsBtn.disabled = false;
         if (els.heatmapHint && (videoFile || script || secondary)) {
             const lead = heatmapView === 'both'
-                ? 'Both scripts. The bars are the primary and the white line is the secondary.'
+                ? 'Both scripts. The color is the primary and the white line is the secondary.'
                 : heatmapView === 'secondary'
                     ? 'Secondary script.'
                     : 'Primary script.';
-            els.heatmapHint.textContent = `${lead} Red is the busiest, green is the quietest. Click to mark a climax, and click a mark to remove it.`;
+            els.heatmapHint.textContent = `${lead} Green is a pause, red is fast. Click to mark a climax, and click a mark to remove it.`;
         }
     }
 
@@ -738,8 +736,8 @@ export function createPlayer({
         ctx.fillRect(0, 0, w, h);
         const showSecondary = heatmapView === 'secondary' || heatmapView === 'both';
         const showPrimary = heatmapView !== 'secondary';
-        if (showPrimary) paintSeries(ctx, seriesOf('primary'), dur, w, h, dpr, 'bars');
-        if (showSecondary) paintSeries(ctx, seriesOf('secondary'), dur, w, h, dpr, heatmapView === 'both' ? 'line' : 'bars');
+        if (showPrimary) paintSeries(ctx, seriesOf('primary'), dur, w, h, 'bars');
+        if (showSecondary) paintSeries(ctx, seriesOf('secondary'), dur, w, h, heatmapView === 'both' ? 'line' : 'bars');
         renderHeatmapModes();
         for (const mark of climaxMarks) {
             const x = (mark / dur) * w;
@@ -772,30 +770,46 @@ export function createPlayer({
         call(handlers, 'onClimax', climaxMarks.slice());
     }
 
-    function paintSeries(ctx, series, dur, w, h, dpr, mode) {
-        if (!series || !series.length || dur <= 0) return;
-        let max = 1;
-        for (const v of series) if (v > max) max = v;
+    // One column per pixel, colored by how fast that moment is. Scaling to
+    // the file's own peak made a busy script one color. A fixed scale does
+    // not: a pause is green, a fast stroke is red.
+    function paintSeries(ctx, series, dur, w, h, mode) {
+        if (!series || !series.length || !(dur > 0) || w < 1 || h < 1) return;
+        const cols = Math.max(1, Math.floor(w));
+        const values = new Float32Array(cols);
+        const seen = new Uint8Array(cols);
+        for (let i = 0; i < series.length; i++) {
+            const start = Math.max(0, Math.min(cols - 1, Math.floor((i * 1000 / dur) * cols)));
+            const end = Math.max(start + 1, Math.min(cols, Math.ceil(((i + 1) * 1000 / dur) * cols)));
+            for (let c = start; c < end; c++) {
+                if (!seen[c] || series[i] > values[c]) values[c] = series[i];
+                seen[c] = 1;
+            }
+        }
         if (mode === 'line') {
             ctx.beginPath();
             ctx.strokeStyle = '#f8fafc';
-            ctx.lineWidth = Math.max(1.5, dpr * 1.75);
-            for (let i = 0; i < series.length; i++) {
-                const x = ((i + 0.5) * 1000 / dur) * w;
-                const y = h - (series[i] / max) * (h - 4 * dpr);
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+            ctx.lineWidth = Math.max(2, Math.round(h * 0.06));
+            let moved = false;
+            for (let c = 0; c < cols; c++) {
+                if (!seen[c]) {
+                    moved = false;
+                    continue;
+                }
+                const x = c + 0.5;
+                const y = (h - 2) - heatLevel(values[c]) * (h - 4);
+                if (!moved) {
+                    ctx.moveTo(x, y);
+                    moved = true;
+                } else ctx.lineTo(x, y);
             }
             ctx.stroke();
             return;
         }
-        for (let i = 0; i < series.length; i++) {
-            const heat = series[i] / max;
-            const x = (i * 1000 / dur) * w;
-            const barW = Math.max(dpr, (1000 / dur) * w);
-            const bh = Math.max(dpr * 2, heat * (h - 4 * dpr));
-            ctx.fillStyle = heatColor(heat);
-            ctx.fillRect(x, h - bh, barW, bh);
+        for (let c = 0; c < cols; c++) {
+            if (!seen[c]) continue;
+            ctx.fillStyle = heatColor(heatLevel(values[c]));
+            ctx.fillRect(c, 0, 1, h);
         }
     }
 

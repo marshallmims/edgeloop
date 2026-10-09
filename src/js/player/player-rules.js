@@ -23,12 +23,25 @@ export function describeVideoFormats() {
     };
 }
 
-// Heat-map color. 0 is the quietest moment (green), 1 is the busiest (red).
+// A second at this speed (% of the script range per second) is solid red.
+// A pause is green. 200 %/s is a full stroke about twice a second.
+export const HEATMAP_RED_PER_SECOND = 200;
+
+export function heatLevel(speed) {
+    const v = Number(speed);
+    if (!Number.isFinite(v) || v <= 0) return 0;
+    return Math.min(1, v / HEATMAP_RED_PER_SECOND);
+}
+
+// 0 is green (a pause), 1 is red (fast). Yellow is the middle.
 export function heatColor(amount) {
     const t = Math.max(0, Math.min(1, Number(amount) || 0));
-    const hue = Math.round(120 * (1 - t));
-    const light = 42 + Math.round(t * 8);
-    return `hsl(${hue} 72% ${light}%)`;
+    const mix = (a, b, u) => Math.round(a + (b - a) * u);
+    const green = [34, 197, 94];
+    const yellow = [250, 204, 21];
+    const red = [239, 68, 68];
+    const [from, to, u] = t < 0.5 ? [green, yellow, t / 0.5] : [yellow, red, (t - 0.5) / 0.5];
+    return `rgb(${mix(from[0], to[0], u)}, ${mix(from[1], to[1], u)}, ${mix(from[2], to[2], u)})`;
 }
 
 // A link the wearer pasted or dropped. A direct file address can be given
