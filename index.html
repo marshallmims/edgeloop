@@ -138,9 +138,9 @@
       </div>
 
       <div id="playerBody" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-3">
-        <div class="lg:col-span-7 space-y-1.5 min-w-0">
-          <div id="playerStage" data-theater="off" data-immersive="off" class="relative bg-black rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center">
-            <video id="playerVideo" playsinline preload="auto" class="block w-full max-h-[40vh] bg-black"></video>
+        <div class="lg:col-span-7 flex flex-col gap-1.5 min-w-0">
+          <div id="playerStage" data-theater="off" data-immersive="off" class="relative flex-1 min-h-[16rem] lg:min-h-0 bg-black rounded-xl border border-slate-800 overflow-hidden">
+            <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
             <!-- The HUD: only in theater and fullscreen. Its readouts hide
                  after 4 s and come back on a tap or a mouse move; PAUSE and
                  STOP only fade, and take a press at any time. -->
@@ -280,16 +280,6 @@
             </button>
           </div>
           <p id="strokeModelDetail" class="text-[10px] text-slate-300 leading-snug">Strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going.</p>
-        </div>
-        <div class="lg:col-span-12 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <p id="playerPrivacy" class="text-[11px] text-slate-300 leading-snug p-2.5 rounded-xl border border-slate-800 bg-slate-950">
-            <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">Stays on this device</span>
-            Your video and script are not uploaded. With Beat sync on, The Handy is sent the next few seconds of stroke positions through Handy's cloud. File names and the video never leave this device. Your heart rate goes only to a partner you link with Share Control.
-          </p>
-          <p class="text-[11px] text-slate-300 leading-snug p-2.5 rounded-xl border border-slate-800 bg-slate-950">
-            <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">Headset</span>
-            Run EdgeLoop on a PC, tablet, or phone that can read your pulse. This page can play the video inside a headset, but it cannot read a heart-rate monitor there.
-          </p>
         </div>
       </div>
     </section>
