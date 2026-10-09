@@ -5,18 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>EdgeLoop — Autonomous Biofeedback Edging System</title>
 
-  <script>
-    (function () {
-      var dev = location.hostname === 'dev.edgeloop.app';
-      var icon = dev ? './icon-dev.svg' : './icon.svg';
-      var manifest = dev ? './manifest-dev.json' : './manifest.json';
-      document.write(
-        '<link rel="icon" type="image/svg+xml" href="' + icon + '">' +
-        '<link rel="apple-touch-icon" href="' + icon + '">' +
-        '<link rel="manifest" href="' + manifest + '">'
-      );
-    })();
-  </script>
+  <!-- Dev install icons. main keeps icon.svg and the plain PNGs. Do not copy these hrefs onto the live site. -->
+  <link rel="icon" type="image/svg+xml" href="./icon-dev.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-dev-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-dev-512.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icon-dev-180.png">
+  <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#020617">
   <meta name="mobile-web-app-capable" content="yes">
 
