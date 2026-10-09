@@ -22,6 +22,7 @@ The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release o
 Calibration, two climax numbers, and one card for the stroke and the goal. Released on edgeloop.app after testing on dev.edgeloop.app. The footer DEV badge is the host, not a second version.
 
 - **VacuGlide 2.** The device card no longer says experimental. STOP still stops the motor and closes both valves. Keep the power button in reach.
+- **The installed app uses the plain icon.** Home-screen installs of edgeloop.app get a PNG of the heartbeat, with no DEV bar. The DEV artwork stays on dev.edgeloop.app.
 
 ### Calibration
 - **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.
