@@ -5225,7 +5225,16 @@ function renderHistory() {
     if (isDevTelemetryHost(location.hostname)) {
         const note = document.createElement('p');
         note.className = 'text-[10px] text-amber-200/90 leading-snug';
-        note.textContent = 'Session log is a JSON file of the run: pulse, toy speeds, settings, and which toys were on. It has no connection keys and no file names.';
+        note.append(
+            'Session log can be downloaded and shared for diagnosis and tuning. It has the pulse, the toy speeds, the settings, and which toys were on. It leaves out connection keys and file names. Post it in ',
+        );
+        const discord = document.createElement('a');
+        discord.href = 'https://discord.gg/ZFrkehxAC';
+        discord.target = '_blank';
+        discord.rel = 'noopener noreferrer';
+        discord.className = 'underline text-amber-100 hover:text-white';
+        discord.textContent = 'Discord';
+        note.append(discord, '.');
         list.appendChild(note);
     }
     history.forEach((s, idx) => {
@@ -5247,7 +5256,7 @@ function renderHistory() {
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         .v0.funscript
         </button>
-        ${isDevTelemetryHost(location.hostname) ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download a session log for tuning. No keys or file names.">Session log</button>` : ''}
+        ${isDevTelemetryHost(location.hostname) ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log and share it for diagnosis and tuning. No keys or file names.">Session log</button>` : ''}
         </div>
         `;
         list.appendChild(item);
