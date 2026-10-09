@@ -107,7 +107,7 @@ export function saveHistoryTrimmed(key, history, storage = defaultStorage()) {
         list.pop();
     }
     if (total > 0) {
-        const bare = { ...history[0], samples: [], primaryActions: [], secondaryActions: [] };
+        const bare = { ...history[0], samples: [], primaryActions: [], secondaryActions: [], telemetry: null };
         if (safeSet(key, [bare], storage)) {
             return { saved: true, dropped: total - 1, stripped: true };
         }
