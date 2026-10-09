@@ -1,48 +1,48 @@
-<p class="lede">Pages for the person using EdgeLoop. How to let the browser see Bluetooth, which heart-rate monitors show up, how to put one into a mode the app can hear, and what the page does with a pulse once it has one.</p>
+<p class="lede">How to connect a heart-rate monitor, which ones people have actually used, how to connect a toy, and what EdgeLoop does with your pulse.</p>
 
 <div class="note">
-  <p>These pages describe <strong>1.1.3</strong>, the build on <a href="https://dev.edgeloop.app">dev.edgeloop.app</a> during this week's testing, and the build that ships to <a href="https://edgeloop.app">edgeloop.app</a> when that testing is done. The dev site is a separate copy: a monitor paired on one is not paired on the other. If a step here is wrong on your machine, this is the copy to mark up.</p>
+  <p>These notes match <strong>1.1.3</strong> on <a href="https://edgeloop.app">edgeloop.app</a>. <a href="https://dev.edgeloop.app">dev.edgeloop.app</a> is the newer test build. They are separate sites, so a monitor paired on one is not paired on the other. If a step here is wrong for your setup, say so on Discord.</p>
 </div>
 
-<h2>Start with the thing that is not connecting</h2>
+<h2>If something will not connect</h2>
 
 <div class="doors">
   <a class="door" href="/bluetooth/">
     <span class="kicker">Browser</span>
-    <strong>Allow Bluetooth</strong>
+    <strong>Turn Bluetooth on</strong>
     <span>Windows, Mac, Linux, iPhone, iPad, Android phone, Android tablet.</span>
   </a>
   <a class="door" href="/heart-rate/">
     <span class="kicker">Pulse</span>
-    <strong>A heart-rate monitor</strong>
-    <span>Which devices work, how to make them advertise, and how often they update.</span>
+    <strong>Pick a heart-rate monitor</strong>
+    <span>What people have gotten working, how it connects, and how often a new number shows up.</span>
   </a>
   <a class="door" href="/toys/">
-    <span class="kicker">Output</span>
+    <span class="kicker">Toys</span>
     <strong>Connect a toy</strong>
     <span>The Handy, Intiface, a T-Code stroker, the VacuGlide, and what a role means.</span>
   </a>
   <a class="door" href="/session/">
     <span class="kicker">Session</span>
-    <strong>How a session is decided</strong>
+    <strong>What a session does</strong>
     <span>Two climax numbers, the strokes, the goals, and the rules that stop the motors.</span>
   </a>
 </div>
 
-<h2>What a page will claim</h2>
+<h2>Where the numbers come from</h2>
 
-<p>A number on these pages is a number the program uses, or a report from someone who has run the app. The two are labeled differently.</p>
+<p>Some numbers are settings EdgeLoop itself uses, like a timeout. Others are what someone reported after a real session. The heart-rate table is that second kind. It is not a lab test of every strap on the market.</p>
 
-<p>The heart-rate table is the second kind. It is what people have gotten working, including the author's daily setup (a Pixel Watch 2, The Handy on Wi-Fi, EdgeLoop and Intiface Central on a Pixel Tablet). It is not a bench test of every strap on the market. A monitor that advertises the standard Bluetooth Heart Rate service can be tried even if it is missing from the table. One that does not advertise that service cannot, and no setting in the app changes that.</p>
+<p>If a monitor broadcasts the standard Bluetooth heart-rate service, you can try it even when it is not in the table. If it does not, EdgeLoop cannot see it. No setting changes that.</p>
 
-<p>There is no accuracy percentage here for any monitor. EdgeLoop does not have one. <a href="/heart-rate/#accuracy">Accuracy</a> says what the page actually does with the number it is given, and why a chest strap and a watch steer the toys differently.</p>
+<p>There is no accuracy percentage for any monitor. We do not have one. <a href="/heart-rate/#accuracy">Accuracy</a> explains what EdgeLoop does with the number it is given, and why a chest strap and a watch feel different in a session.</p>
 
-<h2>Where the program runs</h2>
+<h2>Where it runs</h2>
 
-<p>The session is decided in the browser tab. There is no EdgeLoop account and no EdgeLoop server choosing a speed. <a href="/control/">How a toy is driven</a> is the long version: the clocks, the curve, and the command each kind of toy actually receives.</p>
+<p>The session happens in your browser tab. There is no EdgeLoop account, and no EdgeLoop server choosing a speed. <a href="/control/">How a toy is driven</a> is the longer version: the clocks, the curve, and the command each toy actually receives.</p>
 
-<p>A partner link is the exception to "nothing leaves the machine." Share Control introduces the two browsers through PeerJS, and the session commands then go from one browser to the other. That path is <a href="/partner/">A partner on another device</a>.</p>
+<p>Share Control is the exception. It introduces the two browsers, and then the commands go from one browser to the other. That is <a href="/partner/">a partner on another device</a>.</p>
 
-<h2>If a page is wrong</h2>
+<h2>If something here is wrong</h2>
 
-<p>Say so in <a href="https://discord.gg/ZFrkehxAC">Discord</a>, or open an issue on <a href="https://github.com/marshallmims/edgeloop">GitHub</a>. A correction to a device row is welcome with the model, the operating system, and what the browser chooser showed. Product questions go to Discord. <span class="muted">security reports stay off the public server: support@edgeloop.app.</span></p>
+<p>Say so in <a href="https://discord.gg/ZFrkehxAC">Discord</a>, or open an issue on <a href="https://github.com/marshallmims/edgeloop">GitHub</a>. A correction to a monitor row is welcome: the model, the operating system, and what the browser list showed. Product questions belong on Discord. <span class="muted">Security reports stay off the public server: support@edgeloop.app.</span></p>

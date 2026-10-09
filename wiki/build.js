@@ -80,7 +80,7 @@ function renderToc(headings) {
         const cls = heading.level === 3 ? ' class="toc-sub"' : '';
         return `<li${cls}><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.text)}</a></li>`;
     }).join('');
-    return `<nav class="toc" aria-label="On this page"><details><summary>On this page</summary><ol>${items}</ol></details></nav>`;
+    return `<nav class="toc" aria-label="Contents"><details><summary>Contents</summary><ol>${items}</ol></details></nav>`;
 }
 
 function renderNav(pages, current) {
@@ -172,7 +172,7 @@ function renderPage(page, body, toc, nav) {
     </article>
   </div>
   <footer class="colophon">
-    <p>Pages for EdgeLoop 1.1.3. The session runs in your browser. These pages describe that program.</p>
+    <p>Notes for EdgeLoop 1.1.3. The session stays in your browser.</p>
     <p>
       <a href="https://edgeloop.app">edgeloop.app</a>
       <a href="https://dev.edgeloop.app">dev.edgeloop.app</a>

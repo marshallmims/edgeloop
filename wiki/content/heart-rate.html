@@ -1,59 +1,110 @@
-<p class="lede">EdgeLoop connects to a monitor that advertises the standard Bluetooth Heart Rate service. The browser asks for that service by name. A watch or strap that speaks only a private protocol never appears in the chooser, and the app has no second protocol to fall back on.</p>
+<p class="lede">EdgeLoop can hear a monitor that broadcasts the standard Bluetooth heart-rate service. The browser asks for that service by name. A watch or strap that only speaks its own private protocol never shows up in the list, and EdgeLoop has no second way to talk to it.</p>
 
 <h2>What the app will connect to</h2>
 
-<p>The service is the Bluetooth SIG Heart Rate service, GATT <code>0x180D</code>. The page subscribes to notifications on the Heart Rate Measurement characteristic. It also reads the battery service when the device has one. Battery is optional. The heart-rate subscription is not.</p>
+<p>The service is the Bluetooth SIG Heart Rate service, GATT <code>0x180D</code>. EdgeLoop subscribes to notifications on the Heart Rate Measurement characteristic. It also reads the battery service when the device has one. Battery is optional. The heart-rate subscription is not.</p>
 
 <p>Each notification can carry a pulse, a sensor-contact flag, and sometimes the time between beats. EdgeLoop drives the toys from the pulse. A contact flag that says the sensor is off the skin is shown as no skin contact. The beat-to-beat intervals are read out of the packet and then not used.</p>
 
 <div class="table-wrap">
 <table>
-  <caption>Reported by people using the app, including the author's daily setup. A blank cell would be a guess, so the table only lists what has actually been said.</caption>
+  <caption>What people have gotten working, including a daily Pixel Watch 2. The interval is what those sessions reported, not a lab timing of each model. A guess is left out. Recommended means it just works: wet it or turn broadcasting on, then pick it in EdgeLoop. The rows get fussier after that.</caption>
   <thead>
     <tr>
-      <th>Monitor</th>
-      <th>How it reaches EdgeLoop</th>
-      <th>Reported update</th>
+      <th>Make</th>
+      <th>Model</th>
+      <th>Reported heart-rate interval</th>
+      <th>Connection</th>
+      <th>Recommendation</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Google Pixel Watch, Pixel Watch 2</td>
-      <td>The watch broadcasts heart rate over Bluetooth. The author's monitor is a Pixel Watch 2. Turn on heart-rate broadcasting, then pick the watch in the EdgeLoop chooser.</td>
-      <td>Watches in general: often every 2–5 seconds.</td>
+      <td>Polar</td>
+      <td>H10</td>
+      <td>About once a second. The steadiest strap people have reported.</td>
+      <td>Bluetooth Heart Rate, from the strap itself. Wet the electrodes. It can be heard by two listeners at once, so a watch and the browser can both have it.</td>
+      <td>Recommended. Pair it in EdgeLoop and go.</td>
     </tr>
     <tr>
-      <td>Samsung Galaxy Watch</td>
-      <td>No native broadcast. The Wear OS app Heart for Bluetooth, recommended by forum user AtagoWTS, rebroadcasts the pulse as a standard Heart Rate service. One person got it working with EdgeLoop on a phone and not on a desktop. Try the phone first.</td>
-      <td>A relay app: often every 2–5 seconds.</td>
+      <td>Wahoo</td>
+      <td>TICKR</td>
+      <td>About once a second.</td>
+      <td>Bluetooth Heart Rate, from the strap itself. Wet the electrodes. Most of these straps can only be held by one app. Quit the vendor app or the bike computer first.</td>
+      <td>Recommended, once nothing else is connected to it.</td>
     </tr>
     <tr>
-      <td>Apple Watch</td>
-      <td>HeartCast or Echo can broadcast the pulse. The browser has to be on a different device from the iPhone running that app. See <a href="/bluetooth/#iphone">iPhone</a>.</td>
-      <td>A relay app: often every 2–5 seconds.</td>
+      <td>Coospo</td>
+      <td>H6M</td>
+      <td>About once a second.</td>
+      <td>Bluetooth Heart Rate, from the strap itself. Wet the electrodes. One app at a time.</td>
+      <td>Recommended, once nothing else is connected to it.</td>
     </tr>
     <tr>
-      <td>Chest straps: Polar H10, Coospo H6M, Cycplus H2 Pro, a Garmin HRM that speaks Bluetooth, Wahoo TICKR</td>
-      <td>They advertise the Heart Rate service themselves. Pair from the chooser. Wet the electrodes. The Polar H10 is the strap people have found most regular. The Cycplus H2 Pro has been bought at around 30 USD.</td>
-      <td>About once a second. The Polar H10 has the best cadence of the straps reported so far.</td>
+      <td>Cycplus</td>
+      <td>H2 Pro</td>
+      <td>About once a second.</td>
+      <td>Bluetooth Heart Rate, from the strap itself. Wet the electrodes. One app at a time. People have bought it for about 30 USD.</td>
+      <td>Recommended, once nothing else is connected to it.</td>
     </tr>
     <tr>
-      <td>Watches paired through GloryFit or Da Fit</td>
-      <td>These watches do not expose the Heart Rate service. They cannot work with EdgeLoop, or with any other app that asks for that service.</td>
+      <td>Garmin</td>
+      <td>HRM, Bluetooth models</td>
+      <td>About once a second.</td>
+      <td>Bluetooth Heart Rate only. A strap that speaks only ANT+ never appears. The browser has no ANT+ radio.</td>
+      <td>Recommended when that strap speaks Bluetooth.</td>
+    </tr>
+    <tr>
+      <td>Google</td>
+      <td>Pixel Watch 2</td>
+      <td>Often every 2–5 seconds. That is what people report for watches, not a stopwatch on this model alone.</td>
+      <td>Bluetooth heart-rate broadcast, the same setting gym equipment uses. Turn broadcasting on, then pick the watch in EdgeLoop. This is the author's daily monitor.</td>
+      <td>Works. One setting, then it shows up.</td>
+    </tr>
+    <tr>
+      <td>Google</td>
+      <td>Pixel Watch</td>
+      <td>Often every 2–5 seconds, same watch report as above. Not timed on its own.</td>
+      <td>Bluetooth heart-rate broadcast. Turn broadcasting on, then pick the watch in EdgeLoop.</td>
+      <td>Works. Same path as the Watch 2.</td>
+    </tr>
+    <tr>
+      <td>Samsung</td>
+      <td>Galaxy Watch</td>
+      <td>Often every 2–5 seconds, because the pulse comes through a relay app.</td>
+      <td>No native broadcast EdgeLoop can hear. The Wear OS app Heart for Bluetooth, suggested by AtagoWTS, rebroadcasts a standard Heart Rate service. One person got that working with EdgeLoop on a phone and not on a desktop.</td>
+      <td>Needs a helper app. Try the phone first.</td>
+    </tr>
+    <tr>
+      <td>Apple</td>
+      <td>Watch</td>
+      <td>Often every 2–5 seconds, through the relay app.</td>
+      <td>HeartCast or Echo broadcasts the pulse. EdgeLoop has to run on a different device from the iPhone running that app. See <a href="/bluetooth/#iphone">iPhone</a>.</td>
+      <td>Needs a helper app and a second device. A chest strap is simpler if you have one.</td>
+    </tr>
+    <tr>
+      <td>GloryFit</td>
+      <td>Watches that only talk to GloryFit. No single model was reported.</td>
       <td>Does not connect.</td>
+      <td>Those watches do not expose the Heart Rate service.</td>
+      <td>Will not connect. No setting in EdgeLoop changes that.</td>
     </tr>
     <tr>
-      <td>No monitor yet</td>
-      <td>The Manual Simulator slider in the Bluetooth panel. Every stroke and every goal can be tried with it.</td>
-      <td>The slider is the pulse. It does not go stale.</td>
+      <td>Da Fit</td>
+      <td>Watches that only talk to Da Fit. No single model was reported.</td>
+      <td>Does not connect.</td>
+      <td>Those watches do not expose the Heart Rate service.</td>
+      <td>Will not connect. No setting in EdgeLoop changes that.</td>
     </tr>
   </tbody>
 </table>
 </div>
 
+<p>No monitor yet? The Manual Simulator slider in the Bluetooth panel stands in for one. Every stroke and every goal can be tried with it. The slider is the pulse, and it does not go stale.</p>
+
 <p>A Garmin strap that speaks only ANT+ will not appear. The browser has no ANT+ radio. "Garmin HRM" in the table means a Garmin strap that advertises the standard Heart Rate service.</p>
 
-<h2>Make it advertise</h2>
+<h2>Get it to show up</h2>
 
 <p>The chooser can only list a device that is advertising at the moment you open it. "BLE mode" for this app means that advertisement, of the Heart Rate service, with no other app holding the connection.</p>
 

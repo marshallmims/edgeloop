@@ -5,7 +5,7 @@
     "title": "EdgeLoop wiki",
     "nav": "Start here",
     "section": "Start",
-    "description": "User pages for EdgeLoop 1.1.3: Bluetooth on each platform, heart-rate monitors, connecting a toy, and how a session decides."
+    "description": "How to connect a heart-rate monitor and a toy, and what EdgeLoop does with your pulse. Written for 1.1.3."
   },
   {
     "slug": "bluetooth",
@@ -13,7 +13,7 @@
     "title": "Bluetooth in the browser",
     "nav": "Bluetooth in the browser",
     "section": "Connect",
-    "description": "How to let the browser see a heart-rate monitor on Windows, Mac, Linux, iPhone, iPad, and Android."
+    "description": "Get a heart-rate monitor to show up in EdgeLoop on Windows, Mac, Linux, iPhone, iPad, and Android."
   },
   {
     "slug": "heart-rate",
@@ -21,7 +21,7 @@
     "title": "Heart-rate monitors",
     "nav": "Heart-rate monitors",
     "section": "Connect",
-    "description": "Which monitors EdgeLoop can hear, how to make one advertise, how often a new pulse arrives, and what accuracy means here."
+    "description": "Heart-rate monitors people have used with EdgeLoop: make, model, how often a new pulse arrives, how it connects, and whether it just works."
   },
   {
     "slug": "toys",
@@ -37,7 +37,7 @@
     "title": "How a toy is driven",
     "nav": "How a toy is driven",
     "section": "How it runs",
-    "description": "What the page does with a pulse: the clocks, the curve, and how each toy turns those numbers into motion."
+    "description": "What EdgeLoop does with a pulse: the clocks, the curve, and how each toy turns those numbers into motion."
   },
   {
     "slug": "session",
