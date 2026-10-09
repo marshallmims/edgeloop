@@ -1010,25 +1010,37 @@ export function createPlayer({
 
     function layoutTheater() {
         const stage = els.stage;
-        if (!stage) return;
+        if (!stage || !stage.style) return;
         if (!theater) {
             stage.style.width = '';
+            stage.style.height = '';
             stage.style.marginLeft = '';
+            stage.style.flex = '';
             return;
         }
-        const parent = stage.parentElement;
-        const left = parent ? parent.getBoundingClientRect().left : 0;
+        // flex-1 would collapse this box: the video is taken out of flow.
+        stage.style.flex = 'none';
+        if (typeof stage.getBoundingClientRect !== 'function') {
+            stage.style.width = '100vw';
+            stage.style.height = 'calc(100vh - 7rem)';
+            return;
+        }
+        const view = win && win.innerHeight ? win.innerHeight : 0;
+        let top = stage.getBoundingClientRect().top;
+        if (view && top > view * 0.35 && typeof stage.scrollIntoView === 'function') {
+            stage.scrollIntoView({ block: 'start' });
+            top = stage.getBoundingClientRect().top;
+        }
+        const left = stage.getBoundingClientRect().left - (parseFloat(stage.style.marginLeft) || 0);
         stage.style.width = '100vw';
         stage.style.marginLeft = `${-Math.round(left)}px`;
+        if (view) stage.style.height = `${Math.max(240, Math.round(view - Math.max(0, top)))}px`;
     }
 
     function setTheater(on) {
         theater = Boolean(on);
         renderImmersive();
         layoutTheater();
-        if (theater && els.stage && typeof els.stage.scrollIntoView === 'function') {
-            els.stage.scrollIntoView({ block: 'start' });
-        }
     }
 
     function toggleFullscreen() {

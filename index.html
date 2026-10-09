@@ -26,23 +26,41 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
-    /* Theater stays in the page, as large as the window allows. The video
-       grows until it hits the width or the height, whichever comes first.
-       The rest of EdgeLoop stays underneath. */
+    /* Theater stays in the page. The stage fills the window that is left
+       under the header, and the video grows inside it until it hits the
+       width or the height. The controls that sit beside the picture move
+       underneath, so they cannot paint on the letterbox. */
+    body:has(#playerStage[data-theater="on"]) {
+      overflow-x: clip;
+    }
+    #playerBody:has(#playerStage[data-theater="on"]) {
+      display: flex;
+      flex-direction: column;
+    }
+    #playerBody:has(#playerStage[data-theater="on"]) > div {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
     #playerStage[data-theater="on"] {
       position: relative;
-      height: calc(100vh - 4.5rem);
-      max-height: none;
+      z-index: 5;
+      flex: none;
+      height: calc(100vh - 7rem);
+      height: calc(100dvh - 7rem);
       border-radius: 0;
       background: #000;
     }
     #playerStage[data-theater="on"] #playerVideo,
     #playerStage:fullscreen #playerVideo,
     #playerStage:-webkit-full-screen #playerVideo {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       max-height: none;
       object-fit: contain;
+      object-position: center;
     }
     #playerStage:fullscreen,
     #playerStage:-webkit-full-screen {
@@ -162,13 +180,13 @@
                 <div class="flex items-center gap-2">
                   <button id="hudPauseBtn" type="button" class="min-h-[2.75rem] min-w-[5.5rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm cursor-pointer">Play</button>
                   <button id="hudStopBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-rose-700/90 hover:bg-rose-600 text-white font-bold text-sm cursor-pointer">Stop</button>
-                  <button id="hudExitBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm cursor-pointer">Exit</button>
                   <span class="flex-1"></span>
                   <label class="flex items-center gap-2 text-[10px] text-slate-200">
                     <span>Volume</span>
                     <input id="hudVolume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume" class="w-24 accent-white cursor-pointer">
                   </label>
                   <button id="hudMuteBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs cursor-pointer">Mute</button>
+                  <button id="hudExitBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm cursor-pointer">Exit</button>
                 </div>
               </div>
             </div>
