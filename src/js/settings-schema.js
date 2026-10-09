@@ -157,6 +157,7 @@ export const SETTING_SANITIZERS = {
     scriptSecondChannel: (value) => resolveSecondChannel(value),
     scriptVideoEnd: (value) => resolveVideoEnd(value),
     scriptContinueAfterVideo: boolean('scriptContinueAfterVideo'),
+    playerHudPin: boolean('playerHudPin'),
     scriptClimaxSeconds: (value) => clampClimaxSeconds(value),
     speedFastest: wholeNumber('speedFastest', 0, 100),
     vacuglideRole: (value) => sanitizeVacuglideRole(value),

@@ -1188,6 +1188,7 @@ function updateEngine() {
     if (prostateVal) prostateVal.textContent = `${secondary}%`;
     if (prostateBar) prostateBar.style.width = `${secondary}%`;
     dispatchHardware(sentPrimary, secondary, result.strokeMinPercent, result.strokeMaxPercent);
+    paintPlayerHud();
 }
 
 // Physical stroke bounds to send to the toys. engine.js has ALREADY mapped
@@ -2115,6 +2116,29 @@ function updateTimerDisplay() {
         timerEl.textContent = activeStr;
         subLabelEl.textContent = "Endless Mode";
     }
+    paintPlayerHud();
+}
+
+function paintPlayerHud() {
+    if (!player || typeof player.renderHud !== 'function') return;
+    const hr = document.getElementById('hrDisplay');
+    const timer = document.getElementById('sessionTimer');
+    const phase = document.getElementById('playerPhase');
+    const mark = Number.isFinite(state.effectiveMaxHr) ? String(state.effectiveMaxHr) : '--';
+    player.renderHud({
+        hr: hr ? hr.textContent : '--',
+        mark,
+        phase: state.activeMode === 'script' && phase ? phase.textContent : '',
+        edges: String(state.edges || 0),
+        timer: timer ? timer.textContent : '00:00',
+        primary: `${Math.round(Number(state.strokerSpeed) || 0)}%`,
+        secondary: `${Math.round(Number(state.prostateSpeed) || 0)}%`
+    });
+}
+
+function applyHudPin() {
+    const hud = document.getElementById('playerHud');
+    if (hud) hud.dataset.pin = advancedSettings.playerHudPin ? 'on' : 'off';
 }
 
 // Start from IDLE or resume from PAUSED. Returns false when the session was
@@ -5681,6 +5705,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             hudPhase: byId('hudPhase'),
             hudEdges: byId('hudEdges'),
             hudTimer: byId('hudTimer'),
+            hudPrimary: byId('hudPrimary'),
+            hudSecondary: byId('hudSecondary'),
             hudNotice: byId('hudNotice'),
             hudBar: byId('hudBar'),
             hudPause: byId('hudPauseBtn'),
@@ -5862,6 +5888,16 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         climaxSeconds.addEventListener('change', () => {
             advancedSettings.scriptClimaxSeconds = clampClimaxSeconds(climaxSeconds.value);
             climaxSeconds.value = String(advancedSettings.scriptClimaxSeconds);
+            persistSettings();
+        });
+    }
+    const hudPin = document.getElementById('playerHudPin');
+    if (hudPin) {
+        hudPin.checked = advancedSettings.playerHudPin !== false;
+        applyHudPin();
+        hudPin.addEventListener('change', () => {
+            advancedSettings.playerHudPin = hudPin.checked;
+            applyHudPin();
             persistSettings();
         });
     }

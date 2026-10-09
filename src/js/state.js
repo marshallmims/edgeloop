@@ -231,6 +231,8 @@ export const advancedSettings = {
     scriptSecondChannel: 'hr',
     scriptVideoEnd: 'stop',
     scriptContinueAfterVideo: false,
+    // Theater and fullscreen: the top readout stays while the bottom bar hides.
+    playerHudPin: true,
     // How long a marked climax stays at full before the toys ease back into the script.
     scriptClimaxSeconds: 20,
     // Autoblow VacuGlide 2. Speed only. The token lives in its own store.
