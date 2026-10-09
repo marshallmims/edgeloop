@@ -6,9 +6,10 @@
   "type": "module",
   "license": "AGPL-3.0-only",
   "scripts": {
-    "test": "node --test \"src/js/**/*.test.js\"",
+    "test": "node --test \"src/js/**/*.test.js\" app/host.test.mjs",
     "smoke": "node tools/smoke.js",
     "start": "python3 -m http.server 8000",
+    "app": "node app/host.mjs",
     "deploy:dev": "npx wrangler deploy --env dev"
   }
 }

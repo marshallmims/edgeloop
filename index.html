@@ -236,6 +236,22 @@
         </div>
 
         <div class="lg:col-span-5 space-y-2 min-w-0">
+          <div id="appSyncCard" class="hidden p-2.5 rounded-xl border border-sky-900 bg-slate-950 space-y-2">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300">Headset</p>
+            <p class="text-[10px] text-slate-400 leading-snug">HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one.</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <input id="appHeadsetHost" type="text" placeholder="192.168.1.20" aria-label="Headset address" class="flex-1 min-h-[2.75rem] min-w-[8rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
+              <input id="appHeadsetPort" type="number" min="1" max="65535" value="23554" aria-label="Headset port" class="w-20 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-[10px] text-slate-200 font-mono">
+              <button id="appConnectBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-[10px] font-bold cursor-pointer">Connect</button>
+            </div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300 pt-1">Video library</p>
+            <p class="text-[10px] text-slate-400 leading-snug">A folder on this computer. When the headset plays a video, the script with the same name loads. Choosing files below still works.</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <input id="appLibraryPath" type="text" placeholder="/home/you/videos" aria-label="Video library folder" class="flex-1 min-h-[2.75rem] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
+              <button id="appLibraryBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Use folder</button>
+            </div>
+            <p id="appSyncStatus" role="status" class="text-[10px] text-slate-300 leading-snug">Not connected.</p>
+          </div>
           <div id="playerDrop" data-over="off" class="p-2.5 rounded-xl border border-dashed border-slate-700 bg-slate-950 space-y-1.5">
             <div class="flex flex-wrap items-center gap-2">
               <button id="playerChooseBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold cursor-pointer">Choose MP4, M4V, WEBM, MKV, MOV, OGV</button>
