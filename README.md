@@ -200,8 +200,8 @@ edgeloop/
 ├── CHANGELOG.md                # Version history, by area, with forum credits. The footer opens this file.
 ├── LICENSE                     # AGPL-3.0
 ├── README.md
-├── icon.svg                    # App icon (manifest, PWA install)
-├── icon-dev.svg                # Same icon with a DEV bar, used only on dev.edgeloop.app
+├── icon.svg                    # Live app icon. main points the favicon and the install manifest here.
+├── icon-dev.svg                # Dev favicon. This branch's index.html and manifest.json point at the DEV PNGs. Do not point main at these.
 ├── index.html                  # Interface layout, cockpit panels, popup dialogs and the service-worker registration
 ├── manifest.json               # Web App manifest definitions (icons, standalone display)
 ├── package.json                # npm test / npm run smoke / npm start; no dependencies

@@ -1,16 +1,31 @@
 {
   "name": "EdgeLoop DEV",
   "short_name": "EL DEV",
-  "description": "Autonomous Biofeedback Edging System (dev.edgeloop.app)",
+  "description": "Autonomous Biofeedback Edging System. This is the dev.edgeloop.app install. The live site keeps the plain EdgeLoop icon.",
+  "id": "./",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#020617",
   "icons": [
     {
-      "src": "./icon-dev.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "./icon-dev-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-dev-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-dev-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
