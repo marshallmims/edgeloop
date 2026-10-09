@@ -90,9 +90,17 @@ export function actionForPad(binds, button) {
 }
 
 // A field the wearer is typing in must not start a session or pulse a valve.
-export function keyEventIsTyping(target) {
+// Space still pauses when the field is a number: that key is the session
+// key, and a number box has nowhere to put a space.
+export function keyEventIsTyping(target, code) {
     if (!target || typeof target !== 'object') return false;
     const tag = String(target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    if (tag === 'textarea' || tag === 'select') return true;
+    if (tag === 'input') {
+        const type = String(target.type || 'text').toLowerCase();
+        const space = code === 'Space' || code === ' ';
+        if (space && (type === 'number' || type === 'range')) return false;
+        return true;
+    }
     return target.isContentEditable === true;
 }

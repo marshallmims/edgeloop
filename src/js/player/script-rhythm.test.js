@@ -72,8 +72,8 @@ describe('rhythmAt: fast sections', () => {
 describe('hampTarget: the allowance', () => {
     const r = rhythmAt(strokes(100, 500), 1000);
 
-    it('Shorten scales the range from the base and the velocity with it', () => {
-        assert.deepEqual(hampTarget(r, 50, HANDY), { speed: 28, strokeMin: 0, strokeMax: 50 });
+    it('keeps the script range and scales only the velocity', () => {
+        assert.deepEqual(hampTarget(r, 50, HANDY), { speed: 28, strokeMin: 0, strokeMax: 100 });
     });
 
     it('Slow keeps the range and lowers only the limit', () => {
