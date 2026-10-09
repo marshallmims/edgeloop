@@ -126,7 +126,7 @@ function sendJson(res, status, body) {
     res.end(raw);
 }
 
-export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, statePath = STATE_PATH } = {}) {
+export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, statePath = STATE_PATH, onQuit = null } = {}) {
     const clients = new Set();
     let library = { root: '', files: [] };
     let socket = null;
@@ -351,6 +351,11 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
                 sendJson(res, 200, { ok: true });
                 return;
             }
+            if (req.method === 'POST' && url.pathname === '/app/quit') {
+                sendJson(res, 200, { ok: true });
+                setImmediate(() => { if (typeof onQuit === 'function') onQuit(); });
+                return;
+            }
             if (req.method === 'POST' && url.pathname === '/app/library') {
                 const body = await readBody(req);
                 const dir = String(body.path || '').trim();
@@ -413,11 +418,15 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
             if (saved.headsetHost && saved.source === 'vlc') connectVlc(saved.headsetHost, saved.headsetPort || 8080, saved.vlcPassword || '');
             else if (saved.headsetHost) connectHeadset(saved.headsetHost, saved.headsetPort || 23554);
             if (openBrowser) openPage(url);
+            let closed = false;
             resolve({
                 url,
                 port: actual,
                 close() {
+                    if (closed) return Promise.resolve();
+                    closed = true;
                     closeHeadset();
+                    anchor = null;
                     for (const res of clients) {
                         try { res.end(); } catch (e) {}
                     }
@@ -441,8 +450,24 @@ function openPage(url) {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
     const port = Math.round(Number(process.env.EDGELOOP_PORT) || 8787);
-    createAppHost({ port, openBrowser: true }).then((host) => {
+    let appHost = null;
+    let stopping = false;
+    const shutdown = () => {
+        if (stopping) return;
+        stopping = true;
+        console.log('Stopping. The player connection closes with this window.');
+        const done = appHost ? appHost.close() : Promise.resolve();
+        done.then(() => process.exit(0));
+        setTimeout(() => process.exit(0), 2000).unref();
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+    process.on('SIGHUP', shutdown);
+    createAppHost({ port, openBrowser: true, onQuit: shutdown }).then((host) => {
+        appHost = host;
         console.log(`EdgeLoop app: ${host.url}`);
-        console.log('Leave this window open. The headset timestamp server is connected from the page.');
+        console.log('This window is the program. Leave it open while you play.');
+        console.log('It listens only on this computer, for its own page.');
+        console.log('Quit in the page, or close this window, and the VLC / headset connection closes too.');
     });
 }
