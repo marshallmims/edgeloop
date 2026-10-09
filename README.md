@@ -161,7 +161,7 @@ The microphone monitor (optional) is a second arousal datapoint: louder voice/pa
 
 ## Desktop app
 
-The website stays one page. The desktop shell is a second way to open the same files, and the site never loads it. `npm run desktop` serves `http://127.0.0.1:17321/?shell=1`. Loop, Video, and Session are separate pages. The devices sit in a bar on all of them. Library pairs videos with a stroker script and a secondary script, from a folder or from a network share, and it can follow a HereSphere or DeoVR timestamp server. What is built, and what is deliberately not built yet, is [desktop/README.md](desktop/README.md).
+The installed site stays the one-page cockpit. EdgeLoop 2.0 is the desktop and Android app: the same files, opened as live tabs you flip between. The site never loads that shell. `npm run desktop` serves `http://127.0.0.1:17321/?shell=1`. Loop, Video, Session, and Library stay mounted, so a running session and a playing video keep going while you look at another tab. The devices sit in a bar on every tab. Library pairs videos with a stroker script and a secondary script, from a folder or from a network share, and it can follow a HereSphere or DeoVR timestamp server. What is built, and what is deliberately not built yet, is [desktop/README.md](desktop/README.md).
 
 ---
 

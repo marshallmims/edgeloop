@@ -1,16 +1,15 @@
-// The paged window. Loaded only when the address has ?shell=1, which is
-// what `npm run desktop` opens. A normal visit to the site never loads this
-// file, and the cockpit stays the one page it already is.
+// The app's tabs. Loaded only when the address has ?shell=1, which is what
+// `npm run desktop` opens. The installed site never loads this file, and
+// stays the one page it already is.
 //
-// Loop is the heart rate, the strokes, and the goal. Video is the player.
-// Session is the setup popup, shown as a page. Library is a folder or a
-// share: each video is paired with a stroker script and a secondary script.
-// The device cards are lifted into the bar and stay there on every page.
+// Flipping a tab hides that panel. It does not tear it down: a session keeps
+// running, and a video keeps playing, so you can look at the heart rate and
+// come back to the same frame. Loop is the cockpit. Video is the player.
+// Session is the setup that used to be a popup. Library is a folder or a
+// share. The device cards sit in the bar on every tab.
 
 import { hashForPage, pageFromHash } from './pages.js';
 import { matchLibrary } from './library.js';
-
-const navButton = 'min-h-[44px] px-3 rounded-xl border text-xs font-semibold cursor-pointer';
 
 let current = 'loop';
 let mounting = false;
@@ -18,15 +17,6 @@ let paramsHome = null;
 let smbId = '';
 let smbFolder = '';
 let hostUp = false;
-
-function pageButtons() {
-    return [
-        ['loop', 'Loop'],
-        ['video', 'Video'],
-        ['session', 'Session'],
-        ['library', 'Library']
-    ];
-}
 
 function show(page) {
     const hash = hashForPage(page);
@@ -37,16 +27,16 @@ function show(page) {
 function apply(page) {
     current = page;
     document.documentElement.dataset.page = page;
-    const nav = document.getElementById('shellNav');
-    if (nav) {
-        for (const button of nav.querySelectorAll('[data-page]')) {
+    const tabs = document.getElementById('shellTabs');
+    if (tabs) {
+        for (const button of tabs.querySelectorAll('[data-page]')) {
             const on = button.dataset.page === page;
-            button.setAttribute('aria-current', on ? 'page' : 'false');
-            button.className = `${navButton} ${on
-                ? 'bg-slate-100 text-slate-950 border-slate-100'
-                : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'}`;
+            button.setAttribute('aria-selected', on ? 'true' : 'false');
+            button.tabIndex = on ? 0 : -1;
         }
     }
+    // The player stays in the document either way. Hiding the panel does not
+    // pause the element, so the toys and the picture keep their place.
     if (page === 'video') document.getElementById('playerBody')?.classList.remove('hidden');
     if (page === 'session') mountSession();
     else unmountSession();
@@ -97,6 +87,38 @@ function moveDevices() {
     const devices = document.getElementById('deviceStatus');
     const slot = document.getElementById('shellDeviceSlot');
     if (devices && slot && devices.parentElement !== slot) slot.appendChild(devices);
+    const tools = document.getElementById('shellTools');
+    if (!tools) return;
+    const labels = { guideBtn: 'Guide', historyBtn: 'History', shareControlWrap: 'Share' };
+    for (const id of Object.keys(labels)) {
+        const el = document.getElementById(id);
+        if (!el || el.parentElement === tools) continue;
+        const tip = el.tagName === 'BUTTON' ? el : el.querySelector('button');
+        if (tip) {
+            tip.title = labels[id];
+            if (!tip.getAttribute('aria-label')) tip.setAttribute('aria-label', labels[id]);
+        }
+        tools.appendChild(el);
+    }
+}
+
+// A dot on a tab means that part is still going while you look at another.
+// Loop's dot is a session that has been started. Video's dot is a picture
+// that is actually playing.
+function paintTabLive() {
+    const label = document.getElementById('playPauseText');
+    const word = label ? label.textContent.trim() : '';
+    const sessionOn = word === 'PAUSE' || word === 'RESUME';
+    const video = document.getElementById('playerVideo');
+    const videoOn = Boolean(
+        video && (video.currentSrc || video.getAttribute('src')) && !video.paused && !video.ended
+    );
+    const mark = (name, on) => {
+        const dot = document.querySelector(`[data-live="${name}"]`);
+        if (dot) dot.hidden = !on;
+    };
+    mark('loop', sessionOn);
+    mark('video', videoOn);
 }
 
 function itemName(item) {
@@ -362,6 +384,7 @@ async function poll() {
         if (!res.ok) throw new Error('status');
         const body = await res.json();
         paintClock(body);
+        paintTabLive();
         const video = document.getElementById('playerVideo');
         if (body.deo && body.deo.hosting && video && video.getAttribute('src')) {
             postJson('/desktop-api/deo/state', {
@@ -375,7 +398,8 @@ async function poll() {
     } catch (e) {
         if (hostUp) return;
         const line = document.getElementById('shellClockLine');
-        if (line) line.textContent = 'Desktop host off — folder matching still works in this page.';
+        if (line) line.textContent = 'Desktop host off — folder matching still works in this tab.';
+        paintTabLive();
     }
 }
 
@@ -383,10 +407,24 @@ function start() {
     document.documentElement.classList.add('shell');
     moveDevices();
     bindPageClicks();
-    document.getElementById('shellNav')?.addEventListener('click', (event) => {
+    const tabs = document.getElementById('shellTabs');
+    tabs?.addEventListener('click', (event) => {
         const button = event.target.closest('[data-page]');
         if (!button) return;
         show(button.dataset.page);
+    });
+    tabs?.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+        const list = [...tabs.querySelectorAll('[role="tab"]')];
+        const index = list.indexOf(document.activeElement);
+        if (index < 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const next = event.key === 'ArrowRight'
+            ? list[(index + 1) % list.length]
+            : list[(index - 1 + list.length) % list.length];
+        next.focus();
+        show(next.dataset.page);
     });
     bindLibrary();
     window.addEventListener('hashchange', () => apply(pageFromHash(location.hash)));

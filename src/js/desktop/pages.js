@@ -1,11 +1,11 @@
-// Which page of the desktop shell is on screen. Pure: a hash in, a page
-// name out. The website never asks. The shell does, and only when it was
-// opened on purpose (?shell=1).
+// Which tab of the desktop app is on screen. Pure: a hash in, a tab name
+// out. The website never asks. The shell does, and only when it was opened
+// on purpose (?shell=1).
 //
 // Loop is the cockpit you already know. Video is the player and nothing
 // else. Session is the setup that used to be a popup. Library is the folder,
-// the share, and the headset clock. The device cards are not a page: they
-// stay in the bar on every page.
+// the share, and the headset clock. Flipping a tab hides that panel. It does
+// not unload it. The device cards are not a tab: they stay in the bar.
 
 export const SHELL_QUERY = 'shell';
 export const PAGES = Object.freeze(['loop', 'video', 'session', 'library']);

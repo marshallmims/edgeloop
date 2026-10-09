@@ -30,7 +30,51 @@
     /* Desktop shell. Hidden without Tailwind, and still hidden on the
        website. shell.js adds class="shell" only when the address has ?shell=1. */
     #shellNav, #shellDeviceSlot, #shellLibrary, #shellSession { display: none; }
-    html.shell #shellNav { display: flex !important; }
+    html.shell #shellNav { display: flex !important; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    html.shell #shellTabs {
+      display: flex;
+      flex: 1 1 16rem;
+      max-width: 28rem;
+      padding: 3px;
+      gap: 2px;
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+    }
+    html.shell #shellTabs [role="tab"] {
+      flex: 1;
+      min-height: 40px;
+      padding: 0 0.6rem;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    html.shell #shellTabs [role="tab"][aria-selected="true"] {
+      background: #f1f5f9;
+      color: #020617;
+    }
+    html.shell #shellTabs [role="tab"]:focus-visible {
+      outline: 2px solid #38bdf8;
+      outline-offset: 1px;
+    }
+    html.shell .shell-live {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-left: 6px;
+      border-radius: 99px;
+      background: #34d399;
+      vertical-align: 1px;
+    }
+    html.shell .shell-live[hidden] { display: none !important; }
+    html.shell #shellTools { display: flex; align-items: center; gap: 0.35rem; }
+    html.shell #shellTools #guideBtn span,
+    html.shell #shellTools #historyBtn span,
+    html.shell #shellTools #partnerShareBtn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     html.shell #shellDeviceSlot { display: block !important; }
     html.shell [data-shell] { display: none !important; }
     html.shell[data-page="loop"] [data-shell="loop"] { display: grid !important; }
@@ -97,7 +141,7 @@
         </button>
 
         <!-- Share Remote Control -->
-        <div class="relative">
+        <div id="shareControlWrap" class="relative">
           <button id="partnerShareBtn" class="bg-purple-950/60 hover:bg-purple-900 border border-purple-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
             <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
             <span class="hidden sm:inline">Share Control</span>
@@ -113,13 +157,17 @@
       </div>
     </header>
 
-    <!-- Desktop shell chrome. Hidden on the website. shell.js shows it only for ?shell=1. -->
-    <nav id="shellNav" class="hidden items-center gap-1.5 flex-wrap" aria-label="Pages">
-      <button type="button" data-page="loop" class="min-h-[44px] px-3 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-semibold cursor-pointer">Loop</button>
-      <button type="button" data-page="video" class="min-h-[44px] px-3 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-semibold cursor-pointer">Video</button>
-      <button type="button" data-page="session" class="min-h-[44px] px-3 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-semibold cursor-pointer">Session</button>
-      <button type="button" data-page="library" class="min-h-[44px] px-3 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-semibold cursor-pointer">Library</button>
+    <!-- Desktop shell. Hidden on the website. shell.js shows it only for ?shell=1.
+         The four tabs stay mounted: flipping does not stop a session or a video. -->
+    <nav id="shellNav" class="hidden" aria-label="EdgeLoop">
+      <div id="shellTabs" role="tablist" aria-label="Sections">
+        <button type="button" role="tab" id="shellTabLoop" data-page="loop" aria-selected="true" aria-controls="shellPanelLoop">Loop<span class="shell-live" data-live="loop" hidden></span></button>
+        <button type="button" role="tab" id="shellTabVideo" data-page="video" aria-selected="false" aria-controls="playerSection">Video<span class="shell-live" data-live="video" hidden></span></button>
+        <button type="button" role="tab" id="shellTabSession" data-page="session" aria-selected="false" aria-controls="shellSession">Session</button>
+        <button type="button" role="tab" id="shellTabLibrary" data-page="library" aria-selected="false" aria-controls="shellLibrary">Library</button>
+      </div>
       <span id="shellClockLine" class="text-[10px] text-slate-400 font-mono ml-auto">Headset clock off</span>
+      <div id="shellTools"></div>
     </nav>
     <div id="shellDeviceSlot" class="hidden"></div>
 
@@ -302,7 +350,7 @@
     </section>
 
     <!-- Two-Column Responsive Cockpit Grid (Desktop & Landscape Tablet) -->
-    <div data-shell="loop" class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+    <div id="shellPanelLoop" data-shell="loop" class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
 
       <!-- LEFT COLUMN -->
       <div class="lg:col-span-7 space-y-3">
