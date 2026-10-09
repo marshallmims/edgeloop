@@ -16,7 +16,7 @@
 // graph: the microphone monitor relies on the browser's echo canceller
 // referencing official playback paths.
 
-import { pairFiles, VIDEO_EXTENSIONS } from './script-pairing.js';
+import { pairFiles, VIDEO_EXTENSIONS, VIB_SUFFIXES, AXIS_SUFFIXES } from './script-pairing.js';
 import { parseFunscript, checkFunscriptSize, describeDropped, scriptDigestHex } from './funscript-parse.js';
 import { stats as trackStats } from './script-track.js';
 import {
@@ -30,6 +30,7 @@ import {
     MAX_PICKED_FILES,
     formatMediaTime,
     formatOffset,
+    editClimaxMarks,
     describeMediaError,
     videoEventAction,
     isAudible
@@ -91,6 +92,11 @@ export function createPlayer({
     let packName = null;
     let loadToken = 0;
     let script = null; // { track, meta, hash, stats, dropped }
+    let secondaryFile = null;
+    let secondary = null; // { track, meta, hash, stats, dropped }
+    let secondaryToken = 0;
+    let secondaryPinned = false;
+    let climaxMarks = [];
     let refused = '';
     let edgeHold = false;
     let waitingSince = null;
@@ -195,6 +201,7 @@ export function createPlayer({
             els.playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
         }
         if (els.muteBtn) els.muteBtn.textContent = video.muted ? 'Unmute' : 'Mute';
+        drawHeatmap();
     }
 
     function readinessChanged() {
@@ -391,6 +398,7 @@ export function createPlayer({
         scriptFile = null;
         const had = script !== null;
         script = null;
+        climaxMarks = [];
         refused = reason;
         if (had || reason) call(handlers, 'onScriptCleared', { refused: reason });
     }
@@ -426,17 +434,92 @@ export function createPlayer({
             stats: trackStats(parsed.track),
             dropped: describeDropped(parsed.dropped)
         };
+        climaxMarks = [];
         refused = '';
         setError('');
         call(handlers, 'onScript', { ...script });
         renderPanel();
+        drawHeatmap();
         return true;
+    }
+
+    function clearSecondary(reason = '') {
+        secondaryToken += 1;
+        secondaryFile = null;
+        secondaryPinned = false;
+        const had = secondary !== null;
+        secondary = null;
+        if (had || reason) call(handlers, 'onSecondaryCleared', { refused: reason });
+        drawHeatmap();
+    }
+
+    async function loadSecondary(file, { pinned = false } = {}) {
+        const token = ++secondaryToken;
+        secondaryFile = file;
+        secondaryPinned = pinned || secondaryPinned;
+        const size = checkFunscriptSize(file.size);
+        if (!size.ok) return refuseSecondary(token, size.error);
+        let text;
+        try {
+            text = await file.text();
+        } catch (e) {
+            return refuseSecondary(token, 'The secondary script could not be read from the disk.');
+        }
+        if (token !== secondaryToken) return false;
+        const parsed = parseFunscript(text);
+        text = null;
+        if (!parsed.ok) return refuseSecondary(token, parsed.error);
+        let hash = null;
+        try {
+            hash = await scriptDigestHex(parsed.track);
+        } catch (e) {
+            hash = null;
+        }
+        if (token !== secondaryToken) return false;
+        secondary = {
+            track: parsed.track,
+            meta: parsed.meta,
+            hash,
+            stats: trackStats(parsed.track),
+            dropped: describeDropped(parsed.dropped)
+        };
+        setError('');
+        call(handlers, 'onSecondary', { ...secondary, name: file.name });
+        renderPanel();
+        return true;
+    }
+
+    function refuseSecondary(token, error) {
+        if (token !== secondaryToken) return false;
+        const had = secondary !== null;
+        secondary = null;
+        secondaryFile = null;
+        secondaryPinned = false;
+        setError(error);
+        call(handlers, 'onSecondaryCleared', { refused: error, had });
+        renderPanel();
+        return false;
+    }
+
+    function channelSuffix(name) {
+        const stem = stemOf(name);
+        const dot = stem.lastIndexOf('.');
+        if (dot <= 0) return null;
+        const last = stem.slice(dot + 1);
+        if (VIB_SUFFIXES.includes(last)) return last;
+        if (Object.prototype.hasOwnProperty.call(AXIS_SUFFIXES, last)) return last;
+        return null;
+    }
+
+    function isPlainStrokeName(name) {
+        return extensionOf(name) === 'funscript' && !channelSuffix(name);
     }
 
     function refuse(token, error) {
         if (token !== loadToken) return false;
         const had = script !== null;
         script = null;
+        climaxMarks = [];
         refused = error;
         setError(error);
         call(handlers, 'onScriptCleared', { refused: error, had });
@@ -473,7 +556,8 @@ export function createPlayer({
         const lines = [];
         if (pair.video) lines.push(`Video: ${itemName(pair.video)}`);
         if (pair.stroke) lines.push(`Script: ${itemName(chosenPack(pair))}${pair.loose ? ' (its name differs from the video\'s; it plays with it because it is the only one)' : ''}`);
-        if (pair.vib) lines.push(`${itemName(pair.vib)} - vibration scripts are played in a later version`);
+        const secondaryItem = pair.vib || (secondaryFile && secondaryPinned ? secondaryFile : null);
+        if (secondaryItem) lines.push(`Secondary: ${itemName(secondaryItem)}`);
         for (const [axis, item] of Object.entries(pair.axes)) {
             if (item) lines.push(`${itemName(item)} - the ${axis} axis is played in a later version`);
         }
@@ -495,7 +579,115 @@ export function createPlayer({
             if (next) await loadScript(next);
             else if (scriptFile || script) clearScript('');
         }
+        if (pair.vib && pair.vib !== secondaryFile) {
+            secondaryPinned = false;
+            await loadSecondary(pair.vib, { pinned: false });
+        } else if (!pair.vib && !secondaryPinned && (secondaryFile || secondary)) {
+            clearSecondary('');
+        }
         renderPanel();
+        drawHeatmap();
+    }
+
+    async function choosePrimary(file) {
+        if (!file || typeof file.name !== 'string') return false;
+        const block = call(handlers, 'canChangeFiles');
+        if (typeof block === 'string' && block) {
+            setError(block);
+            return false;
+        }
+        setError('');
+        picked = picked.filter((f) => !isPlainStrokeName(f.name));
+        picked.push(file);
+        packName = null;
+        await applyPairing();
+        if (scriptFile !== file) await loadScript(file);
+        return true;
+    }
+
+    async function chooseSecondary(file) {
+        if (!file || typeof file.name !== 'string') return false;
+        const block = call(handlers, 'canChangeFiles');
+        if (typeof block === 'string' && block) {
+            setError(block);
+            return false;
+        }
+        setError('');
+        secondaryPinned = true;
+        const ok = await loadSecondary(file, { pinned: true });
+        renderPairing(pairFiles(picked));
+        renderPanel();
+        return ok;
+    }
+
+    function mapDurationMs() {
+        const videoMs = video && Number.isFinite(Number(video.duration)) && Number(video.duration) > 0 ? Number(video.duration) * 1000 : 0;
+        const scriptMs = script && script.meta && Number.isFinite(script.meta.durationMs) ? script.meta.durationMs : 0;
+        const secondaryMs = secondary && secondary.meta && Number.isFinite(secondary.meta.durationMs) ? secondary.meta.durationMs : 0;
+        return Math.max(videoMs, scriptMs, secondaryMs);
+    }
+
+    function drawHeatmap() {
+        const canvas = els.heatmap;
+        if (!canvas || typeof canvas.getContext !== 'function') return;
+        const dur = mapDurationMs();
+        const show = dur > 0 && Boolean(videoFile || script);
+        canvas.classList?.toggle('hidden', !show);
+        els.heatmapHint?.classList?.toggle('hidden', !show);
+        if (!show) return;
+        const dpr = (win && win.devicePixelRatio) || 1;
+        const cssW = canvas.clientWidth || 320;
+        const cssH = canvas.clientHeight || 64;
+        const w = Math.max(1, Math.round(cssW * dpr));
+        const h = Math.max(1, Math.round(cssH * dpr));
+        if (canvas.width !== w) canvas.width = w;
+        if (canvas.height !== h) canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, w, h);
+        const series = script && script.stats ? script.stats.intensityPerSecond : null;
+        if (series && series.length) {
+            let max = 1;
+            for (const v of series) if (v > max) max = v;
+            const barW = w / series.length;
+            for (let i = 0; i < series.length; i++) {
+                const heat = series[i] / max;
+                const bh = heat * (h - 4 * dpr);
+                ctx.fillStyle = `rgba(244, 114, 182, ${0.28 + 0.72 * heat})`;
+                ctx.fillRect(i * barW, h - bh, Math.max(dpr, barW - dpr), bh);
+            }
+        }
+        for (const mark of climaxMarks) {
+            const x = (mark / dur) * w;
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.moveTo(x, 2 * dpr);
+            ctx.lineTo(x - 6 * dpr, 2 * dpr);
+            ctx.lineTo(x, 12 * dpr);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillRect(Math.round(x) - dpr, 0, Math.max(1, dpr * 2), h);
+        }
+        if (video && Number.isFinite(Number(video.currentTime))) {
+            const x = (Number(video.currentTime) * 1000 / dur) * w;
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(Math.round(x), 0, Math.max(1, dpr), h);
+        }
+    }
+
+    function onHeatmapPointer(e) {
+        const canvas = els.heatmap;
+        const dur = mapDurationMs();
+        if (!canvas || dur <= 0 || !canvas.getBoundingClientRect) return;
+        const rect = canvas.getBoundingClientRect();
+        const width = rect.width || 1;
+        const x = (e.clientX ?? 0) - rect.left;
+        const time = (x / width) * dur;
+        climaxMarks = editClimaxMarks(climaxMarks, time, { durationMs: dur, widthPx: width, xPx: x });
+        drawHeatmap();
+        call(handlers, 'onClimax', climaxMarks.slice());
     }
 
     async function addFiles(list) {
@@ -541,10 +733,13 @@ export function createPlayer({
         packName = null;
         setVideoFile(null);
         clearScript('');
+        clearSecondary('');
+        climaxMarks = [];
         refused = '';
         setError('');
         renderPairing(pairFiles([]));
         renderPanel();
+        drawHeatmap();
         return true;
     }
 
@@ -631,6 +826,26 @@ export function createPlayer({
         if (els.chooseBtn) els.chooseBtn.textContent = formats.button;
         if (els.formatHint) els.formatHint.textContent = formats.hint;
         els.chooseBtn?.addEventListener('click', () => els.fileInput?.click());
+        els.primaryBtn?.addEventListener('click', () => els.primaryInput?.click());
+        els.secondaryBtn?.addEventListener('click', () => els.secondaryInput?.click());
+        els.primaryInput?.addEventListener('change', (e) => {
+            const file = e.target && e.target.files && e.target.files[0];
+            if (file) choosePrimary(file);
+            try { e.target.value = ''; } catch (x) {}
+        });
+        els.secondaryInput?.addEventListener('change', (e) => {
+            const file = e.target && e.target.files && e.target.files[0];
+            if (file) chooseSecondary(file);
+            try { e.target.value = ''; } catch (x) {}
+        });
+        els.heatmap?.addEventListener('pointerdown', (e) => {
+            if (e.button !== undefined && e.button !== 0) return;
+            onHeatmapPointer(e);
+        });
+        if (els.heatmap && typeof globalThis.ResizeObserver === 'function') {
+            const observer = new globalThis.ResizeObserver(() => drawHeatmap());
+            observer.observe(els.heatmap);
+        }
         els.videoUrlBtn?.addEventListener('click', () => useVideoLink(els.videoUrl?.value));
         els.videoUrl?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -748,6 +963,8 @@ export function createPlayer({
 
     return {
         addFiles,
+        choosePrimary,
+        chooseSecondary,
         clearFiles,
         // The video follows the session. play() resolves { ok, reason }.
         async play() {
@@ -812,6 +1029,16 @@ export function createPlayer({
         },
         script() {
             return script ? { ...script } : null;
+        },
+        secondary() {
+            return secondary ? { ...secondary, name: secondaryFile ? secondaryFile.name : '' } : null;
+        },
+        setClimaxMarks(marks) {
+            climaxMarks = editClimaxMarks(Array.isArray(marks) ? marks : [], 0, { durationMs: 0 });
+            drawHeatmap();
+        },
+        climaxMarks() {
+            return climaxMarks.slice();
         },
         refused() {
             return refused;
