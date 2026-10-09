@@ -7,6 +7,7 @@ import {
     DEFAULT_PULSE_PERIOD_MS,
     readVibeMode,
     readPulsePeriod,
+    pulsePhrase,
     pulsePhase,
     pulseLevel
 } from './vibe-pulse.js';
@@ -31,35 +32,61 @@ describe('the pulse settings are a choice, never a number to invent', () => {
     });
 });
 
-describe('pulsePhase: a square wave from the start of the train', () => {
-    it('is on for the first half of every period and off for the second', () => {
+describe('pulsePhase: a run, then a short rest, not a clock', () => {
+    it('starts on, and the first rest is a beat after a run of a few beats', () => {
         for (const period of PULSE_PERIODS_MS) {
-            const half = period / 2;
             const start = 1_000_000;
-            assert.deepEqual(pulsePhase(start, start, period), { on: true, changeAt: start + half });
-            assert.deepEqual(pulsePhase(start, start + half - 1, period), { on: true, changeAt: start + half });
-            assert.deepEqual(pulsePhase(start, start + half, period), { on: false, changeAt: start + period });
-            assert.deepEqual(pulsePhase(start, start + period - 1, period), { on: false, changeAt: start + period });
-            assert.deepEqual(pulsePhase(start, start + period, period), { on: true, changeAt: start + period + half });
-            assert.deepEqual(pulsePhase(start, start + 7 * period + half + 3, period), { on: false, changeAt: start + 8 * period });
+            const first = pulsePhrase(0, period);
+            assert.ok(first.runMs >= period * 2, `${period}: the run is only ${first.runMs}`);
+            assert.ok(first.restMs <= period, `${period}: the rest is ${first.restMs}, longer than a beat`);
+            assert.ok(first.runMs > first.restMs * 2, `${period}: the rest is half the phrase`);
+            assert.deepEqual(pulsePhase(start, start, period), { on: true, changeAt: start + first.runMs });
+            assert.equal(pulsePhase(start, start + first.runMs - 1, period).on, true);
+            assert.deepEqual(pulsePhase(start, start + first.runMs, period), { on: false, changeAt: start + first.runMs + first.restMs });
+            const back = pulsePhase(start, start + first.runMs + first.restMs, period);
+            assert.equal(back.on, true);
+            assert.ok(back.changeAt > start + first.runMs + first.restMs);
         }
+    });
+
+    it('does not repeat one on/off length', () => {
+        const runs = [];
+        const rests = [];
+        for (let i = 0; i < 6; i += 1) {
+            const phrase = pulsePhrase(i, 1600);
+            runs.push(phrase.runMs);
+            rests.push(phrase.restMs);
+        }
+        assert.ok(new Set(runs).size >= 4, `runs collapsed to ${runs.join(',')}`);
+        assert.ok(new Set(rests).size >= 3, `rests collapsed to ${rests.join(',')}`);
     });
 
     it('takes an unknown period as the default and a clock that ran backwards as the start', () => {
         assert.deepEqual(pulsePhase(5000, 5000 + 900, 1234), pulsePhase(5000, 5000 + 900, DEFAULT_PULSE_PERIOD_MS));
-        assert.deepEqual(pulsePhase(5000, 4000, 800), { on: true, changeAt: 5400 });
+        const first = pulsePhrase(0, 800);
+        assert.deepEqual(pulsePhase(5000, 4000, 800), { on: true, changeAt: 5000 + first.runMs });
     });
 
-    it('changes phase twice a period: 2.5 commands a second at the fastest, never a stream', () => {
-        const start = 0;
-        let changes = 0;
-        let on = pulsePhase(start, start, 800).on;
-        for (let t = 1; t <= 10_000; t++) {
-            const now = pulsePhase(start, t, 800).on;
-            if (now !== on) changes += 1;
-            on = now;
-        }
-        assert.equal(changes, 25);
+    it('is on most of the time, and a shorter spacing rests more often', () => {
+        const duty = (period, span) => {
+            const start = 0;
+            let on = 0;
+            let changes = 0;
+            let was = pulsePhase(start, start, period).on;
+            for (let t = 1; t <= span; t += 1) {
+                const now = pulsePhase(start, t, period).on;
+                if (now) on += 1;
+                if (now !== was) changes += 1;
+                was = now;
+            }
+            return { on, changes };
+        };
+        const quick = duty(800, 60_000);
+        const slow = duty(2400, 60_000);
+        assert.ok(quick.on > 60_000 * 0.7, `on for only ${quick.on} ms of a minute`);
+        assert.ok(quick.changes > slow.changes, `800 ms rested ${quick.changes} times, 2400 ms rested ${slow.changes}`);
+        // A square wave at 0.8 s would change 150 times a minute. This must not.
+        assert.ok(quick.changes < 80, `changed ${quick.changes} times, which is a clock`);
     });
 });
 

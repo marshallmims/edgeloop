@@ -517,6 +517,46 @@ describe('engine modes', () => {
         }
     });
 
+    it('close to the mark, ultimate and milker stop for a beat and then stroke again', () => {
+        const sweep = (mode) => {
+            const primary = [];
+            const secondary = [];
+            for (let sessionSeconds = 0; sessionSeconds < 180; sessionSeconds += 1) {
+                const sample = calculateEngineOutputs({
+                    ...running,
+                    activeMode: mode,
+                    hr: 139,
+                    edgeHr: 139,
+                    isEdged: false,
+                    sessionSeconds
+                });
+                primary.push(sample.primaryPercent);
+                secondary.push(sample.secondaryPercent);
+            }
+            return { primary, secondary };
+        };
+        const rested = {};
+        for (const mode of ['ultimate', 'milker']) {
+            const { primary, secondary } = sweep(mode);
+            const stops = primary.filter((speed) => speed === 0).length;
+            rested[mode] = stops;
+            const moving = primary.filter((speed) => speed > 25).length;
+            assert.ok(stops >= 2 && stops <= 40, `${mode} rested ${stops} seconds of 180`);
+            assert.ok(moving > 100, `${mode} was moving for only ${moving} seconds`);
+            let run = 0;
+            for (const speed of primary) {
+                run = speed === 0 ? run + 1 : 0;
+                assert.ok(run <= 3, `${mode} held a stop for ${run} seconds`);
+            }
+            assert.ok(secondary.some((speed) => speed > 20), `${mode} secondary never came back`);
+        }
+        const classic = sweep('classic');
+        const classicRests = classic.primary.filter((speed) => speed === 0).length;
+        assert.ok(classicRests >= 1 && classicRests < rested.ultimate, `classic rested ${classicRests} seconds, ultimate ${rested.ultimate}`);
+        const finisher = sweep('finisher');
+        assert.ok(finisher.primary.every((speed) => speed > 0), 'finisher took a rest');
+    });
+
     it('ultimate keeps stroking until the pulse is close to the mark', () => {
         const sweep = (hr) => {
             const samples = [];

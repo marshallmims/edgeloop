@@ -26,6 +26,7 @@ import {
     HANDSHAKE_TIMEOUT_TEXT
 } from './intiface.js';
 import { REST_MOVE_MS } from './stroke-planner.js';
+import { pulsePhase } from './vibe-pulse.js';
 
 const sockets = [];
 
@@ -484,23 +485,26 @@ describe('pulsed vibration', () => {
         return ws.messages('ScalarCmd').flatMap((cmd) => cmd.Scalars).filter((s) => s.Index === index).map((s) => s.Scalar);
     }
 
-    it('holds the engine level for half the period, then rests, and a stop ends the train', async () => {
+    it('holds the engine level through the run, then rests, and a stop ends the train', async () => {
         const ws = connectWith([EDGE]);
         assert.equal(setAxisVibeMode(0, 0, { mode: 'pulsed', periodMs: 800 }), true);
         assert.equal(setAxisVibeMode(0, 0, { mode: 'nope' }), false);
         // Arming Pulsed while the engine is still at 0 sends that 0 once.
-        // The first positive level is the peak, at once.
+        // The first positive level is the peak, at once. It does not tick off
+        // at half a period.
         dispatchIntiface(0, 50, 0, 100);
         assert.deepEqual(levels(ws, 0), [0, 0.5]);
-        await sleep(420);
-        assert.deepEqual(levels(ws, 0), [0, 0.5, 0]);
+        const startedAt = intifaceDevices.get(0).axes[0].pulse.startedAt;
         await sleep(400);
-        assert.deepEqual(levels(ws, 0), [0, 0.5, 0, 0.5]);
+        assert.deepEqual(levels(ws, 0), [0, 0.5], 'a half period is not a tick');
+        const restAt = pulsePhase(startedAt, startedAt, 800).changeAt;
+        await sleep(Math.max(1, restAt - Date.now() + 40));
+        assert.equal(levels(ws, 0).at(-1), 0, 'the rest is sent when the phrase says');
         const beforeStop = levels(ws, 0).length;
         dispatchIntiface(0, 0, 0, 100, 0, 100, true);
         assert.equal(levels(ws, 0).at(-1), 0);
         await sleep(500);
-        assert.equal(levels(ws, 0).length, beforeStop + 1, 'a stop cuts the train');
+        assert.equal(levels(ws, 0).length, beforeStop, 'a stop cuts the train, so the next run never starts');
     });
 
     it('remembers Constant or Pulsed with the toy', () => {

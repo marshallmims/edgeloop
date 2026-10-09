@@ -21,7 +21,16 @@ The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release o
 - **A script plays its own range.** The session warm-up does not shrink a funscript, and the stroke you had selected does not leave its range on the toy. The file uses the full travel. Space still pauses when a number such as Single max is focused.
 - **The overlay can keep the readout up.** Heart rate, edges, and what the primary and secondary toys are doing stay on the picture. Play, pause, and the bar still hide. The switch is in the Player, on by default.
 - **Follow the script lives in the Player.** Loading a funscript turns that switch on, and the stroker plays the file. Turning it off goes back to the stroke you had picked. The mode row no longer has a gray Script button. Overlay Mute mutes the video. With no script loaded, the note under the bar says the video is on its own.
-- **The Handy and Intiface both follow the script.** Intiface linear toys play each stroke. The Handy, with Beat sync on and firmware 4, plays each stroke over Handy's own API. With Beat sync off, The Handy follows the script's rhythm (speed and depth). A page link from a video site cannot play here. Choose MP4, M4V, WebM, MKV, MOV, or OGV, or paste a direct file address. MP4 (H.264) and WebM play in the most browsers.
+- **The Handy, Intiface, and T-Code follow the script.** Intiface linear toys and T-Code L0 play each stroke. The Handy, with Beat sync on and firmware 4, plays each stroke over Handy's own API. With Beat sync off, The Handy follows the script's rhythm (speed and depth). A page link from a video site cannot play here. Choose MP4, M4V, WebM, MKV, MOV, or OGV, or paste a direct file address. MP4 (H.264) and WebM play in the most browsers. T-Code used to read the script's limit as a stroke speed and run flat out.
+- **A script is not warmed up.** The session warm-up does not shrink a funscript. The primary meter is how much of the file the toy may play. 100% is the whole file, inside the travel range. Intensity can turn that down or back up to 100%. It does not open the file past the travel range.
+- **The travel range is one setting.** Hardware Travel Envelope is how far the sleeve goes. 0–100% is the whole axis. An axis Max speed changes speed, not that range. Setting both to the same reduced number does not stack two copies of the stroke.
+
+### Patterns
+- **Pulsed vibration rests, it does not tick.** A vibrate axis set to Pulsed holds the engine's level for a few beats, drops out for a beat, and comes back. The run and the rest change length. The 0.8, 1.6, and 2.4 second choices only change how often the rest arrives. The level is still the peak, and it still stays under the cap. STOP, pause, and OFF still cut it at once. (Umbra250)
+- **A beat of rest, close to the edge.** Classic sometimes stops the stroker for a beat once your pulse is close to the heart rate you set, then picks the stroke back up. Prostate Milker does a few short strokes and then that beat, and the internal toy rests on its own timing. Ultimate Milker does the same in its last chapter, and the internal toy takes the breath with it. Earlier in the band the stroke stays up. Finisher does not take the rest.
+
+### Heart rate
+- **HeartCast can pair again after a refresh.** Leaving or reloading the page drops the Bluetooth link. The next Scan reconnects a sensor this site already has permission for, and if that link is stuck the site forgets it and opens the chooser. You should not have to forget the device in the computer's Bluetooth list first.
 
 ## 1.1.3
 

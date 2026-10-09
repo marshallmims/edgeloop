@@ -12,8 +12,8 @@
 //      duration, timed by a per-axis setTimeout at leg end. Engine ticks only
 //      update the planner inputs. Vibrators and rotators get immediate
 //      updates, deduplicated so identical values are not re-sent. A vibrate
-//      axis set to Pulsed is a square wave of that level (vibe-pulse.js):
-//      on for half the period, off for half, cut by any 0.
+//      axis set to Pulsed holds that level for a few beats, then rests
+//      (vibe-pulse.js). The lengths change. Any 0 cuts it.
 //
 // Message construction and parsing live in buttplug-protocol.js (pure,
 // unit-tested). Roles, caps, linear invert and the rotation settings are

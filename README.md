@@ -98,7 +98,7 @@ Intiface Central is the bridge for Bluetooth vibrators, rotators, reciprocating 
 
 1. Start Intiface Central and **start its server**. Add and connect your toys there first.
 2. In the EdgeLoop Intiface modal, keep the URL at `ws://localhost:12345` (plain `ws://`, not `wss://`, for a local server) and press **Connect**. The status walks Offline, Connecting, Handshake and Connected (server name, N devices); an invalid URL, a stopped server or a stalled handshake is reported in the same line.
-3. Every actuator is listed with an **axis role** (Primary / Secondary / OFF), a cap and a **Test** button. Stroke maps to Linear axes, twist and roll map to Rotate axes; assign leftover axes Secondary or OFF. Linear axes have an invert switch. A vibrate axis can be **Constant** or **Pulsed** (0.8, 1.6, or 2.4 seconds): on for half of that, off for half. The intensity is the peak, and it stays under the cap. STOP cuts it at once.
+3. Every actuator is listed with an **axis role** (Primary / Secondary / OFF), a cap and a **Test** button. Stroke maps to Linear axes, twist and roll map to Rotate axes; assign leftover axes Secondary or OFF. Linear axes have an invert switch. A vibrate axis can be **Constant** or **Pulsed**. Pulsed holds the level for a few beats, then rests for a beat. The three spacings (0.8, 1.6, 2.4 seconds) only change how often that rest arrives, and the lengths wander so it does not tick. The intensity is the peak, and it stays under the cap. STOP cuts it at once. The axis cap is a speed limit. The stroke range is the Hardware Travel Envelope, set once.
 4. **Rotation options:** a rotator can **reverse on every edge** and/or **alternate direction every N seconds** (5-60).
 5. Press **Save & Apply**. Roles, caps, invert, the pulse choice and the rotation settings are **remembered per toy**, so a reconnect restores your mapping.
 
@@ -115,7 +115,7 @@ The TCode Serial card drives any T-Code v0.3 stroker straight over its USB seria
 * **Chrome or Edge on a desktop only** (Windows, macOS, Linux): Web Serial does not exist on phones, in Firefox or in Safari. Browsers without it get a clear message.
 * **Close any other app that holds the COM port first:** Intiface Central, MultiFunPlayer, a serial monitor. Then press **Connect** and pick the port in the browser dialog.
 * **Linux:** your user must be in the `dialout` group (`sudo usermod -aG dialout $USER`, then log out and back in).
-* The device is identified with `D0` / `D1` / `D2`; a firmware that stays silent falls back to the common `L0 / R0 / R1 / R2 / V0` set. Every axis gets a **Primary / Secondary / OFF** role, a cap, a **Test** button and (linear axes) an invert switch. `L0` (stroke) is Primary and `V0` Secondary by default, everything else OFF. Rotation axes swing around centre by the engine speed. Settings are remembered per device name.
+* The device is identified with `D0` / `D1` / `D2`; a firmware that stays silent falls back to the common `L0 / R0 / R1 / R2 / V0` set. Every axis gets a **Primary / Secondary / OFF** role, a **Max speed** cap, a **Test** button and (linear axes) an invert switch. `L0` (stroke) is Primary and `V0` Secondary by default, everything else OFF. With a funscript loaded, L0 plays that file; the other axes follow the limiter. Rotation axes swing around centre by the engine speed. The Max speed cap does not shorten the stroke. The stroke range is the Hardware Travel Envelope on the same card. Settings are remembered per device name.
 * STOP, pause, Reset and every disconnect alert bring all axes to rest on one line; an unplugged device or a failed write pauses the session.
 
 ---
@@ -255,7 +255,7 @@ edgeloop/
             ├── handy-protocol.test.js
             ├── intiface.js     # Intiface / Buttplug.io WebSocket driver for multi-motor vibrators, strokers, and rotators; per-toy memory
             ├── intiface.test.js
-            ├── vibe-pulse.js   # Pure pulsed-vibration schedule for Intiface vibrate axes: the three periods, the square wave, the setting's readers
+            ├── vibe-pulse.js   # Pure pulsed-vibration schedule for Intiface vibrate axes: runs, rests, the three spacings, the setting's readers
             ├── vibe-pulse.test.js
             ├── buttplug-protocol.js  # Pure Buttplug v3 message builders / parsers (handshake, device attributes, errors)
             ├── buttplug-protocol.test.js

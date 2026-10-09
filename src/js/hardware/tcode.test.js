@@ -20,7 +20,8 @@ import {
     getTCodeDevice,
     countAssignedTCodeAxes,
     tcodeHasRole,
-    resetTCodeForTests
+    resetTCodeForTests,
+    setTCodeScriptFeed
 } from './tcode.js';
 import { REST_MOVE_MS, FAST_LEG_MS, legDurationMs } from './stroke-planner.js';
 
@@ -681,6 +682,40 @@ describe('secure origin', () => {
         } finally {
             delete globalThis.isSecureContext;
         }
+    });
+});
+
+describe('a funscript on L0', () => {
+    function feedAt(t, x) {
+        return {
+            isActive: () => true,
+            hasTime: () => true,
+            scriptNow: () => t,
+            generation: () => 1,
+            shape: () => ({ points: [{ t: t + 400, x }], reason: 'stroke', vCap: 400, vJoin: 0.002, join: null }),
+            positionAt: () => x,
+            reportError() {}
+        };
+    }
+
+    it('plays the script position instead of oscillating the allowance', async () => {
+        await connect();
+        setTCodeScriptFeed(feedAt(1000, 0.42));
+        const before = lines().length;
+        dispatchTCode(100, 40, 0, 100, 0, 100);
+        await flush();
+        const sent = lines().slice(before);
+        assert.ok(sent.some((line) => line.startsWith('L04200I')), sent.join(' | '));
+        assert.ok(!sent.some((line) => /^L0(0000|9999|10000)/.test(line)), sent.join(' | '));
+        assert.ok(sent.some((line) => line.startsWith('V04000')), sent.join(' | '));
+    });
+
+    it('leaves L0 on the stroke planner when the script is not driving', async () => {
+        await connect();
+        setTCodeScriptFeed({ ...feedAt(1000, 0.42), isActive: () => false });
+        dispatchTCode(100, 0, 0, 100, 0, 100);
+        await flush();
+        assert.equal(lastLine(), `L09999I${legDurationMs(100, 1)}`);
     });
 });
 

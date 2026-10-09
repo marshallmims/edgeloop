@@ -36,6 +36,18 @@ function edgeClose(nearness) {
     return clamp((clamp(nearness, 0, 1) - CLOSE_START) / (1 - CLOSE_START), 0, 1);
 }
 
+// A beat of rest, then the stroke comes back. Only in the last stretch
+// before the mark (`close` from edgeClose), and only when two waves that do
+// not share a period both sit in a trough, so the rest is a beat or two and
+// not a tick you can count. Below that stretch it is never a rest: a stop
+// in the middle of the band is what used to hold a session under the max.
+function phraseRest(seconds, salt, close) {
+    if (!(close > 0.2)) return false;
+    const a = wobble(seconds, 5.9, salt);
+    const b = wobble(seconds, 9.4, salt + 3.3);
+    return a < 0.2 && b < 0.3;
+}
+
 export function motion(seconds, salt = 0, nearness = 0) {
     const a = wobble(seconds, 5.3, salt);
     const b = wobble(seconds, 8.7, salt + 2.2);
@@ -188,16 +200,27 @@ export function teaseFrame({
     if (mode === 'milker') {
         // Short bursts wait until the pulse is actually near the mark. The
         // cross-fade (stroker down, internal toy up) still runs the whole band.
+        // Near the mark the stroker does a few short strokes and then stops
+        // for a beat. The internal toy rests on a different phrase, so one of
+        // them is usually still moving, and neither ticks like a clock.
         const milking = sensor >= CLOSE_START;
+        const close = edgeClose(sensor);
         const beat = motion(seconds, milking ? 9.2 : 2.4, sensor);
+        const strokerRest = milking && !atPeak && phraseRest(seconds, 8.2, close);
+        const vibeRest = milking && !atPeak && phraseRest(seconds, 2.6, close);
         const basePrimary = (1 - shaped) * 100;
         const baseSecondary = 20 + climb * 80;
+        // The falling curve is nearly stopped by the time the bursts open.
+        // A burst here is a few real strokes, then the beat of rest, not
+        // another shade of that fade.
+        const burst = roundPct(52 + 28 * beat.speed);
         const primary = atPeak
             ? atCeiling(crawlPercent)
-            : roundPct(basePrimary * beat.speed);
+            : (strokerRest ? 0 : roundPct(milking ? burst : basePrimary * beat.speed));
         const secondaryGain = milking ? beat.secondary : (0.35 + 0.65 * beat.secondary);
-        const secondary = roundPct((atPeak ? 100 : baseSecondary) * secondaryGain);
-        const stroke = placeStroke(0, 100, beat.depth, 'low');
+        const secondary = vibeRest ? 0 : roundPct((atPeak ? 100 : baseSecondary) * secondaryGain);
+        const depth = milking && !atPeak ? Math.min(beat.depth, strokerRest ? 0.5 : 0.45) : beat.depth;
+        const stroke = placeStroke(0, 100, depth, 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }
 
@@ -205,18 +228,28 @@ export function teaseFrame({
         // Stop-go is the last chapter, right against the pullback mark.
         // Opening it at 0.72 put a 70/140 session into stops around 120 BPM,
         // and the toy would hold the pulse there instead of at the max.
+        // In that last chapter the stroker runs a few short strokes, stops
+        // for a beat, and starts again. The internal toy takes the same
+        // breath, a little softer, so the pause is shared.
         const chapter = sensor < 0.45 ? 0 : sensor < CLOSE_START ? 1 : 2;
+        const close = edgeClose(sensor);
         const beat = motion(seconds, 4 + chapter * 3.7, sensor);
-        const nearStop = chapter === 2 && wobble(seconds, 9.2, 1.7) < 0.28;
+        const resting = chapter === 2 && !atPeak && phraseRest(seconds, 4.4, close);
+        const bursting = chapter === 2 && !atPeak && !resting;
         const basePrimary = (1 - shaped) * 100;
         const baseSecondary = 20 + climb * 70;
+        // Same as the milker: the last chapter is a few real strokes and a
+        // beat of rest. The fade has already done its job by then.
+        const burst = roundPct(64 + 26 * beat.speed);
         const primary = atPeak
             ? atCeiling(crawlPercent)
-            : roundPct(basePrimary * (nearStop ? 0.45 : beat.speed));
-        const secondary = roundPct((atPeak ? 100 : baseSecondary) * (nearStop ? Math.max(0.4, beat.secondary * 0.7) : beat.secondary));
+            : (resting ? 0 : roundPct(bursting ? burst : basePrimary * beat.speed));
+        let secondary = roundPct((atPeak ? 100 : baseSecondary) * beat.secondary);
+        if (resting) secondary = roundPct(secondary * 0.3);
         let depth = beat.depth;
         if (chapter === 0) depth = Math.max(depth, 0.82);
-        else if (nearStop) depth = Math.min(depth, 0.5);
+        else if (bursting) depth = Math.min(depth, 0.42);
+        else if (resting) depth = Math.min(depth, 0.45);
         const stroke = placeStroke(0, 100, depth, 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }
@@ -254,8 +287,15 @@ export function teaseFrame({
 
     const beat = motion(seconds, 0.6, sensor);
     const falling = (1 - shaped) * 100;
-    const primary = atPeak ? atCeiling(crawlPercent) : roundPct(falling * beat.speed);
-    const secondary = atPeak ? primary : roundPct(primary * (0.5 + 0.5 * beat.secondary));
+    // A rare breath, only once the pulse is close. The stroker stops for a
+    // beat and the other toy eases; the rest of the band stays a continuous
+    // stroke, so the stop is the surprise and not the tempo.
+    const stroked = roundPct(falling * beat.speed);
+    const close = edgeClose(sensor);
+    const breath = !atPeak && close > 0.55 && phraseRest(seconds, 1.7, close) && wobble(seconds, 17.3, 4.4) < 0.18;
+    const primary = atPeak ? atCeiling(crawlPercent) : (breath ? 0 : stroked);
+    const followed = roundPct(stroked * (0.5 + 0.5 * beat.secondary));
+    const secondary = atPeak ? primary : (breath ? roundPct(followed * 0.4) : followed);
     const stroke = placeStroke(0, 100, atPeak ? 1 : beat.depth, 'low');
     return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
 }

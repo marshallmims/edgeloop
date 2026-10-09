@@ -69,7 +69,7 @@ import { planBannerUpdate, canClearBanner, hiddenBannerState, BANNER_OWNER_ANY }
 import { pushSample, buildFunscripts, toFunscript } from './funscript.js';
 import { isDevTelemetryHost, createSessionLog, buildSessionExport } from './session-telemetry.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
-import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting } from './hardware/ble.js';
+import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError } from './hardware/ble-protocol.js';
 import { createHrWatchdog, clampStaleSeconds } from './hr-watchdog.js';
 import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey, getHandyInfo } from './hardware/handy.js';
@@ -108,6 +108,7 @@ import {
     connectTCode,
     disconnectTCode,
     dispatchTCode,
+    setTCodeScriptFeed,
     stopTCode,
     setTCodeHandlers,
     setAxisRole as setTCodeAxisRole,
@@ -301,7 +302,10 @@ let player = null;
 let secondaryTrack = null;
 let loadedClimaxMarks = [];
 const scriptFeed = isRemotePage ? null : createScriptFeed();
-if (scriptFeed) setIntifaceScriptFeed(scriptFeed);
+if (scriptFeed) {
+    setIntifaceScriptFeed(scriptFeed);
+    setTCodeScriptFeed(scriptFeed);
+}
 const handyHsp = (!isRemotePage && scriptFeed) ? createHandyHsp({
     feed: scriptFeed,
     getKey: () => getHandyKey(),
@@ -2699,19 +2703,19 @@ const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain', 'nnn'];
 const modeCards = document.querySelectorAll('.mode-card');
 
 const MODE_DETAILS = {
-    classic: 'Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical, then Crawl or Full Stop at the ceiling.',
+    classic: 'Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks the stroke back up. Crawl or Full Stop still decides the ceiling.',
     finisher: 'Speed rises with your heart rate and stays at full speed on the mark, so it can carry you over. "At the ceiling" does not slow it down. Room noise does not speed it up either: the climb follows the pulse the sensor measured.',
-    milker: 'The stroker eases off as you climb and the internal toy takes over. Short bursts and the on-off pulse wait until your pulse is close to the heart rate you set.',
+    milker: 'The stroker eases off as you climb and the internal toy takes over. Close to the heart rate you set, the stroker does a few short strokes and stops for a beat. The internal toy rests on its own timing, so the two do not tick together.',
     shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Classic. The secondary channel stays low.',
     headplay: 'Full strokes until your pulse is close to the heart rate you set, then the stroke climbs toward the head. Speed eases off with your pulse, and the stroke opens back up when your pulse drops.',
-    ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Stops and short bursts wait until your pulse is close to the heart rate you set. The internal toy follows the same chapters.',
+    ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Close to the heart rate you set, the stroker runs a few short strokes, stops for a beat, and starts again. The internal toy takes that same breath.',
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
     nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.',
-    script: 'Your video and its funscript. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down.'
+    script: 'Your video and its funscript. The session warm-up does not apply, so the file plays at once. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. The primary meter is how much of the file is allowed, and 100% is the whole file inside your travel range.'
 };
 
 // The paragraph above the cards follows the goal when one is on, including
@@ -4443,7 +4447,7 @@ document.getElementById('modalBleScanBtn')?.addEventListener('click', async () =
     if (warnBluetoothUnsupported()) return;
     try {
         setBadgeState('Ble', 'connecting', 'Scanning...');
-        setBleStatus('Pick your sensor in the browser chooser...', 'busy');
+        setBleStatus('Connecting. If the browser asks, pick the sensor that is advertising the Heart Rate service.', 'busy');
         const dev = await connectBleHeartRate({
             onHrMeasurement: (bpm, info) => {
                 recordHrReading(bpm, info ? info.sensorContact : null);
@@ -4886,7 +4890,7 @@ function renderIntifaceDevices() {
             <button onclick="setDeviceVibeMode(${devIdx}, ${aIdx}, 'pulsed')" class="flex-1 py-0.5 rounded ${pulsed ? 'bg-slate-700 text-amber-300 font-bold' : 'bg-slate-800 text-slate-400'} cursor-pointer">Pulsed</button>
             <select aria-label="Pulse period" onchange="setDevicePulsePeriod(${devIdx}, ${aIdx}, this.value)" ${pulsed ? '' : 'disabled'} class="bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-[9px] text-slate-200 ${pulsed ? 'cursor-pointer' : 'opacity-40'}">${periods}</select>
             </div>
-            ${pulsed ? '<p class="text-[9px] text-slate-500 leading-snug">On for half of each period, off for the other half. The intensity sets the peak, and it stays under the cap.</p>' : ''}
+            ${pulsed ? '<p class="text-[9px] text-slate-500 leading-snug">Holds the level for a few beats, then rests for a beat. The lengths change, so it does not tick. Shorter spacing rests more often. The intensity sets the peak, and it stays under the cap.</p>' : ''}
             </div>`;
             })() : ''}
             ${invertRow}
@@ -5014,6 +5018,23 @@ document.getElementById('modalTCodeDisconnectBtn')?.addEventListener('click', ()
 // Best effort: rest every axis when the page goes away.
 window.addEventListener('pagehide', () => { stopTCode(); });
 
+// A refresh used to leave HeartCast connected to the dead page, and the next
+// visit could not pair until the computer's Bluetooth list forgot the device.
+bindBlePageLifecycle(window);
+window.addEventListener('pageshow', () => {
+    if (isBleConnected() || state.simEngaged) return;
+    if (!state.hrDeviceName) return;
+    state.hrDeviceName = '';
+    state.bleBattery = null;
+    setBadgeState('Ble', 'disconnected', 'Disconnected');
+    setBleStatus('The heart-rate link closed when the page was hidden. Scan and pair again.', 'idle');
+    document.getElementById('modalBleDisconnectBtn')?.classList.add('hidden');
+    document.getElementById('modalBleBatteryDisplay')?.classList.add('hidden');
+    const devName = document.getElementById('modalBleDeviceName');
+    if (devName) devName.textContent = 'No device paired';
+    if (!state.simEngaged) document.getElementById('hrWarningTag')?.classList.remove('hidden');
+});
+
 window.setTCodeRole = (axisIdx, role) => {
     setTCodeAxisRole(axisIdx, role);
     renderTCodeDevice();
@@ -5073,7 +5094,7 @@ function renderTCodeDevice() {
         </div>
         <div class="space-y-0.5 pt-1 border-t border-slate-800/60">
         <div class="flex justify-between text-[9px] text-slate-400">
-        <span>Max cap:</span>
+        <span>Max speed:</span>
         <span id="tcodeCapVal_${aIdx}" class="font-bold font-mono text-amber-400">${axis.maxCap ?? 100}%</span>
         </div>
         <input type="range" min="10" max="100" step="5" value="${axis.maxCap ?? 100}" oninput="setTCodeCap(${aIdx}, this.value)" class="w-full accent-amber-500 h-1 bg-slate-800 rounded cursor-pointer">

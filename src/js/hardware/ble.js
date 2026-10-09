@@ -22,6 +22,36 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function bluetoothApi() {
+    try {
+        const nav = globalThis.navigator;
+        return nav && nav.bluetooth ? nav.bluetooth : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Devices this origin was already allowed to use. A refresh does not clear
+// that grant, and HeartCast will not take a second connection while the
+// browser still holds the first.
+async function permittedDevices(bluetooth) {
+    if (!bluetooth || typeof bluetooth.getDevices !== 'function') return [];
+    try {
+        const list = await bluetooth.getDevices();
+        return Array.isArray(list) ? list.filter((device) => device && device.gatt) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function releaseGatt(device) {
+    try {
+        if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+    } catch (e) {
+        // Already gone.
+    }
+}
+
 // Connect the GATT server and (re)subscribe to heart-rate notifications.
 // Throws on any failure; nothing is registered on the device until it
 // succeeds. A reconnect may hand back a new characteristic object, so the
@@ -121,16 +151,13 @@ async function handleGattDropped(theLink) {
 //   onReconnecting(attempt, maxAttempts, delayMs)  before each retry.
 //   onReconnected(attempt)      the sensor came back on its own.
 //   onDisconnected({ intentional, attempts, error })  link is gone for good.
-export async function connectBleHeartRate({ onHrMeasurement, onBatteryLevel, onDisconnected, onReconnecting, onReconnected }) {
-    if (!navigator.bluetooth) throw new Error('Web Bluetooth not supported');
-
-    const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ['heart_rate'] }],
-        optionalServices: ['battery_service']
-    });
-
+async function openLink(device, handlers) {
+    const { onHrMeasurement, onBatteryLevel, onDisconnected, onReconnecting, onReconnected } = handlers;
     // The user picked a sensor: whatever was linked before is replaced.
     disconnectBle({ silent: true });
+    // A refresh can leave the browser holding the peripheral. Drop that link
+    // before opening another, or HeartCast stays paired to a page that is gone.
+    releaseGatt(device);
 
     const theLink = {
         device,
@@ -158,6 +185,49 @@ export async function connectBleHeartRate({ onHrMeasurement, onBatteryLevel, onD
 
     await readBattery(server, onBatteryLevel);
     return device;
+}
+
+// Pair and subscribe. A sensor this site already has permission for is tried
+// first, after any stale link is dropped. If that still fails, the grant is
+// forgotten and the chooser opens, so a refresh does not leave HeartCast
+// stuck until the computer's Bluetooth list is cleared by hand.
+export async function connectBleHeartRate(handlers = {}) {
+    const bluetooth = bluetoothApi();
+    if (!bluetooth || typeof bluetooth.requestDevice !== 'function') throw new Error('Web Bluetooth not supported');
+
+    if (!isBleConnected()) {
+        const known = await permittedDevices(bluetooth);
+        for (const device of known) {
+            try {
+                return await openLink(device, handlers);
+            } catch (e) {
+                releaseGatt(device);
+                try {
+                    return await openLink(device, handlers);
+                } catch (again) {
+                    if (typeof device.forget === 'function') {
+                        try { await device.forget(); } catch (ignored) {}
+                    }
+                }
+            }
+        }
+    }
+
+    const device = await bluetooth.requestDevice({
+        filters: [{ services: ['heart_rate'] }],
+        optionalServices: ['battery_service']
+    });
+    return openLink(device, handlers);
+}
+
+// Drop the GATT link when the page goes away (refresh, close, freeze) so the
+// peripheral can accept the next one. Silent: unloading is not the wearer
+// pressing Disconnect.
+export function bindBlePageLifecycle(target = globalThis) {
+    const drop = () => disconnectBle({ silent: true });
+    if (target && typeof target.addEventListener === 'function') target.addEventListener('pagehide', drop);
+    const doc = target && target.document;
+    if (doc && typeof doc.addEventListener === 'function') doc.addEventListener('freeze', drop);
 }
 
 // Drop the current link on purpose. No reconnect is attempted and, unless
