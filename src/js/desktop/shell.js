@@ -10,6 +10,7 @@
 
 import { hashForPage, pageFromHash } from './pages.js';
 import { matchLibrary } from './library.js';
+import { DESKTOP_VERSION } from './version.js';
 
 let current = 'loop';
 let mounting = false;
@@ -403,8 +404,19 @@ async function poll() {
     }
 }
 
+// 2.0 is this application. The website footer stays on the site version,
+// because the site never loads this file.
+function markEdition() {
+    const edition = document.getElementById('shellEdition');
+    if (edition) edition.textContent = DESKTOP_VERSION;
+    const versionEl = document.getElementById('appVersion');
+    if (versionEl) versionEl.textContent = `v${DESKTOP_VERSION}`;
+    document.title = `EdgeLoop ${DESKTOP_VERSION}`;
+}
+
 function start() {
     document.documentElement.classList.add('shell');
+    markEdition();
     moveDevices();
     bindPageClicks();
     const tabs = document.getElementById('shellTabs');

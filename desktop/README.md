@@ -1,6 +1,10 @@
-# EdgeLoop desktop
+# EdgeLoop 2.0
 
-This is the app, not the website. `dev.edgeloop.app` and `edgeloop.app` are unchanged: they never load this shell. Open it with:
+This is the full application, and it is its own project. The version is tentative: 2.0.
+
+It is based on the 1.1.4 code that runs on dev.edgeloop.app. That site, and edgeloop.app, stay the one-page cockpit at 1.1.4. They never load this application, and 2.0 is not their version. The site footer keeps 1.1.4. This application shows 2.0 once it is open.
+
+Open it with:
 
 ```bash
 npm run desktop
@@ -10,7 +14,7 @@ That serves the repository on `http://127.0.0.1:17321/?shell=1#/loop` and prints
 
 ## What you see
 
-This is the EdgeLoop 2.0 direction. The PWA keeps the basic one-page cockpit. The desktop and Android app is where the rest lives, and it is one window with live tabs. Flipping a tab does not load a new page. The panel you leave stays mounted, so a session keeps running and a video keeps playing. A green dot on Loop means a session is going. A green dot on Video means the picture is playing. Guide, History, and Share sit as icons on the same row.
+One window with live tabs. The one-page site stays 1.1.4. This application is where the rest lives. Flipping a tab does not load a new page. The panel you leave stays mounted, so a session keeps running and a video keeps playing. A green dot on Loop means a session is going. A green dot on Video means the picture is playing. Guide, History, and Share sit as icons on the same row.
 
 | Tab | What it is |
 | --- | --- |
@@ -39,7 +43,7 @@ The pieces below are the rest of the app. They are not started, on purpose: each
 3. **Streaming a share.** Play from a share copies the whole video into a temp file, then serves that. A multi-gigabyte file is a long copy. Streaming the share, with seeking, replaces that.
 4. **Windows, Linux, and Android as an installed app.** This host is Node. It runs on Windows and Linux wherever Node runs. Android needs a real shell. [Tauri 2](https://v2.tauri.app/) is the one that covers all three and can wrap this window. It is the packaging step, after the clock drives the toys. The tabs themselves do not change for that.
 
-`dev` is not the place for this. The site deploy is still the static page. This host is a program you run. Merging the branch does not turn the website into the shell, because the shell script loads only for `?shell=1`.
+The 1.1.4 site deploy is still the static page. This application is a program you run. Merging the branch does not turn the website into 2.0, because the application script loads only for `?shell=1`.
 
 ## Layout
 
@@ -49,6 +53,7 @@ desktop/
   deo-link.mjs     TCP follow and TCP host for the timestamp packet
   smb-client.mjs   smbclient, password in a file not on the command line
 src/js/desktop/
+  version.js       2.0, separate from the website's 1.1.4
   pages.js         which tab a hash is
   library.js       folder pairing, primary and secondary
   deo-remote.js    the packet bytes

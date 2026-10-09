@@ -6,14 +6,7 @@ credited by username.
 
 ## 1.1.4
 
-The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release on edgeloop.app.
-
-### Desktop
-The desktop app is not the website. edgeloop.app and dev.edgeloop.app stay the one-page cockpit. `npm run desktop` opens the app on this computer. See desktop/README.md.
-
-- **Live tabs.** Loop, Video, Session, and Library are tabs in one window. Flipping a tab hides that panel. A session that is already going, and a video that is already playing, keep going. A green dot marks a live session and a playing video. The device cards stay in a bar on every tab.
-- **A headset clock.** HereSphere and DeoVR host the timestamp server. This app can follow that clock, and it can host one in the same format. The toys do not follow the headset yet.
-- **A television address.** A file on this computer can be served on the local network so a TV that opens a link can play it. One-tap casting is not in yet.
+The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release on edgeloop.app. The full application is a separate project, tentatively EdgeLoop 2.0, and it is not part of this release. See desktop/README.md.
 
 ### Player
 - **Your video and your funscript.** Nothing is uploaded. Load them from disk. The Player button is in the header. Intiface linear axes play the script stroke for stroke. (Cactus / Purple Palm)

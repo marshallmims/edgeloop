@@ -159,9 +159,9 @@ The microphone monitor (optional) is a second arousal datapoint: louder voice/pa
 
 ---
 
-## Desktop app
+## EdgeLoop 2.0
 
-The installed site stays the one-page cockpit. EdgeLoop 2.0 is the desktop and Android app: the same files, opened as live tabs you flip between. The site never loads that shell. `npm run desktop` serves `http://127.0.0.1:17321/?shell=1`. Loop, Video, Session, and Library stay mounted, so a running session and a playing video keep going while you look at another tab. The devices sit in a bar on every tab. Library pairs videos with a stroker script and a secondary script, from a folder or from a network share, and it can follow a HereSphere or DeoVR timestamp server. What is built, and what is deliberately not built yet, is [desktop/README.md](desktop/README.md).
+EdgeLoop 2.0 is a separate project: the full application. The number is tentative. It is based on this 1.1.4 code, and it is not part of the 1.1.4 release. edgeloop.app and dev.edgeloop.app stay the one-page site at 1.1.4. They never load the application. `npm run desktop` opens it on this computer at `http://127.0.0.1:17321/?shell=1`. What it is, and what is still ahead of it, is [desktop/README.md](desktop/README.md).
 
 ---
 

@@ -15,6 +15,8 @@ describe('the desktop shell stays off the website', () => {
 
     it('the tabs are in the file, and hidden until the shell turns them on', () => {
         assert.match(html, /id="shellNav" class="hidden"/);
+        assert.match(html, /id="shellEdition"/);
+        assert.match(html, /#shellEdition \{ display: none; \}|#shellEdition \{ display: none/);
         assert.match(html, /id="shellTabs" role="tablist"/);
         assert.match(html, /role="tab" id="shellTabLoop"/);
         assert.match(html, /data-live="loop"/);

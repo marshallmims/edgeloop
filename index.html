@@ -29,7 +29,19 @@
 
     /* Desktop shell. Hidden without Tailwind, and still hidden on the
        website. shell.js adds class="shell" only when the address has ?shell=1. */
-    #shellNav, #shellDeviceSlot, #shellLibrary, #shellSession { display: none; }
+    #shellNav, #shellDeviceSlot, #shellLibrary, #shellSession, #shellEdition { display: none; }
+    html.shell #shellEdition {
+      display: inline-block !important;
+      padding: 0.1rem 0.35rem;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #cbd5e1;
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      vertical-align: 1px;
+    }
     html.shell #shellNav { display: flex !important; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
     html.shell #shellTabs {
       display: flex;
@@ -111,6 +123,7 @@
         <div>
           <div class="flex items-center gap-1.5">
             <h1 class="text-lg sm:text-xl font-black tracking-wide text-rose-500">EDGE<span class="text-white">LOOP</span></h1>
+            <span id="shellEdition">2.0</span>
             <span id="roleIndicator" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 uppercase">Local Host</span>
           </div>
           <p class="text-[9px] sm:text-[10px] text-slate-500">Autonomous Biofeedback Edging System</p>
