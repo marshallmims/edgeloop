@@ -5971,13 +5971,33 @@ function startLocalApp() {
         card.classList.remove('hidden');
         const hostInput = document.getElementById('appHeadsetHost');
         const portInput = document.getElementById('appHeadsetPort');
+        const kindInput = document.getElementById('appSyncKind');
+        const passwordInput = document.getElementById('appVlcPassword');
+        const help = document.getElementById('appSyncHelp');
         const libraryInput = document.getElementById('appLibraryPath');
         const status = document.getElementById('appSyncStatus');
+        const VLC_HELP = 'VLC plays the video on this computer. In VLC: Preferences, Show All, Interface, Main interfaces, turn on Web. Then Interface, Main interfaces, Lua, and set the HTTP password if you want one. Leave the password here empty when VLC has none. Port 8080 is the usual one. Play a file whose name matches a script in the folder.';
+        const HEADSET_HELP = 'HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one. To test without a headset, choose VLC.';
+        function applyKind() {
+            const vlc = kindInput && kindInput.value === 'vlc';
+            passwordInput?.classList.toggle('hidden', !vlc);
+            if (help) help.textContent = vlc ? VLC_HELP : HEADSET_HELP;
+            if (hostInput && !hostInput.value) hostInput.placeholder = vlc ? '127.0.0.1' : '192.168.1.20';
+            if (portInput && document.activeElement !== portInput) {
+                const current = Number(portInput.value);
+                if (!current || current === 23554 || current === 8080) portInput.value = vlc ? '8080' : '23554';
+            }
+        }
+        kindInput?.addEventListener('change', applyKind);
         const source = new EventSource('/app/events');
         source.onmessage = (event) => {
             let data = null;
             try { data = JSON.parse(event.data); } catch (e) { return; }
             if (!data || data.type !== 'sync') return;
+            if (kindInput && data.source && document.activeElement !== kindInput && kindInput.value !== data.source) {
+                kindInput.value = data.source === 'vlc' ? 'vlc' : 'headset';
+                applyKind();
+            }
             if (hostInput && data.host && document.activeElement !== hostInput) hostInput.value = data.host;
             if (portInput && data.port && document.activeElement !== portInput) portInput.value = String(data.port);
             if (libraryInput && data.library && document.activeElement !== libraryInput) libraryInput.value = data.library;
@@ -5990,9 +6010,10 @@ function startLocalApp() {
             }
             const video = data.name ? `Video: ${data.name}. ` : '';
             const script = data.stroke ? `Script: ${data.stroke.name}. ` : (data.name ? 'No script with that name in the folder. ' : '');
-            const link = data.connected ? 'Headset connected. ' : (data.error || 'Not connected. ');
+            const who = data.source === 'vlc' ? 'VLC' : 'Headset';
+            const link = data.connected ? `${who} connected. ` : (data.error || 'Not connected. ');
             const count = data.libraryCount ? `${data.libraryCount} scripts in the folder. ` : '';
-            if (status) status.textContent = `${link}${count}${video}${script}Start the session here once a heart-rate monitor and a toy are connected. The headset only supplies the time.`;
+            if (status) status.textContent = `${link}${count}${video}${script}Start the session here once a heart-rate monitor and a toy are connected. The player only supplies the time.`;
             if (data.scriptChanged) {
                 loadAppScript('stroke', data.stroke).catch(() => {});
                 loadAppScript('vib', data.vib).catch(() => {});
@@ -6002,7 +6023,12 @@ function startLocalApp() {
             fetch('/app/connect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ host: hostInput ? hostInput.value : '', port: portInput ? portInput.value : 23554 })
+                body: JSON.stringify({
+                    kind: kindInput ? kindInput.value : 'headset',
+                    host: hostInput ? hostInput.value : '',
+                    port: portInput ? portInput.value : 23554,
+                    password: passwordInput ? passwordInput.value : ''
+                })
             }).then((response) => response.json()).then((body) => {
                 if (status && body && body.error) status.textContent = body.error;
             }).catch(() => {

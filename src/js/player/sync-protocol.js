@@ -71,6 +71,63 @@ export function extrapolateSync(anchor, nowMs) {
     return anchor.mediaMs + dt * rate;
 }
 
+function xmlTag(xml, name) {
+    const match = String(xml).match(new RegExp(`<${name}>([^<]*)</${name}>`, 'i'));
+    return match ? match[1].trim() : '';
+}
+
+function xmlInfo(xml, name) {
+    const match = String(xml).match(new RegExp(`<info[^>]*name=["']${name}["'][^>]*>([^<]*)</info>`, 'i'));
+    return match ? match[1].trim() : '';
+}
+
+function findFilename(value) {
+    if (!value || typeof value !== 'object') return '';
+    if (typeof value.filename === 'string' && value.filename) return value.filename;
+    for (const child of Object.values(value)) {
+        const found = findFilename(child);
+        if (found) return found;
+    }
+    return '';
+}
+
+// VLC's web interface (status.json or status.xml). `time` is seconds.
+// state is "playing", "paused", or "stopped".
+export function normalizeVlc(body) {
+    const text = String(body || '').trim();
+    if (!text) return null;
+    if (text.startsWith('{')) {
+        let json;
+        try { json = JSON.parse(text); } catch (e) { return null; }
+        return vlcReport({
+            time: Number(json.time),
+            length: Number(json.length),
+            rate: Number(json.rate),
+            state: String(json.state || ''),
+            file: findFilename(json.information) || findFilename(json)
+        });
+    }
+    return vlcReport({
+        time: Number(xmlTag(text, 'time')),
+        length: Number(xmlTag(text, 'length')),
+        rate: Number(xmlTag(text, 'rate')),
+        state: xmlTag(text, 'state'),
+        file: xmlInfo(text, 'filename')
+    });
+}
+
+function vlcReport({ time, length, rate, state, file }) {
+    if (!Number.isFinite(time)) return null;
+    const mode = String(state || '').toLowerCase();
+    return {
+        path: String(file || ''),
+        durationMs: Number.isFinite(length) && length >= 0 ? length * 1000 : null,
+        mediaMs: Math.max(0, time * 1000),
+        rate: Number.isFinite(rate) && rate > 0 ? rate : 1,
+        playing: mode === 'playing'
+    };
+}
+
 export function basenameOf(filePath) {
     const text = String(filePath || '').replace(/\\/g, '/');
     const cut = text.lastIndexOf('/');

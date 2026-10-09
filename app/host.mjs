@@ -17,7 +17,8 @@ import {
     decodePackets,
     extrapolateSync,
     matchLibrary,
-    basenameOf
+    basenameOf,
+    normalizeVlc
 } from '../src/js/player/sync-protocol.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -133,7 +134,8 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
     let push = null;
     let buffer = Buffer.alloc(0);
     let anchor = null;
-    let headset = { host: '', port: 23554, connected: false, error: '' };
+    let headset = { host: '', port: 23554, connected: false, error: '', kind: 'headset', password: '' };
+    let pollTimer = null;
     let lastMatchKey = '';
 
     function broadcast(event) {
@@ -152,6 +154,7 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
             type: 'sync',
             connected: headset.connected,
             error: headset.error,
+            source: headset.kind || 'headset',
             host: headset.host,
             port: headset.port,
             library: library.root,
@@ -178,8 +181,10 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
         headset.connected = false;
         if (ping) clearInterval(ping);
         if (push) clearInterval(push);
+        if (pollTimer) clearInterval(pollTimer);
         ping = null;
         push = null;
+        pollTimer = null;
         buffer = Buffer.alloc(0);
         if (socket) {
             socket.removeAllListeners();
@@ -188,9 +193,68 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
         }
     }
 
+    function noteSync(message) {
+        if (!message) return;
+        anchor = {
+            mediaMs: message.mediaMs,
+            at: Date.now(),
+            rate: message.rate,
+            playing: message.playing,
+            path: message.path || (anchor ? anchor.path : '')
+        };
+    }
+
+    async function pollVlc() {
+        const target = headset;
+        const password = target.password || '';
+        const headers = { Authorization: `Basic ${Buffer.from(`:${password}`).toString('base64')}` };
+        const base = `http://${target.host}:${target.port}/requests/status`;
+        try {
+            let response = await fetch(`${base}.json`, { headers });
+            if (response.status === 404) response = await fetch(`${base}.xml`, { headers });
+            if (socket) return;
+            if (response.status === 401) {
+                headset.connected = false;
+                headset.error = 'VLC refused the password. Set the Web interface password in VLC, or leave it empty here when VLC has none.';
+                publish();
+                return;
+            }
+            if (!response.ok) {
+                headset.connected = false;
+                headset.error = 'VLC did not answer. Turn on the Web interface.';
+                publish();
+                return;
+            }
+            const sync = normalizeVlc(await response.text());
+            if (!sync) {
+                headset.connected = false;
+                headset.error = 'VLC answered, but not with a playback status.';
+                publish();
+                return;
+            }
+            headset.connected = true;
+            headset.error = '';
+            noteSync(sync);
+            publish();
+        } catch (e) {
+            if (socket) return;
+            headset.connected = false;
+            headset.error = 'VLC is not answering. Enable the Web interface and use port 8080.';
+            publish();
+        }
+    }
+
+    function connectVlc(host, portNumber, password) {
+        closeHeadset();
+        headset = { host, port: portNumber, connected: false, error: '', kind: 'vlc', password: password || '' };
+        pollTimer = setInterval(pollVlc, 400);
+        push = setInterval(publish, 200);
+        pollVlc();
+    }
+
     function connectHeadset(host, portNumber) {
         closeHeadset();
-        headset = { host: String(host || '').trim(), port: portNumber, connected: false, error: '' };
+        headset = { host: String(host || '').trim(), port: portNumber, connected: false, error: '', kind: 'headset', password: '' };
         if (!headset.host) {
             headset.error = 'Type the headset address.';
             publish();
@@ -216,13 +280,7 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
             if (decoded.error) headset.error = 'The headset sent a packet this app could not read.';
             for (const message of decoded.messages) {
                 if (!message) continue;
-                anchor = {
-                    mediaMs: message.mediaMs,
-                    at: Date.now(),
-                    rate: message.rate,
-                    playing: message.playing,
-                    path: message.path || (anchor ? anchor.path : '')
-                };
+                noteSync(message);
             }
             publish();
         });
@@ -268,16 +326,21 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
             if (req.method === 'POST' && url.pathname === '/app/connect') {
                 const body = await readBody(req);
                 const host = String(body.host || '').trim();
-                const portNumber = Math.round(Number(body.port) || 23554);
+                const kind = body.kind === 'vlc' ? 'vlc' : 'headset';
+                const portNumber = Math.round(Number(body.port) || (kind === 'vlc' ? 8080 : 23554));
+                const password = String(body.password || '');
                 if (!host || host.length > 200 || portNumber < 1 || portNumber > 65535) {
-                    sendJson(res, 400, { ok: false, error: 'Type the headset address from its timestamp server.' });
+                    sendJson(res, 400, { ok: false, error: 'Type the player address.' });
                     return;
                 }
                 const saved = readState(statePath);
                 saved.headsetHost = host;
                 saved.headsetPort = portNumber;
+                saved.source = kind;
+                if (kind === 'vlc') saved.vlcPassword = password;
                 writeState(saved, statePath);
-                connectHeadset(host, portNumber);
+                if (kind === 'vlc') connectVlc(host, portNumber, password);
+                else connectHeadset(host, portNumber);
                 sendJson(res, 200, { ok: true });
                 return;
             }
@@ -347,7 +410,8 @@ export function createAppHost({ port = 8787, root = ROOT, openBrowser = false, s
             const address = server.address();
             const actual = address && address.port ? address.port : port;
             const url = `http://127.0.0.1:${actual}/`;
-            if (saved.headsetHost) connectHeadset(saved.headsetHost, saved.headsetPort || 23554);
+            if (saved.headsetHost && saved.source === 'vlc') connectVlc(saved.headsetHost, saved.headsetPort || 8080, saved.vlcPassword || '');
+            else if (saved.headsetHost) connectHeadset(saved.headsetHost, saved.headsetPort || 23554);
             if (openBrowser) openPage(url);
             resolve({
                 url,

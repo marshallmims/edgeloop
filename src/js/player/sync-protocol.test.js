@@ -4,6 +4,7 @@ import {
     encodePacket,
     decodePackets,
     normalizeSync,
+    normalizeVlc,
     extrapolateSync,
     matchLibrary
 } from './sync-protocol.js';
@@ -47,6 +48,28 @@ describe('DeoVR / HereSphere packets', () => {
         assert.equal(extrapolateSync(playing, 5500), 2000);
         const paused = { ...playing, playing: false };
         assert.equal(extrapolateSync(paused, 9000), 1000);
+    });
+});
+
+describe('VLC web status', () => {
+    it('reads a playing file from status.json', () => {
+        const sync = normalizeVlc(JSON.stringify({
+            time: 12,
+            length: 90,
+            rate: 1,
+            state: 'playing',
+            information: { category: { meta: { filename: 'Scene.mp4' } } }
+        }));
+        assert.equal(sync.playing, true);
+        assert.equal(sync.mediaMs, 12000);
+        assert.equal(sync.path, 'Scene.mp4');
+    });
+
+    it('reads a pause from status.xml', () => {
+        const sync = normalizeVlc('<root><time>4</time><length>10</length><rate>1</rate><state>paused</state><info name="filename">Scene.mp4</info></root>');
+        assert.equal(sync.playing, false);
+        assert.equal(sync.mediaMs, 4000);
+        assert.equal(sync.path, 'Scene.mp4');
     });
 });
 
