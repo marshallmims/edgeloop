@@ -262,14 +262,24 @@
             <p id="beatSyncRoute" class="text-[10px] text-slate-400 leading-snug"></p>
           </div>
 
-          <label class="flex items-center justify-between gap-2 text-[10px] text-slate-300">
-              <span class="font-semibold">Stroke model</span>
-              <select id="scriptStrokeModelSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-sky-300 font-bold outline-none">
-                <option value="cactus">Shorten and skip</option>
-                <option value="keep">Keep the script</option>
-              </select>
-            </label>
-            <p class="text-[9px] text-slate-400 leading-snug"><strong>Shorten and skip:</strong> strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going. <strong>Keep the script:</strong> strokes stay the shape in the file. Your heart rate only turns them down. A pause in the file is a real stop.</p>
+          <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Stroke model</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <button type="button" data-stroke-model="cactus" class="stroke-model-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1">
+                <span>Shorten and skip</span>
+                <span class="stroke-model-check text-purple-400">●</span>
+              </div>
+              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">Strokes get shorter as you climb, then skip at the edge.</p>
+            </button>
+            <button type="button" data-stroke-model="keep" class="stroke-model-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
+                <span>Keep the script</span>
+                <span class="stroke-model-check hidden text-purple-400">●</span>
+              </div>
+              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">The file's strokes stay. Your pulse only turns them down.</p>
+            </button>
+          </div>
+          <p id="strokeModelDetail" class="text-[10px] text-slate-300 leading-snug">Strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going.</p>
             <p id="playerPrivacy" class="text-[9px] text-slate-400 leading-snug">Your video and script stay on this device. EdgeLoop uploads neither. With Beat sync on The Handy switched on, The Handy is sent the next few seconds of stroke positions through Handy's cloud as it plays. File names and the video never leave this device; your heart rate goes only to a partner you link with Share Control.</p>
           <p class="text-[9px] text-slate-500 leading-snug">In a headset: run EdgeLoop on a PC, tablet or phone that reads your pulse. Inside the headset this page can play the video, but it cannot read a heart-rate monitor.</p>
         </div>
