@@ -6035,6 +6035,10 @@ function startLocalApp() {
                 if (status) status.textContent = 'Could not reach the local app.';
             });
         });
+        document.getElementById('appQuitBtn')?.addEventListener('click', () => {
+            if (status) status.textContent = 'EdgeLoop is closing. The player connection closes with it.';
+            fetch('/app/quit', { method: 'POST' }).catch(() => {});
+        });
         document.getElementById('appLibraryBtn')?.addEventListener('click', () => {
             fetch('/app/library', {
                 method: 'POST',
