@@ -237,15 +237,20 @@
 
         <div class="lg:col-span-5 space-y-2 min-w-0">
           <div id="appSyncCard" class="hidden p-2.5 rounded-xl border border-sky-900 bg-slate-950 space-y-2">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300">Headset</p>
-            <p class="text-[10px] text-slate-400 leading-snug">HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one.</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300">Player clock</p>
+            <p id="appSyncHelp" class="text-[10px] text-slate-400 leading-snug">HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one. To test without a headset, choose VLC.</p>
             <div class="flex flex-wrap items-center gap-2">
-              <input id="appHeadsetHost" type="text" placeholder="192.168.1.20" aria-label="Headset address" class="flex-1 min-h-[2.75rem] min-w-[8rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
-              <input id="appHeadsetPort" type="number" min="1" max="65535" value="23554" aria-label="Headset port" class="w-20 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-[10px] text-slate-200 font-mono">
+              <select id="appSyncKind" aria-label="Player" class="min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200">
+                <option value="headset">Headset</option>
+                <option value="vlc">VLC</option>
+              </select>
+              <input id="appHeadsetHost" type="text" placeholder="192.168.1.20" aria-label="Player address" class="flex-1 min-h-[2.75rem] min-w-[8rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
+              <input id="appHeadsetPort" type="number" min="1" max="65535" value="23554" aria-label="Player port" class="w-20 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-[10px] text-slate-200 font-mono">
+              <input id="appVlcPassword" type="password" placeholder="VLC password" aria-label="VLC password" class="hidden w-28 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200">
               <button id="appConnectBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-[10px] font-bold cursor-pointer">Connect</button>
             </div>
             <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300 pt-1">Video library</p>
-            <p class="text-[10px] text-slate-400 leading-snug">A folder on this computer. When the headset plays a video, the script with the same name loads. Choosing files below still works.</p>
+            <p class="text-[10px] text-slate-400 leading-snug">A folder on this computer. When the player plays a video, the script with the same name loads. Choosing files below still works.</p>
             <div class="flex flex-wrap items-center gap-2">
               <input id="appLibraryPath" type="text" placeholder="/home/you/videos" aria-label="Video library folder" class="flex-1 min-h-[2.75rem] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
               <button id="appLibraryBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Use folder</button>

@@ -88,6 +88,7 @@ describe('local app host', () => {
         const seen = await readSync(host.url + 'app/events');
         assert.equal(seen.vib.name, 'Scene.v0.funscript');
         assert.equal(seen.state, 'playing');
+        assert.equal(seen.source, 'headset');
         const script = await fetch(host.url + 'app/script?id=' + encodeURIComponent(seen.stroke.id));
         const body = await script.json();
         assert.equal(body.name, 'Scene.funscript');
