@@ -110,6 +110,7 @@ function setup({ status = 'IDLE', coupled = true, block = null } = {}) {
         primaryInput: new FakeEl(),
         secondaryInput: new FakeEl(),
         heatmapHint: new FakeEl(),
+        markBtn: new FakeEl(),
         fullscreenBtn: new FakeEl(),
         theaterBtn: new FakeEl()
     };
@@ -331,6 +332,17 @@ describe('player: files', () => {
         assert.equal(s.player.hasVideo(), true);
         s.els.primaryBtn.click();
         assert.equal(picks, 1);
+    });
+
+    it('marks the playhead and removes that mark on a second press', async () => {
+        const s = setup();
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4'), fakeFile('Movie.funscript', SCRIPT)]);
+        s.video.currentTime = 1.25;
+        s.video.duration = 10;
+        s.els.markBtn.click();
+        assert.deepEqual(s.player.climaxMarks(), [1250]);
+        s.els.markBtn.click();
+        assert.deepEqual(s.player.climaxMarks(), []);
     });
 
     it('drops the loaded scripts when a different video is chosen', async () => {

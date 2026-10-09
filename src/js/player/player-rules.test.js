@@ -24,6 +24,7 @@ import {
     climaxMarksFor,
     rememberClimaxMarks,
     editClimaxMarks,
+    toggleClimaxAt,
     describeToyNotes,
     describeVideoPlayRefused,
     scriptPhaseLabel,
@@ -304,6 +305,9 @@ describe('per-script offsets', () => {
         assert.deepEqual(removed, []);
         const two = editClimaxMarks([1000], 8000, { durationMs: 10000, widthPx: 200, xPx: 160 });
         assert.deepEqual(two, [1000, 8000]);
+        assert.deepEqual(toggleClimaxAt([], 2500, { durationMs: 10000 }), [2500]);
+        assert.deepEqual(toggleClimaxAt([2500], 3000, { durationMs: 10000, nearMs: 1500 }), []);
+        assert.deepEqual(toggleClimaxAt([2500], 5000, { durationMs: 10000, nearMs: 1500 }), [2500, 5000]);
     });
 
     it('formats the offset with its sign', () => {

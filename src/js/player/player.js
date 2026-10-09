@@ -31,6 +31,7 @@ import {
     formatMediaTime,
     formatOffset,
     editClimaxMarks,
+    toggleClimaxAt,
     heatColor,
     heatLevel,
     describeMediaError,
@@ -205,6 +206,7 @@ export function createPlayer({
         }
         if (els.muteBtn) els.muteBtn.textContent = video.muted ? 'Unmute' : 'Mute';
         drawHeatmap();
+        updateMarkButton();
     }
 
     function readinessChanged() {
@@ -689,7 +691,8 @@ export function createPlayer({
                 : heatmapView === 'secondary'
                     ? 'Secondary script.'
                     : 'Primary script.';
-            els.heatmapHint.textContent = `${lead} Green is a pause, red is fast. Click to mark a climax, and click a mark to remove it.`;
+            const saved = climaxMarks.length ? ` ${climaxMarks.length} mark${climaxMarks.length === 1 ? '' : 's'} saved on this device for this script.` : ' Marks for this script stay on this device.';
+            els.heatmapHint.textContent = `${lead} Green is a pause, red is fast. Scrub to a spot and press Mark here.${saved}`;
         }
     }
 
@@ -715,16 +718,23 @@ export function createPlayer({
     }
 
     function drawHeatmap() {
-        const canvas = els.heatmap;
-        if (!canvas || typeof canvas.getContext !== 'function') return;
         const dur = mapDurationMs();
         const show = dur > 0 && Boolean(videoFile || script);
-        canvas.classList?.toggle('hidden', !show);
         els.heatmapHint?.classList?.toggle('hidden', !show);
+        els.markBtn?.classList?.toggle('hidden', !show);
+        paintHeatCanvas(els.heatmap, { show, dur, playhead: true, fallbackH: 80 });
+        paintHeatCanvas(els.seekHeat, { show, dur, playhead: false, fallbackH: 12 });
+        if (show) renderHeatmapModes();
+        updateMarkButton();
+    }
+
+    function paintHeatCanvas(canvas, { show, dur, playhead, fallbackH }) {
+        if (!canvas || typeof canvas.getContext !== 'function') return;
+        canvas.classList?.toggle('hidden', !show);
         if (!show) return;
         const dpr = (win && win.devicePixelRatio) || 1;
         const cssW = canvas.clientWidth || 320;
-        const cssH = canvas.clientHeight || 64;
+        const cssH = canvas.clientHeight || fallbackH;
         const w = Math.max(1, Math.round(cssW * dpr));
         const h = Math.max(1, Math.round(cssH * dpr));
         if (canvas.width !== w) canvas.width = w;
@@ -738,23 +748,44 @@ export function createPlayer({
         const showPrimary = heatmapView !== 'secondary';
         if (showPrimary) paintSeries(ctx, seriesOf('primary'), dur, w, h, 'bars');
         if (showSecondary) paintSeries(ctx, seriesOf('secondary'), dur, w, h, heatmapView === 'both' ? 'line' : 'bars');
-        renderHeatmapModes();
         for (const mark of climaxMarks) {
             const x = (mark / dur) * w;
             ctx.fillStyle = '#fbbf24';
-            ctx.beginPath();
-            ctx.moveTo(x, 2 * dpr);
-            ctx.lineTo(x - 6 * dpr, 2 * dpr);
-            ctx.lineTo(x, 12 * dpr);
-            ctx.closePath();
-            ctx.fill();
-            ctx.fillRect(Math.round(x) - dpr, 0, Math.max(1, dpr * 2), h);
+            ctx.fillRect(Math.round(x) - dpr, 0, Math.max(2, dpr * 2), h);
         }
-        if (video && Number.isFinite(Number(video.currentTime))) {
+        if (playhead && video && Number.isFinite(Number(video.currentTime))) {
             const x = (Number(video.currentTime) * 1000 / dur) * w;
             ctx.fillStyle = '#38bdf8';
             ctx.fillRect(Math.round(x), 0, Math.max(1, dpr), h);
         }
+    }
+
+    function mediaNowMs() {
+        if (seeking && els.seek && Number.isFinite(Number(els.seek.value))) return Number(els.seek.value) * 1000;
+        if (video && Number.isFinite(Number(video.currentTime))) return Number(video.currentTime) * 1000;
+        if (els.seek && Number.isFinite(Number(els.seek.value))) return Number(els.seek.value) * 1000;
+        return 0;
+    }
+
+    function updateMarkButton() {
+        const btn = els.markBtn;
+        if (!btn) return;
+        const dur = mapDurationMs();
+        const show = dur > 0 && Boolean(videoFile || script);
+        if (!show) return;
+        const t = mediaNowMs();
+        const near = climaxMarks.some((m) => Math.abs(m - t) <= 1500);
+        const label = near ? 'Remove mark' : 'Mark here';
+        if (btn.textContent !== label) btn.textContent = label;
+    }
+
+    function markHere() {
+        const dur = mapDurationMs();
+        if (!(dur > 0)) return false;
+        climaxMarks = toggleClimaxAt(climaxMarks, mediaNowMs(), { durationMs: dur, nearMs: 1500 });
+        drawHeatmap();
+        call(handlers, 'onClimax', climaxMarks.slice());
+        return true;
     }
 
     function onHeatmapPointer(e) {
@@ -974,6 +1005,7 @@ export function createPlayer({
             if (file) chooseSecondary(file);
             try { e.target.value = ''; } catch (x) {}
         });
+        els.markBtn?.addEventListener('click', () => markHere());
         els.heatmap?.addEventListener('pointerdown', (e) => {
             if (e.button !== undefined && e.button !== 0) return;
             onHeatmapPointer(e);

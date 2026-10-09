@@ -404,6 +404,19 @@ export function editClimaxMarks(marks, timeMs, { durationMs = 0, widthPx = 0, xP
     return cleanMarkList(list.concat([t]));
 }
 
+// The Mark button: add the time under the playhead, or remove the mark
+// already sitting on it. `nearMs` is how close counts as the same mark.
+export function toggleClimaxAt(marks, timeMs, { durationMs = 0, nearMs = 1500 } = {}) {
+    const list = cleanMarkList(marks);
+    const dur = Number(durationMs);
+    if (!finite(dur) || dur <= 0) return list;
+    const t = Math.round(Math.max(0, Math.min(dur, Number(timeMs) || 0)));
+    const near = finite(nearMs) && nearMs > 0 ? nearMs : 0;
+    const hit = list.findIndex((m) => Math.abs(m - t) <= near);
+    if (hit >= 0) return list.filter((_, i) => i !== hit);
+    return cleanMarkList(list.concat([t]));
+}
+
 // "+120 ms", "0 ms", "-50 ms".
 export function formatOffset(ms) {
     const v = finite(ms) ? Math.round(ms) : 0;
