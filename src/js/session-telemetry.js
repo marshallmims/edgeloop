@@ -306,7 +306,7 @@ export function buildSessionExport(input = {}) {
     return {
         telemetryVersion: TELEMETRY_VERSION,
         appVersion: shortText(input.appVersion, 16),
-        note: 'Session log for tuning. No connection keys, tokens, file names, or video addresses.',
+        note: 'Download and share this file for diagnosis and tuning. It has no connection keys, tokens, file names, or video addresses.',
         session: cleanSession(input.session),
         summary: summarize(series),
         settings: pickSettings(input.settings),
