@@ -67,11 +67,12 @@ import { applySettingSchema } from './settings-schema.js';
 import { createWriteCoalescer } from './write-coalescer.js';
 import { planBannerUpdate, canClearBanner, hiddenBannerState, BANNER_OWNER_ANY } from './alert-banner.js';
 import { pushSample, buildFunscripts, toFunscript } from './funscript.js';
+import { isDevTelemetryHost, createSessionLog, buildSessionExport } from './session-telemetry.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError } from './hardware/ble-protocol.js';
 import { createHrWatchdog, clampStaleSeconds } from './hr-watchdog.js';
-import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey } from './hardware/handy.js';
+import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey, getHandyInfo } from './hardware/handy.js';
 import { createHandyHsp } from './hardware/handy-hsp.js';
 import { handyScriptRoute, resolveApplicationId, HANDY_APP_ID_STORAGE_KEY } from './hardware/handy-hsp-protocol.js';
 import { normalizeEnvelope, applyEndMargin, clampEndMargin } from './hardware/handy-protocol.js';
@@ -294,6 +295,8 @@ const viewerRoom = urlParams.get('group_sub');
 export const isRemoteController = Boolean(partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
+const devTelemetry = !isRemotePage && isDevTelemetryHost(typeof location !== 'undefined' ? location.hostname : '');
+const sessionLog = createSessionLog();
 let player = null;
 let secondaryTrack = null;
 let loadedClimaxMarks = [];
@@ -1511,6 +1514,7 @@ function resetSessionCounters() {
     clearSettle();
     funscriptSamples = [];
     funscriptSessionStart = 0;
+    sessionLog.reset();
     const edgeEl = document.getElementById('edgeCount');
     const pauseEl = document.getElementById('pauseCount');
     const sVal = document.getElementById('strokerVal');
@@ -1771,6 +1775,26 @@ setInterval(() => {
             strokeMin: range.min,
             strokeMax: range.max
         });
+        if (devTelemetry) {
+            sessionLog.observe({
+                t: now - funscriptSessionStart,
+                hr: state.sensorHr,
+                engineHr: state.effectiveHr,
+                mic: state.micApplied,
+                speed: paused ? 0 : state.strokerSpeed,
+                secondary: paused ? 0 : state.prostateSpeed,
+                strokeMin: range.min,
+                strokeMax: range.max,
+                edged: state.isEdged,
+                orgasm: state.orgasmMode,
+                stall: state.stallGuardEngaged,
+                edges: state.edges,
+                mode: state.teaseMode,
+                game: state.gameMode || '',
+                status: state.sessionStatus,
+                hrSignal: state.hrSignalState
+            });
+        }
     }
 }, 250);
 
@@ -5020,11 +5044,77 @@ function renderTCodeSummaryBadge() {
     setBadgeState('TCode', 'connected', nameLabel, null);
 }
 
+function handyLogFields() {
+    const info = getHandyInfo();
+    const fw = info && (info.fwVersion ?? info.firmwareVersion ?? info.firmware);
+    const model = info && (info.model ?? info.hwVersion);
+    return {
+        connected: Boolean(handyConnected),
+        role: state.handyRole,
+        maxCap: state.handyMaxCap,
+        beatSync: Boolean(handyHsp && handyHsp.beatSync()),
+        firmware: fw ? String(fw) : '',
+        model: model ? String(model) : ''
+    };
+}
+
+function deviceLogSnapshot() {
+    const tcode = isTCodeConnected() ? getTCodeDevice() : null;
+    return {
+        handy: handyLogFields(),
+        heartRate: {
+            connected: isBleConnected(),
+            simulator: Boolean(state.simEngaged),
+            name: state.simEngaged ? 'Simulator' : (state.hrDeviceName || '')
+        },
+        intiface: isIntifaceConnected() ? Array.from(intifaceDevices.values()).map((dev) => ({
+            name: dev.displayName || dev.name || '',
+            axes: (dev.axes || []).filter((axis) => !axis.inert).map((axis) => ({
+                kind: axis.type || axis.kind || '',
+                role: axis.role,
+                maxCap: axis.maxCap
+            }))
+        })) : [],
+        vacuglide: {
+            connected: isVacuglideConnected(),
+            role: advancedSettings.vacuglideRole,
+            maxCap: advancedSettings.vacuglideMaxCap
+        },
+        tcode: {
+            connected: Boolean(tcode),
+            name: tcode ? tcode.name : '',
+            axes: tcode && Array.isArray(tcode.axes) ? tcode.axes.map((axis) => ({
+                id: axis.id,
+                role: axis.role,
+                maxCap: axis.maxCap
+            })) : []
+        }
+    };
+}
+
+function scriptLogSnapshot() {
+    const loaded = player && player.script ? player.script() : null;
+    const secondary = player && player.secondary ? player.secondary() : null;
+    return {
+        loaded: Boolean(loaded),
+        actions: loaded && loaded.meta ? loaded.meta.actions : 0,
+        durationMs: loaded && loaded.meta ? loaded.meta.durationMs : 0,
+        offsetMs: scriptFeed ? scriptFeed.offset() : 0,
+        hash: loaded && loaded.hash ? loaded.hash : '',
+        secondary: Boolean(secondary),
+        secondaryActions: secondary && secondary.meta ? secondary.meta.actions : 0,
+        secondaryDurationMs: secondary && secondary.meta ? secondary.meta.durationMs : 0,
+        climaxMarks: loadedClimaxMarks.slice(),
+        videoSeconds: player && player.hasVideo() ? player.duration() : 0,
+        strokeModel: advancedSettings.scriptStrokeModel
+    };
+}
+
 // Session History & Funscript Downloader Hook
 function saveSessionToHistory(outcome) {
     const history = safeParse('edgeloop_history', []);
     const sessionId = Date.now();
-    history.unshift({
+    const entry = {
         id: sessionId,
         date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         duration: state.sessionSeconds,
@@ -5034,7 +5124,29 @@ function saveSessionToHistory(outcome) {
         outcome,
         // Raw 4 Hz timeline; both funscripts are built from it on download.
         samples: [...funscriptSamples]
-    });
+    };
+    if (devTelemetry) {
+        entry.telemetry = buildSessionExport({
+            appVersion: APP_VERSION,
+            session: {
+                id: sessionId,
+                date: entry.date,
+                duration: state.sessionSeconds,
+                edges: state.edges,
+                pauses: state.pauses,
+                peakHr: state.peakHr,
+                outcome,
+                intensity: state.intensityValue,
+                targetSeconds: state.chosenTargetSeconds,
+                videoClock: state.scriptVideoClock
+            },
+            settings: advancedSettings,
+            devices: deviceLogSnapshot(),
+            script: scriptLogSnapshot(),
+            trace: sessionLog.snapshot()
+        });
+    }
+    history.unshift(entry);
     while (history.length > 10) history.pop();
     const result = saveHistoryTrimmed('edgeloop_history', history);
     if (!result.saved) {
@@ -5055,6 +5167,31 @@ function funscriptForSession(session, channel) {
     const legacy = channel === 'primary' ? session.primaryActions : session.secondaryActions;
     return toFunscript(Array.isArray(legacy) ? legacy : []);
 }
+
+window.downloadSessionTelemetry = (sessionId) => {
+    if (!isDevTelemetryHost(location.hostname)) return;
+    const history = safeParse('edgeloop_history', []);
+    const session = history.find(s => s.id === sessionId);
+    if (!session || !session.telemetry) return alert('This session has no Dev session log.');
+    const stored = session.telemetry;
+    const clean = buildSessionExport({
+        appVersion: stored.appVersion,
+        session: stored.session,
+        settings: stored.settings,
+        devices: stored.devices,
+        script: stored.script,
+        trace: { series: stored.series, events: stored.events }
+    });
+    const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `edgeloop_session_${sessionId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
 
 window.downloadFunscript = (sessionId, channel) => {
     const history = safeParse('edgeloop_history', []);
@@ -5085,6 +5222,12 @@ function renderHistory() {
         return;
     }
     list.innerHTML = '';
+    if (isDevTelemetryHost(location.hostname)) {
+        const note = document.createElement('p');
+        note.className = 'text-[10px] text-amber-200/90 leading-snug';
+        note.textContent = 'Session log is a JSON file of the run: pulse, toy speeds, settings, and which toys were on. It has no connection keys and no file names.';
+        list.appendChild(note);
+    }
     history.forEach((s, idx) => {
         const mins = Math.floor(s.duration / 60);
         const secs = s.duration % 60;
@@ -5104,6 +5247,7 @@ function renderHistory() {
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         .v0.funscript
         </button>
+        ${isDevTelemetryHost(location.hostname) ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download a session log for tuning. No keys or file names.">Session log</button>` : ''}
         </div>
         `;
         list.appendChild(item);
