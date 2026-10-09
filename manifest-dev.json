@@ -1,0 +1,16 @@
+{
+  "name": "EdgeLoop DEV",
+  "short_name": "EL DEV",
+  "description": "Autonomous Biofeedback Edging System (dev.edgeloop.app)",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "./icon-dev.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

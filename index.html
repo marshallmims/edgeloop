@@ -5,9 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>EdgeLoop — Autonomous Biofeedback Edging System</title>
 
-  <link rel="icon" type="image/svg+xml" href="./icon.svg">
-  <link rel="apple-touch-icon" href="./icon.svg">
-  <link rel="manifest" href="./manifest.json">
+  <script>
+    (function () {
+      var dev = location.hostname === 'dev.edgeloop.app';
+      var icon = dev ? './icon-dev.svg' : './icon.svg';
+      var manifest = dev ? './manifest-dev.json' : './manifest.json';
+      document.write(
+        '<link rel="icon" type="image/svg+xml" href="' + icon + '">' +
+        '<link rel="apple-touch-icon" href="' + icon + '">' +
+        '<link rel="manifest" href="' + manifest + '">'
+      );
+    })();
+  </script>
   <meta name="theme-color" content="#020617">
   <meta name="mobile-web-app-capable" content="yes">
 
