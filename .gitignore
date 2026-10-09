@@ -3,3 +3,5 @@ node_modules/
 package-lock.json
 # Screenshots and reports written by tools/smoke.js
 tools/smoke-out/
+# Headset address and library folder for the local app. Stays in the folder you run.
+app/app-state.json

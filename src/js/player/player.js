@@ -168,6 +168,27 @@ export function createPlayer({
         lastFrameAt = -Infinity;
     }
 
+    let externalClock = false;
+
+    // The headset is the video. Samples are the same shape the <video>
+    // element feeds the clock, so the script follows HereSphere or DeoVR.
+    function followExternal({ state, mediaMs, rate } = {}) {
+        externalClock = true;
+        const next = state === 'playing' || state === 'paused' || state === 'seeking' || state === 'ended' ? state : 'paused';
+        setVideoState(next);
+        if (next === 'playing' && Number.isFinite(Number(mediaMs))) {
+            try {
+                feed?.sample({
+                    mediaMs: Number(mediaMs),
+                    perfMs: now(),
+                    rate: Number(rate) > 0 ? Number(rate) : 1,
+                    source: 'read'
+                });
+            } catch (e) {}
+        }
+        return true;
+    }
+
     function setVideoState(state) {
         try { feed?.setVideoState(state); } catch (e) {}
     }
@@ -1370,6 +1391,14 @@ export function createPlayer({
         },
         hasVideo() {
             return Boolean(videoFile);
+        },
+        followExternal,
+        usingExternalClock() {
+            return externalClock;
+        },
+        clearExternalClock() {
+            externalClock = false;
+            setVideoState(videoFile ? 'paused' : 'idle');
         },
         duration() {
             const d = video ? Number(video.duration) : NaN;

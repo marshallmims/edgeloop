@@ -1,0 +1,33 @@
+# Flatpak for the local EdgeLoop app. It serves the same files and connects
+# to a HereSphere or DeoVR timestamp server on the local network.
+# Build from the repository root, with the Freedesktop SDK and node extension:
+#   flatpak-builder --user --install --force-clean build packaging/flatpak/app.edgeloop.App.yml
+app-id: app.edgeloop.App
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node22
+command: edgeloop-app
+finish-args:
+  - --share=network
+  - --filesystem=home
+  - --socket=wayland
+  - --socket=fallback-x11
+modules:
+  - name: edgeloop
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/node22/bin
+      env:
+        NPM_CONFIG_LOGLEVEL: error
+    build-commands:
+      - install -Dm755 /usr/lib/sdk/node22/bin/node /app/bin/node
+      - mkdir -p /app/share/edgeloop
+      - cp -a . /app/share/edgeloop
+      - |
+        printf '%s\n' '#!/bin/sh' 'cd /app/share/edgeloop' 'exec /app/bin/node app/host.mjs' > /app/bin/edgeloop-app
+      - chmod 755 /app/bin/edgeloop-app
+    sources:
+      - type: dir
+        path: ../..

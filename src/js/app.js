@@ -632,7 +632,8 @@ function transportWaitingReason(now = Date.now()) {
     if (state.sessionStatus === 'PAUSED' && state.hrSignalPaused) return "WAITING FOR PULSE";
     if (!pulseIsFresh(now)) return "WAITING FOR PULSE";
     if ((state.activeMode === 'script' || state.teaseMode === 'script') && !scriptFeed?.hasTrack()) return 'WAITING FOR A SCRIPT';
-    if (state.activeMode === 'script' || state.teaseMode === 'script') {
+    const externalClock = player && typeof player.usingExternalClock === 'function' && player.usingExternalClock();
+    if ((state.activeMode === 'script' || state.teaseMode === 'script') && !externalClock) {
         const video = document.getElementById('playerVideo');
         if (video && video.readyState < 2) return 'WAITING FOR THE VIDEO';
     }
@@ -5942,6 +5943,85 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         });
         beatToggle.dispatchEvent(new Event('change'));
     }
+    startLocalApp();
+}
+
+const loadedAppScripts = { stroke: '', vib: '' };
+
+async function loadAppScript(which, file) {
+    if (!file || !file.id || !player) return;
+    if (loadedAppScripts[which] === file.id) return;
+    const response = await fetch(`/app/script?id=${encodeURIComponent(file.id)}`);
+    if (!response.ok) return;
+    const body = await response.json();
+    if (!body || typeof body.text !== 'string' || !body.name) return;
+    const blob = new File([body.text], body.name, { type: 'application/json' });
+    const ok = which === 'vib' ? await player.chooseSecondary(blob) : await player.choosePrimary(blob);
+    if (ok) loadedAppScripts[which] = file.id;
+}
+
+function startLocalApp() {
+    const card = document.getElementById('appSyncCard');
+    if (!card || !player) return;
+    fetch('/edgeloop-app.json', { cache: 'no-store' }).then((response) => {
+        if (!response.ok) return null;
+        return response.json();
+    }).then((info) => {
+        if (!info || info.app !== true) return;
+        card.classList.remove('hidden');
+        const hostInput = document.getElementById('appHeadsetHost');
+        const portInput = document.getElementById('appHeadsetPort');
+        const libraryInput = document.getElementById('appLibraryPath');
+        const status = document.getElementById('appSyncStatus');
+        const source = new EventSource('/app/events');
+        source.onmessage = (event) => {
+            let data = null;
+            try { data = JSON.parse(event.data); } catch (e) { return; }
+            if (!data || data.type !== 'sync') return;
+            if (hostInput && data.host && document.activeElement !== hostInput) hostInput.value = data.host;
+            if (portInput && data.port && document.activeElement !== portInput) portInput.value = String(data.port);
+            if (libraryInput && data.library && document.activeElement !== libraryInput) libraryInput.value = data.library;
+            if (player.usingExternalClock() || data.connected) {
+                player.followExternal({
+                    state: data.state === 'playing' ? 'playing' : 'paused',
+                    mediaMs: data.mediaMs,
+                    rate: data.rate
+                });
+            }
+            const video = data.name ? `Video: ${data.name}. ` : '';
+            const script = data.stroke ? `Script: ${data.stroke.name}. ` : (data.name ? 'No script with that name in the folder. ' : '');
+            const link = data.connected ? 'Headset connected. ' : (data.error || 'Not connected. ');
+            const count = data.libraryCount ? `${data.libraryCount} scripts in the folder. ` : '';
+            if (status) status.textContent = `${link}${count}${video}${script}Start the session here once a heart-rate monitor and a toy are connected. The headset only supplies the time.`;
+            if (data.scriptChanged) {
+                loadAppScript('stroke', data.stroke).catch(() => {});
+                loadAppScript('vib', data.vib).catch(() => {});
+            }
+        };
+        document.getElementById('appConnectBtn')?.addEventListener('click', () => {
+            fetch('/app/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ host: hostInput ? hostInput.value : '', port: portInput ? portInput.value : 23554 })
+            }).then((response) => response.json()).then((body) => {
+                if (status && body && body.error) status.textContent = body.error;
+            }).catch(() => {
+                if (status) status.textContent = 'Could not reach the local app.';
+            });
+        });
+        document.getElementById('appLibraryBtn')?.addEventListener('click', () => {
+            fetch('/app/library', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: libraryInput ? libraryInput.value : '' })
+            }).then((response) => response.json()).then((body) => {
+                if (status && body && body.error) status.textContent = body.error;
+                else if (status && body && body.ok) status.textContent = `${body.count} videos and scripts in that folder.`;
+            }).catch(() => {
+                if (status) status.textContent = 'Could not read that folder.';
+            });
+        });
+    }).catch(() => {});
 }
 
 // Boot Initialization
