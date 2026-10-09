@@ -2915,6 +2915,11 @@ document.addEventListener('keydown', (event) => {
         closeModal();
         return;
     }
+    if (event.code === 'Escape' && player && typeof player.immersive === 'function' && player.immersive()) {
+        event.preventDefault();
+        player.leaveImmersive();
+        return;
+    }
     const action = actionForKey(advancedSettings.keybinds, event.code);
     if (!action) return;
     event.preventDefault();
@@ -5669,6 +5674,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             hudBar: byId('hudBar'),
             hudPause: byId('hudPauseBtn'),
             hudStop: byId('hudStopBtn'),
+            hudExit: byId('hudExitBtn'),
             hudSeek: byId('hudSeek'),
             hudVolume: byId('hudVolume'),
             hudMute: byId('hudMute'),
