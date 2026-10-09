@@ -23,6 +23,14 @@ export function describeVideoFormats() {
     };
 }
 
+// Heat-map color. 0 is the quietest moment (green), 1 is the busiest (red).
+export function heatColor(amount) {
+    const t = Math.max(0, Math.min(1, Number(amount) || 0));
+    const hue = Math.round(120 * (1 - t));
+    const light = 42 + Math.round(t * 8);
+    return `hsl(${hue} 72% ${light}%)`;
+}
+
 // A link the wearer pasted or dropped. A direct file address can be given
 // to the video element. A page on a video site is not a file: those sites
 // do not hand the video to another page, so the link is refused.
