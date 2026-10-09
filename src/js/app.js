@@ -2697,6 +2697,16 @@ function renderModeDetail() {
     el.textContent = MODE_DETAILS[mode] || '';
 }
 
+let strokeBeforeScript = 'classic';
+
+function syncFollowScript() {
+    const row = document.getElementById('playerFollowRow');
+    const input = document.getElementById('playerFollowScript');
+    const has = Boolean(scriptFeed?.hasTrack());
+    if (row) row.classList.toggle('hidden', !has);
+    if (input) input.checked = has && state.teaseMode === 'script';
+}
+
 function highlightModeCard() {
     modeCards.forEach(c => {
         const mode = c.getAttribute('data-mode');
@@ -2716,6 +2726,7 @@ function highlightModeCard() {
             check?.classList.add('hidden');
         }
     });
+    syncFollowScript();
 }
 
 function applyModeSelection(mode, enabled) {
@@ -5723,11 +5734,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 player?.setOffset(offsetFor(storedScriptOffsets(), script.hash));
                 loadedClimaxMarks = climaxMarksFor(storedClimaxMarks(), script.hash);
                 player?.setClimaxMarks(loadedClimaxMarks);
-                const card = document.getElementById('scriptModeCard');
-                if (card) card.disabled = false;
-                card?.classList.remove('opacity-50');
-                const line = document.getElementById('scriptCardLine');
-                if (line) line.textContent = 'Choose Script. The stroker follows the file, and your pulse still limits it.';
+                if (state.teaseMode !== 'script') strokeBeforeScript = state.teaseMode || 'classic';
+                applyModeSelection('script');
                 checkReadiness();
             },
             onSecondary: (script) => {
@@ -5746,14 +5754,9 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 loadedScriptHash = '';
                 loadedClimaxMarks = [];
                 scriptFeed.setTrack(null);
-                if (state.teaseMode === 'script') applyModeSelection('classic');
-                const card = document.getElementById('scriptModeCard');
-                if (card) {
-                    card.disabled = true;
-                    card.classList.add('opacity-50');
-                }
-                const line = document.getElementById('scriptCardLine');
-                if (line) line.textContent = 'Load a video and its .funscript in the Player first.';
+                if (state.teaseMode === 'script') {
+                    applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic');
+                } else syncFollowScript();
                 checkReadiness();
             },
             onPlayRequest: () => playPauseBtn?.click(),
@@ -5831,6 +5834,22 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         });
     });
     renderStrokeModel();
+    document.getElementById('playerFollowScript')?.addEventListener('change', () => {
+        if (isRemoteViewer) {
+            syncFollowScript();
+            return;
+        }
+        const on = document.getElementById('playerFollowScript').checked;
+        if (on) {
+            if (state.teaseMode !== 'script') strokeBeforeScript = state.teaseMode || 'classic';
+            applyModeSelection('script');
+        } else if (state.teaseMode === 'script') {
+            applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic');
+        }
+        syncFollowScript();
+        if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode: state.teaseMode, enabled: true });
+        else syncTelemetry();
+    });
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => {
         document.getElementById('playerBody')?.classList.toggle('hidden');
     });
