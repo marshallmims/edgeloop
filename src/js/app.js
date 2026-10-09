@@ -2669,7 +2669,7 @@ const MODE_DETAILS = {
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
     nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.',
-    script: 'Your video and its funscript. Shorten and skip makes strokes shorter as you climb and skips them at the edge. Keep the script leaves the stroke shape alone and only turns the intensity down.'
+    script: 'Your video and its funscript. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down.'
 };
 
 // The paragraph above the cards follows the goal when one is on, including

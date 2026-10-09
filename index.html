@@ -130,8 +130,11 @@
               <button id="hudStopBtn" type="button" class="hud-btn pointer-events-auto absolute right-3 bottom-3 min-w-[64px] min-h-[64px] px-4 rounded-2xl bg-rose-700/90 hover:bg-rose-600 text-white font-black text-sm cursor-pointer shadow-xl">STOP</button>
             </div>
           </div>
-          <canvas id="playerHeatmap" width="640" height="64" class="hidden w-full h-16 rounded-lg border border-slate-800 bg-slate-950 cursor-crosshair touch-manipulation" aria-label="Heat map. Click to mark where you want to climax. Click a mark to remove it."></canvas>
-          <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Primary script. Red is the busiest, green is the quietest. Click to mark a climax, and click a mark to remove it.</p>
+          <canvas id="playerHeatmap" width="640" height="80" class="hidden w-full h-20 rounded-lg border border-slate-800 bg-slate-950 cursor-crosshair touch-manipulation" aria-label="Heat map. Click to mark where you want to climax. Click a mark to remove it."></canvas>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
+            <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Primary script. Green is a pause, red is fast. Click to mark a climax, and click a mark to remove it.</p>
+          </div>
 
           <!-- EdgeLoop's own control strip: native controls are off, so a
                key or a click on the picture can never resume it behind the
@@ -165,11 +168,10 @@
               <input id="playerFileInput" type="file" multiple accept=".funscript,.mp4,.m4v,.webm,.mkv,.mov,.ogv,video/mp4,video/webm,video/quicktime,video/ogg" class="hidden">
             </div>
             <p id="playerFormatHint" class="text-[9px] text-slate-400 leading-snug">MP4, M4V, WEBM, MKV, MOV, OGV, plus a .funscript for the stroker and a .v0.funscript for the other toy. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them.</p>
-            <div class="flex flex-wrap items-center gap-2">
-              <button id="playerPrimaryBtn" type="button" aria-pressed="false" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Primary script</button>
-              <button id="playerSecondaryBtn" type="button" aria-pressed="false" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Secondary script</button>
-              <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
-              <button id="playerClearScriptsBtn" type="button" disabled class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer opacity-40">Clear scripts</button>
+            <div class="flex gap-2">
+              <button id="playerPrimaryBtn" type="button" aria-pressed="false" class="flex-1 basis-0 min-w-0 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Primary script</button>
+              <button id="playerSecondaryBtn" type="button" aria-pressed="false" class="flex-1 basis-0 min-w-0 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Secondary script</button>
+              <button id="playerClearScriptsBtn" type="button" class="flex-1 basis-0 min-w-0 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Clear scripts</button>
               <input id="playerPrimaryInput" type="file" accept=".funscript,application/json" class="hidden">
               <input id="playerSecondaryInput" type="file" accept=".funscript,application/json" class="hidden">
             </div>
@@ -179,9 +181,12 @@
               <button id="playerVideoUrlBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Use link</button>
             </div>
             <p class="text-[9px] text-slate-500 leading-snug">A direct file address only. A page link from a video site cannot play here: those sites do not hand the file to another page. Download the video and choose the file, or paste an address ending in .mp4 or .webm.</p>
-            <label class="flex items-start gap-2 pt-1 min-h-[44px] cursor-pointer">
-              <input id="scriptContinueAfterVideo" type="checkbox" class="mt-0.5 w-5 h-5 shrink-0 accent-sky-500 cursor-pointer">
-              <span class="text-[10px] text-slate-300 leading-snug"><strong>Continue after the video.</strong> Off: the session is the length of the video. On: when the video ends, the session keeps going on the timer you already set, and the toys go back to Classic.</span>
+            <label class="flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Continue after the video.</strong> Off, the session ends with the video. On, it keeps going on your timer and the toys go back to Classic.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="scriptContinueAfterVideo" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
             </label>
             <div id="playerPackRow" class="hidden flex items-center gap-2 text-[10px]">
               <label for="playerPackSelect" class="text-slate-400 font-semibold">Script</label>
@@ -199,9 +204,12 @@
             </div>
             <ul id="playerToyNotes" class="text-[10px] text-slate-400 leading-snug space-y-0.5"></ul>
             <!-- The whole row is the switch's touch target, at least 44 px tall. -->
-            <label for="beatSyncToggle" class="flex items-start gap-2 pt-1.5 min-h-[44px] border-t border-slate-900 cursor-pointer">
-              <input id="beatSyncToggle" type="checkbox" class="mt-0.5 w-5 h-5 shrink-0 accent-sky-500 cursor-pointer">
-              <span class="text-[10px] text-slate-300 leading-snug"><strong>Beat sync on The Handy</strong> (firmware 4): stroke for stroke over Handy's cloud. Off: The Handy plays the script's rhythm only. Asks once before it first goes on.</span>
+            <label for="beatSyncToggle" class="flex items-center justify-between gap-3 pt-1.5 min-h-[44px] border-t border-slate-900 cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Beat sync on The Handy</strong> (firmware 4). On, each stroke goes through Handy's cloud. Off, The Handy follows the rhythm only. It asks once the first time you turn it on.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="beatSyncToggle" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
             </label>
             <p id="beatSyncRoute" class="text-[10px] text-slate-400 leading-snug"></p>
           </div>
@@ -213,7 +221,7 @@
                 <option value="keep">Keep the script</option>
               </select>
             </label>
-            <p class="text-[9px] text-slate-400 leading-snug">Shorten and skip is Cactus's limiter: strokes get shorter as you climb, and at the edge the toy skips strokes while the video keeps playing. Keep the script leaves each stroke's shape alone and only turns the intensity down. A hold in the script is a real stop. The next stroke starts at the intensity your pulse allows. A stroke that is already faster than that intensity is shortened only so the toy can finish it on time.</p>
+            <p class="text-[9px] text-slate-400 leading-snug"><strong>Shorten and skip:</strong> strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going. <strong>Keep the script:</strong> strokes stay the shape in the file. Your heart rate only turns them down. A pause in the file is a real stop.</p>
             <p id="playerPrivacy" class="text-[9px] text-slate-400 leading-snug">Your video and script stay on this device. EdgeLoop uploads neither. With Beat sync on The Handy switched on, The Handy is sent the next few seconds of stroke positions through Handy's cloud as it plays. File names and the video never leave this device; your heart rate goes only to a partner you link with Share Control.</p>
           <p class="text-[9px] text-slate-500 leading-snug">In a headset: run EdgeLoop on a PC, tablet or phone that reads your pulse. Inside the headset this page can play the video, but it cannot read a heart-rate monitor.</p>
         </div>
