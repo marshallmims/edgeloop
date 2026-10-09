@@ -2180,9 +2180,7 @@ function startOrResumeSession() {
     clearHrSignalPause();
     document.getElementById('rampdownNotice')?.classList.toggle('hidden', !resumingRampdown);
     renderTransport(state.sessionStatus);
-    if ((state.activeMode === 'script' || state.teaseMode === 'script') && player && !player.isPlaying()) {
-        player.play();
-    }
+    if (player && player.hasVideo() && !player.isPlaying()) player.play();
     if (state.activeMode === 'script') state.scriptReleasedAt = state.sessionSeconds;
     return true;
 }
@@ -5671,6 +5669,10 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             hudBar: byId('hudBar'),
             hudPause: byId('hudPauseBtn'),
             hudStop: byId('hudStopBtn'),
+            hudSeek: byId('hudSeek'),
+            hudVolume: byId('hudVolume'),
+            hudMute: byId('hudMute'),
+            climaxList: byId('playerClimaxList'),
             fileInput: byId('playerFileInput'),
             chooseBtn: byId('playerChooseBtn'),
             primaryBtn: byId('playerPrimaryBtn'),
