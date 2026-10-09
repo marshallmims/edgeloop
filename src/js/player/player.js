@@ -1419,6 +1419,8 @@ export function createPlayer({
             set(els.hudPhase, values.phase ?? '');
             set(els.hudEdges, values.edges ?? '0');
             set(els.hudTimer, values.timer ?? '00:00');
+            set(els.hudPrimary, values.primary ?? '0%');
+            set(els.hudSecondary, values.secondary ?? '0%');
             set(els.hudNotice, values.notice ?? '');
             els.hudNotice?.classList?.toggle('hidden', !values.notice);
             if (els.hudBar) els.hudBar.style.width = `${Math.max(0, Math.min(100, Number(values.allowance) || 0))}%`;

@@ -75,6 +75,10 @@
       opacity: 0;
       pointer-events: none;
     }
+    /* The top readout can stay while the bottom bar hides. */
+    #playerHud[data-pin="on"][data-idle="on"] .hud-info {
+      opacity: 1;
+    }
     .hud-chrome {
       transition: opacity 0.25s ease;
     }
@@ -159,19 +163,25 @@
         <div class="lg:col-span-7 flex flex-col gap-1.5 min-w-0">
           <div id="playerStage" data-theater="off" data-immersive="off" class="relative flex-1 min-h-[16rem] lg:min-h-0 bg-black rounded-xl border border-slate-800 overflow-hidden">
             <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
-            <!-- The HUD: only in theater and fullscreen. Its readouts hide
-                 after 4 s and come back on a tap or a mouse move; PAUSE and
-                 STOP only fade, and take a press at any time. -->
-            <div id="playerHud" data-idle="off" class="hidden absolute inset-0">
-              <div class="hud-chrome hud-info absolute top-0 inset-x-0 p-3 flex justify-between items-start gap-3 bg-gradient-to-b from-black/70 to-transparent text-white pointer-events-none">
-                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <span class="text-3xl font-black font-mono text-rose-400"><span id="hudHr">--</span><span class="text-xs text-slate-300 ml-1">BPM</span></span>
-                  <span class="text-[11px] font-mono text-purple-200">mark <span id="hudMark">--</span></span>
-                  <span id="hudPhase" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-950/90 border border-sky-700 text-sky-200 font-mono"></span>
+            <!-- The HUD: only in theater and fullscreen. The bottom bar hides
+                 after 4 s and comes back on a tap or a mouse move. The top
+                 readout stays when Keep the readout up is on. -->
+            <div id="playerHud" data-idle="off" data-pin="on" class="hidden absolute inset-0">
+              <div class="hud-chrome hud-info absolute top-0 inset-x-0 p-3 flex flex-col gap-1 bg-gradient-to-b from-black/70 to-transparent text-white pointer-events-none">
+                <div class="flex justify-between items-start gap-3">
+                  <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span class="text-3xl font-black font-mono text-rose-400"><span id="hudHr">--</span><span class="text-xs text-slate-300 ml-1">BPM</span></span>
+                    <span class="text-[11px] font-mono text-purple-200">mark <span id="hudMark">--</span></span>
+                    <span id="hudPhase" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-950/90 border border-sky-700 text-sky-200 font-mono"></span>
+                  </div>
+                  <div class="text-right font-mono">
+                    <div class="text-xl font-bold" id="hudTimer">00:00</div>
+                    <div class="text-[11px] text-amber-300">edges <span id="hudEdges">0</span></div>
+                  </div>
                 </div>
-                <div class="text-right font-mono">
-                  <div class="text-xl font-bold" id="hudTimer">00:00</div>
-                  <div class="text-[11px] text-amber-300">edges <span id="hudEdges">0</span></div>
+                <div class="flex gap-4 text-[11px] font-mono text-slate-200">
+                  <span>Primary <span id="hudPrimary" class="text-rose-300 font-bold">0%</span></span>
+                  <span>Secondary <span id="hudSecondary" class="text-purple-300 font-bold">0%</span></span>
                 </div>
               </div>
               <p id="hudNotice" class="hud-chrome hidden absolute top-20 inset-x-3 text-center text-[11px] font-bold text-rose-100 bg-rose-950/90 border border-rose-700 rounded-lg px-2 py-1 pointer-events-none"></p>
@@ -251,6 +261,13 @@
               <span class="text-[10px] text-slate-300 leading-snug"><strong>Follow the script.</strong> On, the stroker plays the funscript and your pulse limits it. Off, the stroke you picked in the mode row runs instead.</span>
               <span class="relative inline-flex shrink-0">
                 <input id="playerFollowScript" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+            <label class="flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Keep the readout up.</strong> On, heart rate, edges, and both toys stay on the picture. Play, pause, and the bar still hide.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="playerHudPin" type="checkbox" class="sr-only peer" checked>
                 <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
               </span>
             </label>
