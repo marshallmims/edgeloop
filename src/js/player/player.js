@@ -31,6 +31,7 @@ import {
     formatMediaTime,
     formatOffset,
     editClimaxMarks,
+    heatColor,
     describeMediaError,
     videoEventAction,
     isAudible
@@ -97,6 +98,7 @@ export function createPlayer({
     let secondaryToken = 0;
     let secondaryPinned = false;
     let climaxMarks = [];
+    let heatmapView = 'primary';
     let refused = '';
     let edgeHold = false;
     let waitingSince = null;
@@ -332,8 +334,29 @@ export function createPlayer({
         }
     }
 
+    function sameVideo(a, b) {
+        if (!a || !b) return false;
+        if (a.remote || b.remote) return Boolean(a.remote && b.remote && a.name === b.name);
+        return fileKey(a) === fileKey(b);
+    }
+
+    function unloadScripts() {
+        heatmapView = 'primary';
+        if (scriptFile || script) clearScript('');
+        if (secondaryFile || secondary) clearSecondary('');
+        renderHeatmapModes();
+    }
+
+    function forgetScripts() {
+        picked = picked.filter((f) => extensionOf(f.name) !== 'funscript');
+        packName = null;
+        unloadScripts();
+    }
+
     function setVideoFile(file) {
         if (file === videoFile) return;
+        const replacing = Boolean(videoFile) && Boolean(file) && !sameVideo(videoFile, file);
+        if (replacing) unloadScripts();
         stopClock();
         edgeHold = false;
         if (videoUrl) {
@@ -365,11 +388,16 @@ export function createPlayer({
             setError(block);
             return false;
         }
+        const replacing = Boolean(videoFile) && !(videoFile.remote && videoFile.name === href);
         stopClock();
         edgeHold = false;
         if (videoUrl) {
             try { urls.revokeObjectURL(videoUrl); } catch (e) {}
             videoUrl = null;
+        }
+        if (replacing) {
+            forgetScripts();
+            renderPairing(pairFiles(picked));
         }
         remoteVideo = true;
         videoFile = { name: href, remote: true };
@@ -485,7 +513,9 @@ export function createPlayer({
         };
         setError('');
         call(handlers, 'onSecondary', { ...secondary, name: file.name });
+        renderHeatmapModes();
         renderPanel();
+        drawHeatmap();
         return true;
     }
 
@@ -602,6 +632,9 @@ export function createPlayer({
         packName = null;
         await applyPairing();
         if (scriptFile !== file) await loadScript(file);
+        heatmapView = 'primary';
+        renderHeatmapModes();
+        drawHeatmap();
         return true;
     }
 
@@ -615,9 +648,65 @@ export function createPlayer({
         setError('');
         secondaryPinned = true;
         const ok = await loadSecondary(file, { pinned: true });
+        if (ok) heatmapView = 'secondary';
+        renderPairing(pairFiles(picked));
+        renderHeatmapModes();
+        renderPanel();
+        drawHeatmap();
+        return ok;
+    }
+
+    function seriesOf(which) {
+        const loaded = which === 'secondary' ? secondary : script;
+        const series = loaded && loaded.stats ? loaded.stats.intensityPerSecond : null;
+        return series && series.length ? series : null;
+    }
+
+    function renderHeatmapModes() {
+        const hasPrimary = Boolean(script);
+        const hasSecondary = Boolean(secondary);
+        if (!hasSecondary && heatmapView === 'secondary') heatmapView = 'primary';
+        if (!(hasPrimary && hasSecondary) && heatmapView === 'both') heatmapView = hasSecondary ? 'secondary' : 'primary';
+        const press = (btn, on) => {
+            if (!btn) return;
+            btn.classList?.toggle('bg-slate-800', !on);
+            btn.classList?.toggle('bg-sky-800', on);
+            btn.classList?.toggle('border', on);
+            btn.classList?.toggle('border-sky-400', on);
+            btn.setAttribute?.('aria-pressed', on ? 'true' : 'false');
+        };
+        if (els.primaryBtn) els.primaryBtn.textContent = hasPrimary ? 'Primary' : 'Primary script';
+        if (els.secondaryBtn) els.secondaryBtn.textContent = hasSecondary ? 'Secondary' : 'Secondary script';
+        press(els.primaryBtn, hasPrimary && (heatmapView === 'primary' || heatmapView === 'both'));
+        press(els.secondaryBtn, hasSecondary && (heatmapView === 'secondary' || heatmapView === 'both'));
+        press(els.bothBtn, heatmapView === 'both');
+        els.bothBtn?.classList?.toggle('hidden', !(hasPrimary && hasSecondary));
+        if (els.clearScriptsBtn) {
+            els.clearScriptsBtn.disabled = !(hasPrimary || hasSecondary);
+            els.clearScriptsBtn.classList?.toggle('opacity-40', !(hasPrimary || hasSecondary));
+        }
+        if (els.heatmapHint && (videoFile || script || secondary)) {
+            const lead = heatmapView === 'both'
+                ? 'Both scripts. The bars are the primary and the white line is the secondary.'
+                : heatmapView === 'secondary'
+                    ? 'Secondary script.'
+                    : 'Primary script.';
+            els.heatmapHint.textContent = `${lead} Red is the busiest, green is the quietest. Click to mark a climax, and click a mark to remove it.`;
+        }
+    }
+
+    function clearScripts() {
+        const block = call(handlers, 'canChangeFiles');
+        if (typeof block === 'string' && block) {
+            setError(block);
+            return false;
+        }
+        forgetScripts();
+        setError('');
         renderPairing(pairFiles(picked));
         renderPanel();
-        return ok;
+        drawHeatmap();
+        return true;
     }
 
     function mapDurationMs() {
@@ -647,18 +736,11 @@ export function createPlayer({
         ctx.clearRect(0, 0, w, h);
         ctx.fillStyle = '#020617';
         ctx.fillRect(0, 0, w, h);
-        const series = script && script.stats ? script.stats.intensityPerSecond : null;
-        if (series && series.length) {
-            let max = 1;
-            for (const v of series) if (v > max) max = v;
-            const barW = w / series.length;
-            for (let i = 0; i < series.length; i++) {
-                const heat = series[i] / max;
-                const bh = heat * (h - 4 * dpr);
-                ctx.fillStyle = `rgba(244, 114, 182, ${0.28 + 0.72 * heat})`;
-                ctx.fillRect(i * barW, h - bh, Math.max(dpr, barW - dpr), bh);
-            }
-        }
+        const showSecondary = heatmapView === 'secondary' || heatmapView === 'both';
+        const showPrimary = heatmapView !== 'secondary';
+        if (showPrimary) paintSeries(ctx, seriesOf('primary'), dur, w, h, dpr, 'bars');
+        if (showSecondary) paintSeries(ctx, seriesOf('secondary'), dur, w, h, dpr, heatmapView === 'both' ? 'line' : 'bars');
+        renderHeatmapModes();
         for (const mark of climaxMarks) {
             const x = (mark / dur) * w;
             ctx.fillStyle = '#fbbf24';
@@ -690,6 +772,33 @@ export function createPlayer({
         call(handlers, 'onClimax', climaxMarks.slice());
     }
 
+    function paintSeries(ctx, series, dur, w, h, dpr, mode) {
+        if (!series || !series.length || dur <= 0) return;
+        let max = 1;
+        for (const v of series) if (v > max) max = v;
+        if (mode === 'line') {
+            ctx.beginPath();
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = Math.max(1.5, dpr * 1.75);
+            for (let i = 0; i < series.length; i++) {
+                const x = ((i + 0.5) * 1000 / dur) * w;
+                const y = h - (series[i] / max) * (h - 4 * dpr);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            return;
+        }
+        for (let i = 0; i < series.length; i++) {
+            const heat = series[i] / max;
+            const x = (i * 1000 / dur) * w;
+            const barW = Math.max(dpr, (1000 / dur) * w);
+            const bh = Math.max(dpr * 2, heat * (h - 4 * dpr));
+            ctx.fillStyle = heatColor(heat);
+            ctx.fillRect(x, h - bh, barW, bh);
+        }
+    }
+
     async function addFiles(list) {
         const incoming = Array.from(list || []).filter((f) => f && typeof f.name === 'string');
         if (!incoming.length) return false;
@@ -700,21 +809,16 @@ export function createPlayer({
         }
         setError('');
         // A file of the same name replaces the one picked before it. A new
-        // video replaces the one before it, and takes the scripts named
-        // after that one along: one video plays at a time, and an old
-        // script must not be paired with the new video by default.
+        // video replaces the one before it and drops the scripts already
+        // picked: one video plays at a time. Scripts in this same drop stay.
         const names = new Set(incoming.map((f) => f.name.toLowerCase()));
         const known = new Set(incoming.map(fileKey));
         const isVideoName = (name) => VIDEO_EXTENSIONS.includes(extensionOf(name));
-        const stems = incoming.some((f) => isVideoName(f.name))
-            ? picked.filter((f) => isVideoName(f.name)).map((f) => stemOf(f.name))
-            : [];
-        const belongsToOld = (f) => isVideoName(f.name)
-            ? stems.length > 0
-            : stems.some((stem) => {
-                const s = stemOf(f.name);
-                return s === stem || s.startsWith(`${stem}.`);
-            });
+        const incomingVideo = incoming.some((f) => isVideoName(f.name));
+        // A different video starts clean: the scripts already picked belonged
+        // to the video before it. Scripts in this same drop stay, because
+        // they are concatenated after this filter.
+        const belongsToOld = (f) => incomingVideo && (isVideoName(f.name) || extensionOf(f.name) === 'funscript');
         picked = picked
             .filter((f) => !names.has(f.name.toLowerCase()) && !known.has(fileKey(f)) && !belongsToOld(f))
             .concat(incoming)
@@ -826,8 +930,26 @@ export function createPlayer({
         if (els.chooseBtn) els.chooseBtn.textContent = formats.button;
         if (els.formatHint) els.formatHint.textContent = formats.hint;
         els.chooseBtn?.addEventListener('click', () => els.fileInput?.click());
-        els.primaryBtn?.addEventListener('click', () => els.primaryInput?.click());
-        els.secondaryBtn?.addEventListener('click', () => els.secondaryInput?.click());
+        els.primaryBtn?.addEventListener('click', () => {
+            if (!script) els.primaryInput?.click();
+            else {
+                heatmapView = 'primary';
+                drawHeatmap();
+            }
+        });
+        els.secondaryBtn?.addEventListener('click', () => {
+            if (!secondary) els.secondaryInput?.click();
+            else {
+                heatmapView = 'secondary';
+                drawHeatmap();
+            }
+        });
+        els.bothBtn?.addEventListener('click', () => {
+            if (!script || !secondary) return;
+            heatmapView = 'both';
+            drawHeatmap();
+        });
+        els.clearScriptsBtn?.addEventListener('click', () => clearScripts());
         els.primaryInput?.addEventListener('change', (e) => {
             const file = e.target && e.target.files && e.target.files[0];
             if (file) choosePrimary(file);
@@ -965,6 +1087,10 @@ export function createPlayer({
         addFiles,
         choosePrimary,
         chooseSecondary,
+        clearScripts,
+        heatmapView() {
+            return heatmapView;
+        },
         clearFiles,
         // The video follows the session. play() resolves { ok, reason }.
         async play() {

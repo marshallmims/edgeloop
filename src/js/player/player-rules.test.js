@@ -31,7 +31,8 @@ import {
     BEAT_SYNC_CONSENT_TEXT,
     MAX_REMEMBERED_OFFSETS,
     describeVideoFormats,
-    classifyVideoLink
+    classifyVideoLink,
+    heatColor
 } from './player-rules.js';
 import { stats } from './script-track.js';
 import { clampScriptOffset } from './script-governor.js';
@@ -367,6 +368,9 @@ describe('video files and links', () => {
             assert.match(formats.hint, new RegExp(name));
         }
         assert.match(formats.hint, /funscript/);
+        assert.match(heatColor(0), /^hsl\(120 /);
+        assert.match(heatColor(1), /^hsl\(0 /);
+        assert.match(heatColor(0.5), /^hsl\(60 /);
         assert.match(formats.hint, /MP4 \(H\.264\) and WebM/);
     });
 

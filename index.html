@@ -131,7 +131,7 @@
             </div>
           </div>
           <canvas id="playerHeatmap" width="640" height="64" class="hidden w-full h-16 rounded-lg border border-slate-800 bg-slate-950 cursor-crosshair touch-manipulation" aria-label="Heat map. Click to mark where you want to climax. Click a mark to remove it."></canvas>
-          <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Brighter bars are where the script moves more. Click the map to mark a climax, and click a mark to remove it. Add as many as you want. The toys ramp up to each mark, then follow your pulse again.</p>
+          <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Primary script. Red is the busiest, green is the quietest. Click to mark a climax, and click a mark to remove it.</p>
 
           <!-- EdgeLoop's own control strip: native controls are off, so a
                key or a click on the picture can never resume it behind the
@@ -166,12 +166,14 @@
             </div>
             <p id="playerFormatHint" class="text-[9px] text-slate-400 leading-snug">MP4, M4V, WEBM, MKV, MOV, OGV, plus a .funscript for the stroker and a .v0.funscript for the other toy. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them.</p>
             <div class="flex flex-wrap items-center gap-2">
-              <button id="playerPrimaryBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Primary script</button>
-              <button id="playerSecondaryBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Secondary script</button>
+              <button id="playerPrimaryBtn" type="button" aria-pressed="false" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Primary script</button>
+              <button id="playerSecondaryBtn" type="button" aria-pressed="false" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Secondary script</button>
+              <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
+              <button id="playerClearScriptsBtn" type="button" disabled class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer opacity-40">Clear scripts</button>
               <input id="playerPrimaryInput" type="file" accept=".funscript,application/json" class="hidden">
               <input id="playerSecondaryInput" type="file" accept=".funscript,application/json" class="hidden">
             </div>
-            <p class="text-[9px] text-slate-500 leading-snug">The primary is the stroker (.funscript). The secondary is the other toy (.v0.funscript). Drop them with the video, or choose each file here. With no secondary file, the other toy follows the primary script.</p>
+            <p class="text-[9px] text-slate-500 leading-snug">The primary is the stroker (.funscript). The secondary is the other toy (.v0.funscript). Once a script is loaded, its button switches the heat map instead of asking for another file. Both draws them together. Clear scripts drops the scripts and keeps the video. Choosing a different video drops the scripts too.</p>
             <div class="flex flex-wrap items-center gap-2 pt-1">
               <input id="playerVideoUrl" type="url" inputmode="url" placeholder="https://…/video.mp4" aria-label="Direct video file address" class="flex-1 min-h-[2.75rem] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
               <button id="playerVideoUrlBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Use link</button>

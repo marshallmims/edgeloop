@@ -5650,6 +5650,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             primaryInput: byId('playerPrimaryInput'),
             secondaryBtn: byId('playerSecondaryBtn'),
             secondaryInput: byId('playerSecondaryInput'),
+            bothBtn: byId('playerBothBtn'),
+            clearScriptsBtn: byId('playerClearScriptsBtn'),
             heatmap: byId('playerHeatmap'),
             heatmapHint: byId('playerHeatmapHint'),
             clearBtn: byId('playerClearBtn'),

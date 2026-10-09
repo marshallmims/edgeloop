@@ -103,6 +103,13 @@ function setup({ status = 'IDLE', coupled = true, block = null } = {}) {
         offsetValue: new FakeEl(),
         error: new FakeEl(),
         pairList: new FakeEl(),
+        primaryBtn: new FakeEl(),
+        secondaryBtn: new FakeEl(),
+        bothBtn: new FakeEl(),
+        clearScriptsBtn: new FakeEl(),
+        primaryInput: new FakeEl(),
+        secondaryInput: new FakeEl(),
+        heatmapHint: new FakeEl(),
         fullscreenBtn: new FakeEl(),
         theaterBtn: new FakeEl()
     };
@@ -303,6 +310,37 @@ describe('player: files', () => {
         assert.equal(s.player.secondary().name, 'Movie.v0.funscript');
         assert.equal(s.player.secondary().meta.actions, 3);
         assert.ok(s.calls.some((c) => c.secondary));
+    });
+
+    it('switches the heat map once a script is loaded, and clears scripts without the video', async () => {
+        const s = setup();
+        let picks = 0;
+        s.els.primaryInput.click = () => { picks += 1; };
+        s.els.secondaryInput.click = () => { picks += 1; };
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4'), fakeFile('Movie.funscript', SCRIPT)]);
+        await s.player.chooseSecondary(fakeFile('other-toy.funscript', SCRIPT));
+        s.els.primaryBtn.click();
+        s.els.secondaryBtn.click();
+        assert.equal(picks, 0);
+        assert.equal(s.player.heatmapView(), 'secondary');
+        s.els.bothBtn.click();
+        assert.equal(s.player.heatmapView(), 'both');
+        assert.equal(s.player.clearScripts(), true);
+        assert.equal(s.player.script(), null);
+        assert.equal(s.player.secondary(), null);
+        assert.equal(s.player.hasVideo(), true);
+        s.els.primaryBtn.click();
+        assert.equal(picks, 1);
+    });
+
+    it('drops the loaded scripts when a different video is chosen', async () => {
+        const s = setup();
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4'), fakeFile('Movie.funscript', SCRIPT)]);
+        await s.player.chooseSecondary(fakeFile('other-toy.funscript', SCRIPT));
+        await s.player.addFiles([fakeFile('Other.mp4', 'y', 'video/mp4'), fakeFile('Other.funscript', SCRIPT)]);
+        assert.equal(s.player.secondary(), null);
+        assert.equal(s.player.script().meta.actions, 3);
+        assert.equal(s.player.hasVideo(), true);
     });
 
     it('keeps a secondary chosen on its own when the drop has no .v0', async () => {
