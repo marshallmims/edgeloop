@@ -5672,6 +5672,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             playBtn: byId('playerPlayBtn'),
             muteBtn: byId('playerMuteBtn'),
             seek: byId('playerSeek'),
+            seekHeat: byId('playerSeekHeat'),
+            markBtn: byId('playerMarkBtn'),
             time: byId('playerTime'),
             offsetMinus: byId('playerOffsetMinus'),
             offsetPlus: byId('playerOffsetPlus'),

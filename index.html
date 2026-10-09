@@ -26,6 +26,38 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+    /* The scrub track is the heat map. The thumb stays, the native fill does not. */
+    .player-seek {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+    }
+    .player-seek::-webkit-slider-runnable-track {
+      height: 12px;
+      background: transparent;
+    }
+    .player-seek::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      margin-top: -2px;
+      border-radius: 9999px;
+      background: #f8fafc;
+      border: 2px solid #0f172a;
+    }
+    .player-seek::-moz-range-track {
+      height: 12px;
+      background: transparent;
+      border: none;
+    }
+    .player-seek::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 9999px;
+      background: #f8fafc;
+      border: 2px solid #0f172a;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-2.5 sm:p-5 font-sans antialiased select-none flex flex-col justify-between">
@@ -133,7 +165,7 @@
           <canvas id="playerHeatmap" width="640" height="80" class="hidden w-full h-20 rounded-lg border border-slate-800 bg-slate-950 cursor-crosshair touch-manipulation" aria-label="Heat map. Click to mark where you want to climax. Click a mark to remove it."></canvas>
           <div class="flex flex-wrap items-center gap-2">
             <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
-            <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Primary script. Green is a pause, red is fast. Click to mark a climax, and click a mark to remove it.</p>
+            <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Primary script. Green is a pause, red is fast. Scrub to a spot and press Mark here. Marks for this script stay on this device.</p>
           </div>
 
           <!-- EdgeLoop's own control strip: native controls are off, so a
@@ -142,8 +174,12 @@
                in Script mode. -->
           <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
             <button id="playerPlayBtn" type="button" class="min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
-            <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="flex-1 min-w-[6rem] accent-sky-500 h-11 cursor-pointer">
+            <div class="relative flex-1 min-w-[6rem] h-11 flex items-center">
+              <canvas id="playerSeekHeat" width="320" height="12" class="absolute inset-x-0 h-3 rounded bg-slate-950 pointer-events-none" aria-hidden="true"></canvas>
+              <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="player-seek relative w-full h-11 cursor-pointer">
+            </div>
             <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
+            <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Mark here</button>
             <button id="playerMuteBtn" type="button" class="min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Mute</button>
           </div>
           <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
