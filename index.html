@@ -168,6 +168,10 @@
               <button id="playerVideoUrlBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Use link</button>
             </div>
             <p class="text-[9px] text-slate-500 leading-snug">A direct file address only. A page link from a video site cannot play here: those sites do not hand the file to another page. Download the video and choose the file, or paste an address ending in .mp4 or .webm.</p>
+            <label class="flex items-start gap-2 pt-1 min-h-[44px] cursor-pointer">
+              <input id="scriptContinueAfterVideo" type="checkbox" class="mt-0.5 w-5 h-5 shrink-0 accent-sky-500 cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Continue after the video.</strong> Off: the session is the length of the video. On: when the video ends, the session keeps going on the timer you already set, and the toys go back to Classic.</span>
+            </label>
             <div id="playerPackRow" class="hidden flex items-center gap-2 text-[10px]">
               <label for="playerPackSelect" class="text-slate-400 font-semibold">Script</label>
               <select id="playerPackSelect" class="flex-1 min-h-[44px] bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-200"></select>

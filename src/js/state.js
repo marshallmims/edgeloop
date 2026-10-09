@@ -75,6 +75,8 @@ export const state = {
     // and borrows this stroke. Neither is restored on reload on purpose.
     teaseMode: 'classic',
     scriptReleasedAt: null,
+    scriptVideoClock: false,
+    configuredTargetSeconds: 0,
     gameMode: null,
     lastHrTimestamp: Date.now(),
     // Heart-rate watchdog (hr-watchdog.js): last verdict, whether packets
@@ -228,6 +230,7 @@ export const advancedSettings = {
     scriptInvert: false,
     scriptSecondChannel: 'hr',
     scriptVideoEnd: 'stop',
+    scriptContinueAfterVideo: false,
     // Autoblow VacuGlide 2. Speed only. The token lives in its own store.
     vacuglideRole: 'primary',
     vacuglideMaxCap: 100,

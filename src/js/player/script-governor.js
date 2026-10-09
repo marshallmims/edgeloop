@@ -206,6 +206,35 @@ export function scriptSecondary(allowance, secondChannel = DEFAULT_SECOND_CHANNE
     return roundSpeed(clampPercent(allowance) * SECONDARY_SHARE);
 }
 
+// How hard the primary script is moving right now, 0–1. A hold is 0.
+// 40 %/s of the script's own range is already a busy stroke.
+export function scriptMotion(meanSpeed) {
+    const speed = Number(meanSpeed);
+    if (!Number.isFinite(speed) || speed <= 0) return 0;
+    return Math.max(0, Math.min(1, speed / 40));
+}
+
+// No second funscript. The secondary toy complements the primary script:
+// a hold is a real stop, a moving stroke is the pulse allowance, gentler
+// when the script itself is slow and full when that stretch is busy.
+export function complementSecondary(allowance, motion) {
+    const a = clampPercent(allowance);
+    const m = Math.max(0, Math.min(1, Number(motion) || 0));
+    if (a <= 0 || m <= 0) return 0;
+    return roundSpeed(a * (0.4 + 0.6 * m));
+}
+
+// Default: the session is the video. Continue-after keeps the timer the
+// wearer already set, and the video ending does not end the session.
+export function sessionTargetForVideo({ continueAfter = false, videoSeconds = 0, configuredSeconds = 0 } = {}) {
+    const configured = Number.isFinite(configuredSeconds) && configuredSeconds > 0 ? configuredSeconds : 0;
+    const video = Number(videoSeconds);
+    if (continueAfter || !Number.isFinite(video) || video <= 0) {
+        return { seconds: configured, fromVideo: false };
+    }
+    return { seconds: Math.max(1, Math.ceil(video)), fromVideo: true };
+}
+
 // ---- The allowance ----------------------------------------------------------
 
 function clampPercent(value) {
