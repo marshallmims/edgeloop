@@ -12,6 +12,7 @@ import {
     toySpeedLimit,
     describeMediaError,
     scriptWaitingReason,
+    describePlayerHardwareWait,
     videoCoupled,
     videoEventAction,
     isAudible,
@@ -180,6 +181,18 @@ describe('describeMediaError', () => {
         assert.match(describeMediaError(2), /disk/);
         assert.match(describeMediaError(99), /error/);
         assert.match(describeMediaError(null, { typeSupported: false }), /not supported/);
+    });
+});
+
+describe('the player says why Play did nothing', () => {
+    it('names the monitor, the toy, or both, and stays quiet otherwise', () => {
+        assert.match(describePlayerHardwareWait('WAITING FOR HR SENSOR & TOY'), /heart-rate monitor and a toy/);
+        assert.match(describePlayerHardwareWait('WAITING FOR HR SENSOR'), /heart-rate monitor/);
+        assert.doesNotMatch(describePlayerHardwareWait('WAITING FOR HR SENSOR'), /and a toy/);
+        assert.match(describePlayerHardwareWait('WAITING FOR TOY CONNECTION'), /Connect a toy/);
+        assert.match(describePlayerHardwareWait('WAITING FOR PULSE'), /heart-rate reading/);
+        assert.equal(describePlayerHardwareWait('WAITING FOR A SCRIPT'), '');
+        assert.equal(describePlayerHardwareWait(null), '');
     });
 });
 
