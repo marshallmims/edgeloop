@@ -238,13 +238,27 @@ export function secondaryFromScript(position, allowance) {
 // charge again. Several marks: the strongest one wins. A mark does not end
 // the session.
 export const CLIMAX_RAMP_MS = 45000;
-export const CLIMAX_PEAK_MS = 8000;
+export const CLIMAX_PEAK_MS = 20000;
+export const CLIMAX_EASE_MS = 15000;
+export const MIN_CLIMAX_SECONDS = 5;
+export const MAX_CLIMAX_SECONDS = 180;
+export const DEFAULT_CLIMAX_SECONDS = 20;
 
-export function climaxApproach(scriptMs, marks, { rampMs = CLIMAX_RAMP_MS, peakMs = CLIMAX_PEAK_MS } = {}) {
+export function clampClimaxSeconds(value, fallback = DEFAULT_CLIMAX_SECONDS) {
+    const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(MIN_CLIMAX_SECONDS, Math.min(MAX_CLIMAX_SECONDS, Math.round(n)));
+}
+
+// How far a climax mark has taken over, 0–1. The toys climb over `rampMs`
+// up to the mark, hold at full for `peakMs`, then ease back over `easeMs`.
+// Several marks: the strongest one wins. A mark does not end the session.
+export function climaxApproach(scriptMs, marks, { rampMs = CLIMAX_RAMP_MS, peakMs = CLIMAX_PEAK_MS, easeMs = CLIMAX_EASE_MS } = {}) {
     const t = Number(scriptMs);
     if (!Number.isFinite(t) || !Array.isArray(marks) || marks.length === 0) return 0;
     const ramp = Number(rampMs) > 0 ? Number(rampMs) : CLIMAX_RAMP_MS;
     const peak = Number(peakMs) > 0 ? Number(peakMs) : 0;
+    const ease = Number(easeMs) > 0 ? Number(easeMs) : 0;
     let best = 0;
     for (const raw of marks) {
         const mark = Number(raw);
@@ -253,16 +267,18 @@ export function climaxApproach(scriptMs, marks, { rampMs = CLIMAX_RAMP_MS, peakM
         if (dist > ramp) continue;
         if (dist >= 0) best = Math.max(best, 1 - dist / ramp);
         else if (-dist <= peak) best = 1;
+        else if (ease > 0 && -dist <= peak + ease) best = Math.max(best, 1 - ((-dist - peak) / ease));
     }
     return Math.max(0, Math.min(1, best));
 }
 
-// Blend the pulse allowance toward full as a climax mark gets close. A hard
-// stop (allowance 0: skip, stall, STOP) stays a stop.
+// Blend the pulse allowance toward a full climax. At the hold itself the
+// toys go full even if the pulse limiter had stopped. Outside a climax, a
+// real stop stays a stop.
 export function boostedAllowance(pulseAllowance, approach) {
     const a = clampPercent(pulseAllowance);
     const k = Math.max(0, Math.min(1, Number(approach) || 0));
-    if (a <= 0 || k <= 0) return roundSpeed(a);
+    if (k <= 0) return roundSpeed(a);
     return roundSpeed(a + (100 - a) * k);
 }
 

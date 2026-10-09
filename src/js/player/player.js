@@ -199,6 +199,12 @@ export function createPlayer({
             }
             if (Number.isFinite(cur)) els.seek.value = String(Math.round(cur * 10) / 10);
         }
+        if (els.seekThumb) {
+            const bar = barDurationMs();
+            const at = seeking && els.seek && Number.isFinite(Number(els.seek.value)) ? Number(els.seek.value) * 1000 : (Number.isFinite(cur) ? cur * 1000 : 0);
+            const pct = bar > 0 ? Math.max(0, Math.min(100, (at / bar) * 100)) : 0;
+            els.seekThumb.style.left = `${pct}%`;
+        }
         if (els.playBtn) {
             const playing = !video.paused;
             els.playBtn.textContent = playing ? 'Pause' : 'Play';
@@ -691,8 +697,8 @@ export function createPlayer({
                 : heatmapView === 'secondary'
                     ? 'Secondary script.'
                     : 'Primary script.';
-            const saved = climaxMarks.length ? ` ${climaxMarks.length} mark${climaxMarks.length === 1 ? '' : 's'} saved on this device for this script.` : ' Marks for this script stay on this device.';
-            els.heatmapHint.textContent = `${lead} Green is a pause, red is fast. Scrub to a spot and press Mark here.${saved}`;
+            const saved = climaxMarks.length ? ` ${climaxMarks.length} climax${climaxMarks.length === 1 ? '' : 'es'} saved on this device for this script.` : '';
+            els.heatmapHint.textContent = `${lead} Green is a pause, red is fast. Climax here drives the toys up to a climax at the dot. They hold for the seconds you set, then ease back into the script.${saved}`;
         }
     }
 
@@ -710,6 +716,12 @@ export function createPlayer({
         return true;
     }
 
+    function barDurationMs() {
+        const videoMs = video && Number.isFinite(Number(video.duration)) && Number(video.duration) > 0 ? Number(video.duration) * 1000 : 0;
+        if (videoMs > 0) return videoMs;
+        return mapDurationMs();
+    }
+
     function mapDurationMs() {
         const videoMs = video && Number.isFinite(Number(video.duration)) && Number(video.duration) > 0 ? Number(video.duration) * 1000 : 0;
         const scriptMs = script && script.meta && Number.isFinite(script.meta.durationMs) ? script.meta.durationMs : 0;
@@ -722,8 +734,7 @@ export function createPlayer({
         const show = dur > 0 && Boolean(videoFile || script);
         els.heatmapHint?.classList?.toggle('hidden', !show);
         els.markBtn?.classList?.toggle('hidden', !show);
-        paintHeatCanvas(els.heatmap, { show, dur, playhead: true, fallbackH: 80 });
-        paintHeatCanvas(els.seekHeat, { show, dur, playhead: false, fallbackH: 12 });
+        paintHeatCanvas(els.seekHeat, { show, dur: barDurationMs(), playhead: false, fallbackH: 44 });
         if (show) renderHeatmapModes();
         updateMarkButton();
     }
@@ -775,12 +786,12 @@ export function createPlayer({
         if (!show) return;
         const t = mediaNowMs();
         const near = climaxMarks.some((m) => Math.abs(m - t) <= 1500);
-        const label = near ? 'Remove mark' : 'Mark here';
+        const label = near ? 'Remove climax' : 'Climax here';
         if (btn.textContent !== label) btn.textContent = label;
     }
 
     function markHere() {
-        const dur = mapDurationMs();
+        const dur = barDurationMs();
         if (!(dur > 0)) return false;
         climaxMarks = toggleClimaxAt(climaxMarks, mediaNowMs(), { durationMs: dur, nearMs: 1500 });
         drawHeatmap();
@@ -1006,6 +1017,44 @@ export function createPlayer({
             try { e.target.value = ''; } catch (x) {}
         });
         els.markBtn?.addEventListener('click', () => markHere());
+        bindScrub();
+
+    function bindScrub() {
+        const bar = els.scrub;
+        if (!bar) return;
+        const place = (e) => {
+            if (!video) return;
+            const durMs = barDurationMs();
+            if (!(durMs > 0)) return;
+            const rect = bar.getBoundingClientRect();
+            const width = rect.width || 1;
+            const x = Math.max(0, Math.min(width, (e.clientX ?? 0) - rect.left));
+            const seconds = (x / width) * (durMs / 1000);
+            seeking = true;
+            if (els.seek) els.seek.value = String(Math.round(seconds * 10) / 10);
+            const videoDur = Number(video.duration);
+            const capped = Number.isFinite(videoDur) && videoDur > 0 ? Math.min(seconds, videoDur) : seconds;
+            try { video.currentTime = capped; } catch (err) {}
+            renderTime();
+        };
+        bar.addEventListener('pointerdown', (e) => {
+            if (e.button !== undefined && e.button !== 0) return;
+            try { bar.setPointerCapture(e.pointerId); } catch (err) {}
+            place(e);
+        });
+        bar.addEventListener('pointermove', (e) => {
+            const captured = typeof bar.hasPointerCapture === 'function' && bar.hasPointerCapture(e.pointerId);
+            if (!captured) return;
+            place(e);
+        });
+        const release = () => { seeking = false; };
+        bar.addEventListener('pointerup', release);
+        bar.addEventListener('pointercancel', release);
+    }
+        if (els.seekHeat && typeof globalThis.ResizeObserver === 'function') {
+            const observer = new globalThis.ResizeObserver(() => drawHeatmap());
+            observer.observe(els.seekHeat);
+        }
         els.heatmap?.addEventListener('pointerdown', (e) => {
             if (e.button !== undefined && e.button !== 0) return;
             onHeatmapPointer(e);
