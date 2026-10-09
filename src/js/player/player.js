@@ -1008,9 +1008,27 @@ export function createPlayer({
         else renderImmersive();
     }
 
+    function layoutTheater() {
+        const stage = els.stage;
+        if (!stage) return;
+        if (!theater) {
+            stage.style.width = '';
+            stage.style.marginLeft = '';
+            return;
+        }
+        const parent = stage.parentElement;
+        const left = parent ? parent.getBoundingClientRect().left : 0;
+        stage.style.width = '100vw';
+        stage.style.marginLeft = `${-Math.round(left)}px`;
+    }
+
     function setTheater(on) {
         theater = Boolean(on);
         renderImmersive();
+        layoutTheater();
+        if (theater && els.stage && typeof els.stage.scrollIntoView === 'function') {
+            els.stage.scrollIntoView({ block: 'start' });
+        }
     }
 
     function toggleFullscreen() {
@@ -1242,6 +1260,7 @@ export function createPlayer({
         }
         doc?.addEventListener?.('fullscreenchange', renderImmersive);
         doc?.addEventListener?.('webkitfullscreenchange', renderImmersive);
+        win?.addEventListener?.('resize', () => { if (theater) layoutTheater(); });
         // Escape leaves theater the way the browser lets it leave fullscreen,
         // unless something else (a modal) took the key first.
         doc?.addEventListener?.('keydown', (e) => {
