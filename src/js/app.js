@@ -5677,7 +5677,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             hudExit: byId('hudExitBtn'),
             hudSeek: byId('hudSeek'),
             hudVolume: byId('hudVolume'),
-            hudMute: byId('hudMute'),
+            hudMute: byId('hudMuteBtn'),
             climaxList: byId('playerClimaxList'),
             fileInput: byId('playerFileInput'),
             chooseBtn: byId('playerChooseBtn'),
@@ -5726,6 +5726,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 const card = document.getElementById('scriptModeCard');
                 if (card) card.disabled = false;
                 card?.classList.remove('opacity-50');
+                const line = document.getElementById('scriptCardLine');
+                if (line) line.textContent = 'Choose Script. The stroker follows the file, and your pulse still limits it.';
                 checkReadiness();
             },
             onSecondary: (script) => {
@@ -5750,6 +5752,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                     card.disabled = true;
                     card.classList.add('opacity-50');
                 }
+                const line = document.getElementById('scriptCardLine');
+                if (line) line.textContent = 'Load a video and its .funscript in the Player first.';
                 checkReadiness();
             },
             onPlayRequest: () => playPauseBtn?.click(),
