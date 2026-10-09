@@ -180,7 +180,7 @@ import {
 } from './voice-cues.js';
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
-import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance } from './player/script-governor.js';
+import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, clampClimaxSeconds } from './player/script-governor.js';
 import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
 import { posAt } from './player/script-track.js';
@@ -1073,9 +1073,11 @@ function updateEngine() {
         scriptFeed.setActive(state.activeMode === 'script');
     }
     let sentPrimary = result.primaryPercent;
-    if (state.activeMode === 'script' && scriptFeed?.hasTrack() && loadedClimaxMarks.length > 0) {
+    const climaxLive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+    if (climaxLive && state.activeMode === 'script' && scriptFeed?.hasTrack() && loadedClimaxMarks.length > 0) {
         const t = scriptFeed.scriptNow();
-        sentPrimary = boostedAllowance(sentPrimary, climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks));
+        const peakMs = clampClimaxSeconds(advancedSettings.scriptClimaxSeconds) * 1000;
+        sentPrimary = boostedAllowance(sentPrimary, climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks, { peakMs }));
     }
     if (scriptFeed) scriptFeed.setAllowance(state.activeMode === 'script' ? sentPrimary : 0);
     if (player && state.activeMode === 'script') {
@@ -5672,6 +5674,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             playBtn: byId('playerPlayBtn'),
             muteBtn: byId('playerMuteBtn'),
             seek: byId('playerSeek'),
+            scrub: byId('playerScrub'),
+            seekThumb: byId('playerSeekThumb'),
             seekHeat: byId('playerSeekHeat'),
             markBtn: byId('playerMarkBtn'),
             time: byId('playerTime'),
@@ -5780,6 +5784,15 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => {
         document.getElementById('playerBody')?.classList.toggle('hidden');
     });
+    const climaxSeconds = document.getElementById('scriptClimaxSeconds');
+    if (climaxSeconds) {
+        climaxSeconds.value = String(clampClimaxSeconds(advancedSettings.scriptClimaxSeconds));
+        climaxSeconds.addEventListener('change', () => {
+            advancedSettings.scriptClimaxSeconds = clampClimaxSeconds(climaxSeconds.value);
+            climaxSeconds.value = String(advancedSettings.scriptClimaxSeconds);
+            persistSettings();
+        });
+    }
     const continueAfter = document.getElementById('scriptContinueAfterVideo');
     if (continueAfter) {
         continueAfter.checked = Boolean(advancedSettings.scriptContinueAfterVideo);

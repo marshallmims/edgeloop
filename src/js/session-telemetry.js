@@ -20,7 +20,7 @@ const SETTING_KEYS = Object.freeze([
     'speedSlowest', 'speedFastest',
     'scriptStrokeModel', 'scriptReactBpm', 'scriptFloorPercent', 'scriptApproach',
     'scriptEdgeAction', 'scriptRejoinSeconds', 'scriptMaxSpeed', 'scriptInvert',
-    'scriptSecondChannel', 'scriptVideoEnd', 'scriptContinueAfterVideo',
+    'scriptSecondChannel', 'scriptVideoEnd', 'scriptContinueAfterVideo', 'scriptClimaxSeconds',
     'vacuglideRole', 'vacuglideMaxCap', 'vacuglideValvePulseMs',
     'adaptiveDecay', 'decayEdgeCount', 'decayBpm', 'decayFloor',
     'voiceEnabled', 'micEnabled', 'micSensitivityThreshold', 'micBoostMaxBpm'

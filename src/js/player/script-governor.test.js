@@ -28,7 +28,8 @@ import {
     climaxApproach,
     boostedAllowance,
     CLIMAX_RAMP_MS,
-    CLIMAX_PEAK_MS
+    CLIMAX_PEAK_MS,
+    CLIMAX_EASE_MS
 } from './script-governor.js';
 import { resolveEdgeTriggerHr } from '../engine.js';
 import { warmupShape, orgasmFrame } from '../patterns.js';
@@ -143,7 +144,9 @@ describe('climax marks', () => {
         assert.ok(Math.abs(climaxApproach(mark - CLIMAX_RAMP_MS / 2, [mark]) - 0.5) < 1e-9);
         assert.equal(climaxApproach(mark, [mark]), 1);
         assert.equal(climaxApproach(mark + CLIMAX_PEAK_MS, [mark]), 1);
-        assert.equal(climaxApproach(mark + CLIMAX_PEAK_MS + 1, [mark]), 0);
+        assert.equal(climaxApproach(mark + CLIMAX_PEAK_MS + 1, [mark], { easeMs: 0 }), 0);
+        assert.ok(Math.abs(climaxApproach(mark + CLIMAX_PEAK_MS + CLIMAX_EASE_MS / 2, [mark]) - 0.5) < 1e-6);
+        assert.equal(climaxApproach(mark + CLIMAX_PEAK_MS + CLIMAX_EASE_MS + 1, [mark]), 0);
         assert.equal(climaxApproach(NaN, [mark]), 0);
         assert.equal(climaxApproach(mark, []), 0);
     });
@@ -153,7 +156,8 @@ describe('climax marks', () => {
         assert.equal(boostedAllowance(40, 0), 40);
         assert.equal(boostedAllowance(40, 0.5), 70);
         assert.equal(boostedAllowance(40, 1), 100);
-        assert.equal(boostedAllowance(0, 1), 0);
+        assert.equal(boostedAllowance(0, 0), 0);
+        assert.equal(boostedAllowance(0, 1), 100, 'the climax itself is full even if the limiter had stopped');
         assert.equal(boostedAllowance(80, climaxApproach(0, [0])), 100);
     });
 });
