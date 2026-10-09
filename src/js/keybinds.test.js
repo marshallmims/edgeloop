@@ -35,4 +35,12 @@ describe('keybinds', () => {
         assert.equal(keyEventIsTyping({ tagName: 'BUTTON' }), false);
         assert.equal(keyEventIsTyping({ tagName: 'DIV', isContentEditable: true }), true);
     });
+
+    it('space still pauses when a number is focused', () => {
+        assert.equal(keyEventIsTyping({ tagName: 'INPUT', type: 'number' }, 'Space'), false);
+        assert.equal(keyEventIsTyping({ tagName: 'INPUT', type: 'range' }, 'Space'), false);
+        assert.equal(keyEventIsTyping({ tagName: 'INPUT', type: 'text' }, 'Space'), true);
+        assert.equal(keyEventIsTyping({ tagName: 'INPUT', type: 'url' }, 'Space'), true);
+        assert.equal(keyEventIsTyping({ tagName: 'TEXTAREA' }, 'Space'), true);
+    });
 });

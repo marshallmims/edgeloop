@@ -671,6 +671,33 @@ describe('engine modes', () => {
         assert.ok(recoverCrawl.secondaryPercent > 0, 'the secondary channel keeps running');
     });
 
+    it('a script ignores the session warm-up and plays the full travel', () => {
+        const cold = calculateEngineOutputs({
+            ...running,
+            activeMode: 'script',
+            strokeMode: 'shortener',
+            warmupMinutes: 5,
+            sessionSeconds: 0,
+            hr: 80,
+            handyHwMin: 10,
+            handyHwMax: 90
+        });
+        const open = calculateEngineOutputs({
+            ...running,
+            activeMode: 'script',
+            strokeMode: 'classic',
+            warmupMinutes: 0,
+            sessionSeconds: 0,
+            hr: 80,
+            handyHwMin: 10,
+            handyHwMax: 90
+        });
+        assert.equal(cold.primaryPercent, open.primaryPercent);
+        assert.equal(cold.strokeMinPercent, 10);
+        assert.equal(cold.strokeMaxPercent, 90);
+        assert.ok(cold.primaryPercent > 50, `script warm-up still scaled the file: ${cold.primaryPercent}`);
+    });
+
     it('warmup starts slow and short, then opens to the full pattern', () => {
         const cold = calculateEngineOutputs({
             ...running,

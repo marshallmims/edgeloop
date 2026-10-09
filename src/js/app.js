@@ -1362,7 +1362,8 @@ function updateWarmupBadge() {
     const remainingEl = document.getElementById('warmupRemainingText');
     const warmupSeconds = Math.max(0, advancedSettings.warmupMinutes || 0) * 60;
     const elapsed = warmupElapsedSeconds();
-    const active = state.sessionStatus === 'RUNNING' && warmupSeconds > 0 && elapsed < warmupSeconds;
+    const scripting = state.activeMode === 'script' || state.teaseMode === 'script';
+    const active = !scripting && state.sessionStatus === 'RUNNING' && warmupSeconds > 0 && elapsed < warmupSeconds;
     if (badge) badge.classList.toggle('hidden', !active);
     if (active && remainingEl) {
         const left = warmupSeconds - elapsed;
@@ -2945,7 +2946,7 @@ document.addEventListener('keydown', (event) => {
         assignBind(bindFromKey(event.code));
         return;
     }
-    if (keyEventIsTyping(event.target)) return;
+    if (keyEventIsTyping(event.target, event.code)) return;
     if (event.code === 'Escape' && document.getElementById('modalOverlay') && !document.getElementById('modalOverlay').classList.contains('hidden')) {
         closeModal();
         return;
