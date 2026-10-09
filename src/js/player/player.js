@@ -702,13 +702,16 @@ export function createPlayer({
         els.bothBtn?.classList?.toggle('hidden', !(hasPrimary && hasSecondary));
         if (els.clearScriptsBtn) els.clearScriptsBtn.disabled = false;
         if (els.heatmapHint && (videoFile || script || secondary)) {
-            const lead = heatmapView === 'both'
-                ? 'Both scripts. The color is the primary and the white line is the secondary.'
-                : heatmapView === 'secondary'
-                    ? 'Secondary script.'
-                    : 'Primary script.';
-            const saved = climaxMarks.length ? ` ${climaxMarks.length} climax${climaxMarks.length === 1 ? '' : 'es'} saved on this device for this script.` : '';
-            els.heatmapHint.textContent = `${lead} Green is a pause, red is fast. Climax here drives the toys up to a climax at the dot. They hold for the seconds you set, then ease back into the script.${saved}`;
+            const lead = !script && !secondary
+                ? 'Video only.'
+                : heatmapView === 'both'
+                    ? 'Both scripts. The color is the primary and the white line is the secondary.'
+                    : heatmapView === 'secondary'
+                        ? 'Secondary script.'
+                        : 'Primary script.';
+            const color = (script || secondary) ? ' Green is a pause, red is fast.' : '';
+            const saved = script && climaxMarks.length ? ` ${climaxMarks.length} climax${climaxMarks.length === 1 ? '' : 'es'} saved on this device for this script.` : '';
+            els.heatmapHint.textContent = `${lead}${color} Climax here drives the toys up to a climax at the dot. They hold for the seconds you set, then ease back into the script.${saved}`;
         }
     }
 
