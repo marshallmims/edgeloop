@@ -991,7 +991,21 @@ export function createPlayer({
         els.hud?.classList?.toggle('hidden', !on);
         if (els.theaterBtn) els.theaterBtn.textContent = theater ? 'Exit theater' : 'Theater';
         if (els.fullscreenBtn) els.fullscreenBtn.textContent = fullscreenElement() === els.stage && els.stage ? 'Exit fullscreen' : 'Fullscreen';
+        if (els.hudExit) els.hudExit.textContent = fullscreenElement() === els.stage ? 'Exit fullscreen' : 'Exit theater';
         if (on) showHud();
+    }
+
+    function leaveImmersive() {
+        const onStage = fullscreenElement() === els.stage;
+        if (onStage || fullscreenElement()) {
+            try {
+                const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+                const p = exit && exit.call(doc);
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (e) {}
+        }
+        if (theater) setTheater(false);
+        else renderImmersive();
     }
 
     function setTheater(on) {
@@ -1202,6 +1216,11 @@ export function createPlayer({
             if (video.volume > 0) video.muted = false;
             renderTime();
         });
+        els.hudExit?.addEventListener('click', (e) => {
+            e.stopPropagation?.();
+            leaveImmersive();
+            showHud();
+        });
         els.hudMute?.addEventListener('click', (e) => {
             e.stopPropagation?.();
             if (!video) return;
@@ -1355,6 +1374,7 @@ export function createPlayer({
         nudgeOffset,
         setTheater,
         toggleFullscreen,
+        leaveImmersive,
         immersive,
         showHud,
         // Readouts the HUD shows; app.js fills them.
