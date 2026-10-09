@@ -20,7 +20,10 @@ import {
     resolveSecondChannel,
     resolveVideoEnd,
     clampScriptOffset,
-    DEFAULT_SCRIPT_SETTINGS
+    DEFAULT_SCRIPT_SETTINGS,
+    sessionTargetForVideo,
+    complementSecondary,
+    scriptMotion
 } from './script-governor.js';
 import { resolveEdgeTriggerHr } from '../engine.js';
 import { warmupShape, orgasmFrame } from '../patterns.js';
@@ -100,6 +103,22 @@ describe('scriptAllowance: the floor', () => {
         assert.equal(run({ hr: 140, settings: { scriptFloorPercent: 0 } }).allowance, 0, 'the floor 0 at the mark is 0');
         assert.equal(run({ hr: 140, settings: { scriptFloorPercent: 50 } }).allowance, 50);
         assert.equal(run({ hr: 140, settings: { scriptFloorPercent: 100 } }).allowance, 100);
+    });
+});
+
+describe('a script session and a secondary with no script of its own', () => {
+    it('uses the video length unless the session should continue after it', () => {
+        assert.deepEqual(sessionTargetForVideo({ videoSeconds: 125.2, configuredSeconds: 600 }), { seconds: 126, fromVideo: true });
+        assert.deepEqual(sessionTargetForVideo({ continueAfter: true, videoSeconds: 125, configuredSeconds: 600 }), { seconds: 600, fromVideo: false });
+        assert.deepEqual(sessionTargetForVideo({ videoSeconds: 0, configuredSeconds: 600 }), { seconds: 600, fromVideo: false });
+    });
+
+    it('stops the secondary on a hold and follows a moving stroke', () => {
+        assert.equal(scriptMotion(0), 0);
+        assert.equal(complementSecondary(80, 0), 0);
+        assert.equal(complementSecondary(0, 1), 0);
+        assert.ok(complementSecondary(100, 1) >= complementSecondary(100, 0.2));
+        assert.ok(complementSecondary(100, 1) <= 100);
     });
 });
 

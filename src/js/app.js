@@ -179,7 +179,7 @@ import {
 } from './voice-cues.js';
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
-import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo } from './player/script-governor.js';
+import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion } from './player/script-governor.js';
 import { offsetFor, rememberOffset, readOffsets, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
 import { effectiveInvert } from './player/script-shaper.js';
@@ -1139,7 +1139,15 @@ function updateEngine() {
     updateWarmupBadge();
     updateGameNotice();
 
-    dispatchHardware(result.primaryPercent, result.secondaryPercent, result.strokeMinPercent, result.strokeMaxPercent);
+    let secondary = result.secondaryPercent;
+    if (state.activeMode === 'script' && scriptFeed?.hasTrack() && advancedSettings.scriptSecondChannel !== 'off') {
+        const t = scriptFeed.scriptNow();
+        const rhythm = rhythmAt(scriptFeed.track(), Number.isFinite(t) ? t : NaN, {
+            invert: effectiveInvert(scriptFeed.meta(), scriptFeed.settings())
+        });
+        secondary = complementSecondary(result.primaryPercent, scriptMotion(rhythm.meanSpeed));
+    }
+    dispatchHardware(result.primaryPercent, secondary, result.strokeMinPercent, result.strokeMaxPercent);
 }
 
 // Physical stroke bounds to send to the toys. engine.js has ALREADY mapped
@@ -2024,7 +2032,13 @@ function updateTimerDisplay() {
     const aSecs = String(state.sessionSeconds % 60).padStart(2, '0');
     const activeStr = `${aMins}:${aSecs}`;
 
-    if (state.durationMode === 'fixed' && state.chosenTargetSeconds > 0) {
+    if (state.scriptVideoClock && state.chosenTargetSeconds > 0) {
+        const rem = Math.max(0, state.chosenTargetSeconds - state.sessionSeconds);
+        const rMins = String(Math.floor(rem / 60)).padStart(2, '0');
+        const rSecs = String(rem % 60).padStart(2, '0');
+        timerEl.textContent = `${rMins}:${rSecs}`;
+        subLabelEl.textContent = `Video left · elapsed ${activeStr}`;
+    } else if (state.durationMode === 'fixed' && state.chosenTargetSeconds > 0) {
         const rem = Math.max(0, state.chosenTargetSeconds - state.sessionSeconds);
         const rMins = String(Math.floor(rem / 60)).padStart(2, '0');
         const rSecs = String(rem % 60).padStart(2, '0');
@@ -2046,6 +2060,35 @@ function updateTimerDisplay() {
 // in neither state, or when the hardware is not ready: a pulse source with a
 // fresh valid reading and a toy are required, so a resume can never run the
 // motors on a frozen heart rate. The watchdog clocks are left untouched.
+function videoDurationSeconds() {
+    const d = player && typeof player.duration === 'function' ? player.duration() : 0;
+    return Number.isFinite(d) ? d : 0;
+}
+
+function applyVideoSessionLength() {
+    const scriptOn = state.activeMode === 'script' || state.teaseMode === 'script';
+    const picked = sessionTargetForVideo({
+        continueAfter: Boolean(advancedSettings.scriptContinueAfterVideo),
+        videoSeconds: scriptOn ? videoDurationSeconds() : 0,
+        configuredSeconds: state.configuredTargetSeconds
+    });
+    state.scriptVideoClock = picked.fromVideo;
+    if (picked.fromVideo) state.chosenTargetSeconds = picked.seconds;
+}
+
+function continueAfterVideo() {
+    state.scriptVideoClock = false;
+    if (scriptFeed) scriptFeed.setActive(false);
+    if (state.teaseMode === 'script' && !state.gameMode) {
+        state.teaseMode = 'classic';
+        state.activeMode = 'classic';
+        highlightModeCard();
+        renderModeDetail();
+    }
+    updateTimerDisplay();
+    updateEngine();
+}
+
 function startOrResumeSession() {
     if (state.sessionStatus !== 'IDLE' && state.sessionStatus !== 'PAUSED') return false;
     if (transportWaitingReason()) {
@@ -2063,6 +2106,8 @@ function startOrResumeSession() {
         resetGameState();
         state.calibrationPass = pass;
         state.chosenTargetSeconds = pickSessionTargetSeconds();
+        state.configuredTargetSeconds = state.chosenTargetSeconds;
+        applyVideoSessionLength();
         updateTimerDisplay();
         cueVoice('sessionStart');
     } else {
@@ -5480,7 +5525,25 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') pauseSession('Paused.');
             },
             onEnded: () => {
-                if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' || state.sessionStatus === 'PAUSED') stopSession('Video ended');
+                const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' || state.sessionStatus === 'PAUSED';
+                if (!live) return;
+                if (advancedSettings.scriptContinueAfterVideo) {
+                    continueAfterVideo();
+                    return;
+                }
+                if (state.sessionStatus === 'RUNNING' && !state.endgameFired) {
+                    state.scriptVideoClock = true;
+                    state.chosenTargetSeconds = Math.max(1, state.sessionSeconds);
+                    state.endgameFired = true;
+                    handleTargetTimeReached();
+                }
+            },
+            onDuration: () => {
+                if (state.sessionStatus !== 'RUNNING' || state.endgameFired) return;
+                if (advancedSettings.scriptContinueAfterVideo) return;
+                if (!(state.activeMode === 'script' || state.teaseMode === 'script')) return;
+                applyVideoSessionLength();
+                updateTimerDisplay();
             },
             onStall: (seconds) => {
                 if (state.activeMode === 'script' && state.sessionStatus === 'RUNNING') triggerDisconnectAlert(describeVideoStall(seconds));
@@ -5513,6 +5576,22 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => {
         document.getElementById('playerBody')?.classList.toggle('hidden');
     });
+    const continueAfter = document.getElementById('scriptContinueAfterVideo');
+    if (continueAfter) {
+        continueAfter.checked = Boolean(advancedSettings.scriptContinueAfterVideo);
+        continueAfter.addEventListener('change', () => {
+            advancedSettings.scriptContinueAfterVideo = continueAfter.checked;
+            persistSettings();
+            if (state.sessionStatus === 'RUNNING' && !state.endgameFired) {
+                if (!continueAfter.checked) applyVideoSessionLength();
+                else {
+                    state.scriptVideoClock = false;
+                    if (Number.isFinite(state.configuredTargetSeconds)) state.chosenTargetSeconds = state.configuredTargetSeconds;
+                }
+                updateTimerDisplay();
+            }
+        });
+    }
     const beatToggle = document.getElementById('beatSyncToggle');
     if (beatToggle && handyHsp) {
         const savedOn = safeGet(BEAT_SYNC_CONSENT_KEY, '') === 'yes' && safeGet(BEAT_SYNC_STORAGE_KEY, '') === 'on';

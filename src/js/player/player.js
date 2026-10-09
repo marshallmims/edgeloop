@@ -200,6 +200,8 @@ export function createPlayer({
     function readinessChanged() {
         renderTime();
         call(handlers, 'onReadiness');
+        const dur = video ? Number(video.duration) : NaN;
+        if (Number.isFinite(dur) && dur > 0) call(handlers, 'onDuration', dur);
     }
 
     function bindVideo() {
@@ -790,6 +792,10 @@ export function createPlayer({
         },
         hasVideo() {
             return Boolean(videoFile);
+        },
+        duration() {
+            const d = video ? Number(video.duration) : NaN;
+            return Number.isFinite(d) ? d : 0;
         },
         videoReady() {
             return Boolean(video && videoFile && !videoError && Number(video.readyState) >= VIDEO_READY_STATE);
