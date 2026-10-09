@@ -26,6 +26,45 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+    /* Theater fills the browser window. Fullscreen fills the screen. */
+    #playerStage[data-theater="on"] {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      width: 100vw;
+      height: 100vh;
+      max-height: none;
+      border: 0;
+      border-radius: 0;
+      background: #000;
+    }
+    #playerStage[data-theater="on"] #playerVideo,
+    #playerStage:fullscreen #playerVideo,
+    #playerStage:-webkit-full-screen #playerVideo {
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      object-fit: contain;
+    }
+    #playerStage:fullscreen,
+    #playerStage:-webkit-full-screen {
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      border: 0;
+      border-radius: 0;
+      background: #000;
+    }
+    #playerHud[data-idle="on"] .hud-chrome {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .hud-chrome {
+      transition: opacity 0.25s ease;
+    }
+    #playerStage[data-theater="on"][data-fullscreen="off"] .hud-fullscreen-only {
+      display: none;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-2.5 sm:p-5 font-sans antialiased select-none flex flex-col justify-between">
@@ -110,8 +149,8 @@
             <!-- The HUD: only in theater and fullscreen. Its readouts hide
                  after 4 s and come back on a tap or a mouse move; PAUSE and
                  STOP only fade, and take a press at any time. -->
-            <div id="playerHud" data-idle="off" class="hidden absolute inset-0 pointer-events-none">
-              <div class="hud-info absolute top-0 inset-x-0 p-3 flex justify-between items-start gap-3 bg-gradient-to-b from-black/70 to-transparent text-white">
+            <div id="playerHud" data-idle="off" class="hidden absolute inset-0">
+              <div class="hud-chrome hud-info absolute top-0 inset-x-0 p-3 flex justify-between items-start gap-3 bg-gradient-to-b from-black/70 to-transparent text-white pointer-events-none">
                 <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                   <span class="text-3xl font-black font-mono text-rose-400"><span id="hudHr">--</span><span class="text-xs text-slate-300 ml-1">BPM</span></span>
                   <span class="text-[11px] font-mono text-purple-200">mark <span id="hudMark">--</span></span>
@@ -122,12 +161,20 @@
                   <div class="text-[11px] text-amber-300">edges <span id="hudEdges">0</span></div>
                 </div>
               </div>
-              <p id="hudNotice" class="hud-info hidden absolute top-20 inset-x-3 text-center text-[11px] font-bold text-rose-100 bg-rose-950/90 border border-rose-700 rounded-lg px-2 py-1"></p>
-              <div class="hud-info absolute bottom-10 left-[28%] right-[28%] h-1.5 rounded-full bg-white/20 overflow-hidden" aria-hidden="true">
-                <div id="hudBar" class="h-full bg-gradient-to-r from-teal-400 to-rose-500" style="width: 0%"></div>
+              <p id="hudNotice" class="hud-chrome hidden absolute top-20 inset-x-3 text-center text-[11px] font-bold text-rose-100 bg-rose-950/90 border border-rose-700 rounded-lg px-2 py-1 pointer-events-none"></p>
+              <div class="hud-chrome absolute inset-x-0 bottom-0 p-3 pt-10 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2">
+                <input id="hudSeek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Scrub" class="hud-fullscreen-only w-full accent-amber-400 h-8 cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <button id="hudPauseBtn" type="button" class="min-h-[2.75rem] min-w-[5.5rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm cursor-pointer">Play</button>
+                  <button id="hudStopBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-rose-700/90 hover:bg-rose-600 text-white font-bold text-sm cursor-pointer">Stop</button>
+                  <span class="flex-1"></span>
+                  <label class="hud-fullscreen-only flex items-center gap-2 text-[10px] text-slate-200">
+                    <span>Volume</span>
+                    <input id="hudVolume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume" class="w-24 accent-white cursor-pointer">
+                  </label>
+                  <button id="hudMuteBtn" type="button" class="hud-fullscreen-only min-h-[2.75rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs cursor-pointer">Mute</button>
+                </div>
               </div>
-              <button id="hudPauseBtn" type="button" class="hud-btn pointer-events-auto absolute left-3 bottom-3 min-w-[64px] min-h-[64px] px-4 rounded-2xl bg-amber-600/90 hover:bg-amber-500 text-white font-black text-sm cursor-pointer shadow-xl">PAUSE</button>
-              <button id="hudStopBtn" type="button" class="hud-btn pointer-events-auto absolute right-3 bottom-3 min-w-[64px] min-h-[64px] px-4 rounded-2xl bg-rose-700/90 hover:bg-rose-600 text-white font-black text-sm cursor-pointer shadow-xl">STOP</button>
             </div>
           </div>
           <!-- One bar: the heat map is the track, and the dot rides on it. -->
@@ -140,8 +187,8 @@
             <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
             <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
             <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
-            <button id="playerMuteBtn" type="button" class="min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Mute</button>
           </div>
+          <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
           <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
           <div class="flex flex-wrap items-center gap-2">
             <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>

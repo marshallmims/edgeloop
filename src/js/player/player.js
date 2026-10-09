@@ -210,7 +210,17 @@ export function createPlayer({
             els.playBtn.textContent = playing ? 'Pause' : 'Play';
             els.playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
         }
-        if (els.muteBtn) els.muteBtn.textContent = video.muted ? 'Unmute' : 'Mute';
+        if (els.hudPause) {
+            const playing = !video.paused;
+            els.hudPause.textContent = playing ? 'Pause' : 'Play';
+        }
+        if (els.hudSeek && !seeking) {
+            if (Number.isFinite(dur) && dur > 0) {
+                els.hudSeek.max = String(Math.round(dur * 10) / 10);
+                els.hudSeek.value = String(Math.round((Number.isFinite(cur) ? cur : 0) * 10) / 10);
+            }
+        }
+        if (els.hudMute) els.hudMute.textContent = video.muted ? 'Unmute' : 'Mute';
         drawHeatmap();
         updateMarkButton();
     }
@@ -735,6 +745,7 @@ export function createPlayer({
         els.heatmapHint?.classList?.toggle('hidden', !show);
         els.markBtn?.classList?.toggle('hidden', !show);
         paintHeatCanvas(els.seekHeat, { show, dur: barDurationMs(), playhead: false, fallbackH: 44 });
+        renderClimaxList();
         if (show) renderHeatmapModes();
         updateMarkButton();
     }
@@ -762,8 +773,16 @@ export function createPlayer({
         for (const mark of climaxMarks) {
             const x = (mark / dur) * w;
             ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(Math.round(x) - dpr, 0, Math.max(2, dpr * 2), h);
+            ctx.fillRect(Math.round(x) - (3 * dpr), 0, Math.max(6, dpr * 6), h);
+            ctx.fillStyle = '#fffbeb';
+            ctx.beginPath();
+            ctx.moveTo(x, 2 * dpr);
+            ctx.lineTo(x - 8 * dpr, 2 * dpr);
+            ctx.lineTo(x, 16 * dpr);
+            ctx.closePath();
+            ctx.fill();
         }
+        renderClimaxList();
         if (playhead && video && Number.isFinite(Number(video.currentTime))) {
             const x = (Number(video.currentTime) * 1000 / dur) * w;
             ctx.fillStyle = '#38bdf8';
@@ -797,6 +816,46 @@ export function createPlayer({
         drawHeatmap();
         call(handlers, 'onClimax', climaxMarks.slice());
         return true;
+    }
+
+    function seekToMs(ms) {
+        if (!video) return;
+        const seconds = Math.max(0, Number(ms) || 0) / 1000;
+        const videoDur = Number(video.duration);
+        const capped = Number.isFinite(videoDur) && videoDur > 0 ? Math.min(seconds, videoDur) : seconds;
+        try { video.currentTime = capped; } catch (e) {}
+        if (els.seek) els.seek.value = String(Math.round(capped * 10) / 10);
+        renderTime();
+    }
+
+    function removeClimax(ms) {
+        climaxMarks = climaxMarks.filter((m) => m !== ms);
+        drawHeatmap();
+        call(handlers, 'onClimax', climaxMarks.slice());
+    }
+
+    function renderClimaxList() {
+        const list = els.climaxList;
+        if (!list || typeof list.replaceChildren !== 'function') return;
+        list.classList?.toggle('hidden', climaxMarks.length === 0);
+        list.replaceChildren();
+        for (const ms of climaxMarks) {
+            const chip = doc.createElement('span');
+            chip.className = 'inline-flex items-center gap-1 rounded-lg border border-amber-500 bg-amber-950/80 text-amber-100 text-[10px] font-semibold';
+            const jump = doc.createElement('button');
+            jump.type = 'button';
+            jump.className = 'min-h-[2.25rem] pl-2 pr-1 cursor-pointer';
+            jump.textContent = formatMediaTime(ms);
+            jump.addEventListener('click', () => seekToMs(ms));
+            const remove = doc.createElement('button');
+            remove.type = 'button';
+            remove.className = 'min-h-[2.25rem] min-w-[2.25rem] pr-2 cursor-pointer text-amber-200';
+            remove.textContent = '×';
+            remove.setAttribute('aria-label', `Remove climax at ${formatMediaTime(ms)}`);
+            remove.addEventListener('click', () => removeClimax(ms));
+            chip.append(jump, remove);
+            list.appendChild(chip);
+        }
     }
 
     function onHeatmapPointer(e) {
@@ -927,6 +986,7 @@ export function createPlayer({
         if (els.stage) {
             els.stage.dataset.theater = theater ? 'on' : 'off';
             els.stage.dataset.immersive = on ? 'on' : 'off';
+            els.stage.dataset.fullscreen = fullscreenElement() === els.stage ? 'on' : 'off';
         }
         els.hud?.classList?.toggle('hidden', !on);
         if (els.theaterBtn) els.theaterBtn.textContent = theater ? 'Exit theater' : 'Theater';
@@ -1122,8 +1182,35 @@ export function createPlayer({
         if (els.fullscreenBtn && !canFullscreen()) els.fullscreenBtn.classList?.add('hidden');
         els.hudPause?.addEventListener('click', (e) => {
             e.stopPropagation?.();
-            call(handlers, 'onHudPause');
+            call(handlers, 'onPlayButton', { playing: Boolean(video && !video.paused) });
             showHud();
+        });
+        els.hudSeek?.addEventListener('input', () => {
+            seeking = true;
+            const t = Number(els.hudSeek.value);
+            if (video && Number.isFinite(t)) {
+                try { video.currentTime = t; } catch (err) {}
+            }
+            renderTime();
+        });
+        els.hudSeek?.addEventListener('change', () => { seeking = false; });
+        els.hudVolume?.addEventListener('input', () => {
+            if (!video) return;
+            const level = Number(els.hudVolume.value);
+            if (!Number.isFinite(level)) return;
+            video.volume = Math.max(0, Math.min(1, level / 100));
+            if (video.volume > 0) video.muted = false;
+            renderTime();
+        });
+        els.hudMute?.addEventListener('click', (e) => {
+            e.stopPropagation?.();
+            if (!video) return;
+            video.muted = !video.muted;
+            renderTime();
+            showHud();
+        });
+        video?.addEventListener('click', () => {
+            if (immersive()) call(handlers, 'onPlayButton', { playing: Boolean(video && !video.paused) });
         });
         els.hudStop?.addEventListener('click', (e) => {
             e.stopPropagation?.();
