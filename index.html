@@ -247,6 +247,13 @@
               <button id="playerVideoUrlBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Use link</button>
             </div>
             <p class="text-[9px] text-slate-500 leading-snug">A direct file address only. A page link from a video site cannot play here: those sites do not hand the file to another page. Download the video and choose the file, or paste an address ending in .mp4 or .webm.</p>
+            <label id="playerFollowRow" class="hidden flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Follow the script.</strong> On, the stroker plays the funscript and your pulse limits it. Off, the stroke you picked in the mode row runs instead.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="playerFollowScript" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
             <label class="flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
               <span class="text-[10px] text-slate-300 leading-snug"><strong>Continue after the video.</strong> Off, the session ends with the video. On, it keeps going on your timer and the toys go back to Classic.</span>
               <span class="relative inline-flex shrink-0">
@@ -644,14 +651,6 @@
               </p>
             </button>
           </div>
-
-            <button id="scriptModeCard" type="button" data-mode="script" disabled class="mode-card sm:col-span-2 text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between opacity-50">
-              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
-                <span>Script</span>
-                <span class="mode-check hidden text-sky-400">●</span>
-              </div>
-              <p id="scriptCardLine" class="text-[9px] text-slate-400 mt-0.5 leading-snug">Load a video and its .funscript in the Player first.</p>
-            </button>
 
           <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Goal</p>
           <!-- Goal row. Tease means the stroke runs with no game on top. -->
