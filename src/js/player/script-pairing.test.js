@@ -47,6 +47,33 @@ describe('pairFiles: the suffix table', () => {
         }
     });
 
+    it('treats .v0.funscript as the secondary, not as a stroke pack', () => {
+        const r = pairFiles(['Movie.mp4', 'Movie.funscript', 'Movie.v0.funscript']);
+        assert.equal(r.stroke, 'Movie.funscript');
+        assert.equal(r.vib, 'Movie.v0.funscript');
+        assert.deepEqual(r.packs, [{ name: null, item: 'Movie.funscript' }]);
+        assert.deepEqual(r.unused, []);
+    });
+
+    it('pairs a .v0 with a lone stroke script when there is no video yet', () => {
+        const r = pairFiles(['Movie.funscript', 'Movie.v0.funscript']);
+        assert.equal(r.stroke, 'Movie.funscript');
+        assert.equal(r.vib, 'Movie.v0.funscript');
+    });
+
+    it('a .v0 file on its own is not a stroke script', () => {
+        const r = pairFiles(['Movie.v0.funscript']);
+        assert.equal(r.stroke, null);
+        assert.equal(r.vib, null);
+        assert.match(reasonOf(r, 'Movie.v0.funscript'), /no stroke script/);
+    });
+
+    it('matches .v0 without regard to case', () => {
+        const r = pairFiles(['movie.mp4', 'MOVIE.V0.funscript', 'movie.funscript']);
+        assert.equal(r.vib, 'MOVIE.V0.funscript');
+        assert.equal(r.stroke, 'movie.funscript');
+    });
+
     it('keeps dots inside a base name', () => {
         const r = pairFiles(['My.Movie.Part.2.mp4', 'My.Movie.Part.2.funscript', 'My.Movie.Part.2.twist.funscript']);
         assert.equal(r.stroke, 'My.Movie.Part.2.funscript');

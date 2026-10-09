@@ -4,7 +4,8 @@
 // Pairing is by base name, the way every script player does it:
 //   Movie.mp4 + Movie.funscript           the stroke script
 //   Movie.<pack>.funscript                an alternate stroke script (a pack)
-//   Movie.vib.funscript                   vibration (phase 2)
+//   Movie.v0.funscript                    the secondary toy (EdgeLoop's own export)
+//   Movie.vib.funscript                   the same channel, under the older name
 //   Movie.surge|sway|twist|roll|pitch.funscript   the other axes (phase 3)
 // Names are compared without regard to case. A pick can hold File objects or
 // plain names: whatever has a `name` (or is a string) is handed back as it
@@ -20,8 +21,9 @@
 export const VIDEO_EXTENSIONS = Object.freeze(['mp4', 'm4v', 'webm', 'mkv', 'mov', 'ogv']);
 export const SCRIPT_EXTENSION = 'funscript';
 
-// Suffix -> channel. `vib` is the second channel's file; the rest are the
-// T-Code axes they drive.
+// Suffix -> channel. `v0` is the second channel's file (what EdgeLoop writes
+// on export). `vib` is the same channel under the name other players use.
+// The rest are the T-Code axes they drive.
 export const AXIS_SUFFIXES = Object.freeze({
     surge: 'L1',
     sway: 'L2',
@@ -30,6 +32,7 @@ export const AXIS_SUFFIXES = Object.freeze({
     pitch: 'R2'
 });
 export const VIB_SUFFIX = 'vib';
+export const VIB_SUFFIXES = Object.freeze(['v0', 'vib']);
 export const AXIS_IDS = Object.freeze(['L1', 'L2', 'R0', 'R1', 'R2']);
 
 function nameOf(item) {
@@ -61,7 +64,7 @@ function scriptRole(scriptKey, base) {
     if (scriptKey === base) return { kind: 'stroke', pack: null };
     if (!scriptKey.startsWith(`${base}.`)) return null;
     const rest = scriptKey.slice(base.length + 1);
-    if (rest === VIB_SUFFIX) return { kind: 'vib' };
+    if (VIB_SUFFIXES.includes(rest)) return { kind: 'vib' };
     if (Object.prototype.hasOwnProperty.call(AXIS_SUFFIXES, rest)) return { kind: 'axis', axis: AXIS_SUFFIXES[rest] };
     // `Movie.pack.twist`: a pack's own axis file. Packs of axes come with the
     // axes (phase 3); until then such a file is listed as unused.
@@ -74,7 +77,7 @@ function ownSuffix(scriptKey) {
     const dot = scriptKey.lastIndexOf('.');
     if (dot <= 0) return null;
     const last = scriptKey.slice(dot + 1);
-    if (last === VIB_SUFFIX || Object.prototype.hasOwnProperty.call(AXIS_SUFFIXES, last)) {
+    if (VIB_SUFFIXES.includes(last) || Object.prototype.hasOwnProperty.call(AXIS_SUFFIXES, last)) {
         return { suffix: last, base: scriptKey.slice(0, dot) };
     }
     return null;

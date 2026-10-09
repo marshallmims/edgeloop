@@ -19,7 +19,7 @@ export function describeVideoFormats() {
     const names = VIDEO_EXTENSIONS.map((ext) => ext.toUpperCase());
     return {
         button: `Choose ${names.join(', ')}`,
-        hint: `${names.join(', ')}, plus a .funscript with the same name. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them.`
+        hint: `${names.join(', ')}, plus a .funscript for the stroker and a .v0.funscript for the other toy. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them.`
     };
 }
 
@@ -56,6 +56,11 @@ export const VIDEO_READY_STATE = 2;
 // the Backup, never a file name).
 export const SCRIPT_OFFSETS_STORAGE_KEY = 'edgeloop_script_offsets';
 export const MAX_REMEMBERED_OFFSETS = 200;
+// Climax marks, per script hash, in this browser only. Same privacy rule as
+// the offsets: never in the Backup, never a file name.
+export const SCRIPT_CLIMAX_STORAGE_KEY = 'edgeloop_script_climaxes';
+export const MAX_REMEMBERED_CLIMAXES = 200;
+export const MAX_CLIMAX_MARKS = 12;
 // Beat sync on The Handy: the wearer's one-time consent, and the switch.
 export const BEAT_SYNC_CONSENT_KEY = 'edgeloop_beat_sync_consent';
 export const BEAT_SYNC_STORAGE_KEY = 'edgeloop_beat_sync';
@@ -308,6 +313,74 @@ export function rememberOffset(offsets, hash, ms, now = 0, { limit = MAX_REMEMBE
     if (!finite(ms) || ms === 0) delete next[hash];
     else next[hash] = { ms, at: finite(now) ? now : 0 };
     return readOffsets(next, { limit });
+}
+
+// The stored climax marks, cleaned: { hash: { marks, at } }. Marks are
+// milliseconds along the video, sorted, and never more than MAX_CLIMAX_MARKS.
+export function readClimaxMarks(raw, { limit = MAX_REMEMBERED_CLIMAXES } = {}) {
+    const out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    const entries = Object.entries(raw)
+        .filter(([hash, entry]) => isHash(hash) && entry && typeof entry === 'object' && Array.isArray(entry.marks))
+        .map(([hash, entry]) => [hash, {
+            marks: cleanMarkList(entry.marks),
+            at: finite(Number(entry.at)) ? Number(entry.at) : 0
+        }])
+        .filter(([, entry]) => entry.marks.length > 0)
+        .sort((a, b) => b[1].at - a[1].at)
+        .slice(0, Math.max(0, limit));
+    for (const [hash, entry] of entries) out[hash] = entry;
+    return out;
+}
+
+export function climaxMarksFor(stored, hash) {
+    if (!isHash(hash) || !stored || typeof stored !== 'object') return [];
+    const entry = stored[hash];
+    return entry && Array.isArray(entry.marks) ? entry.marks.slice() : [];
+}
+
+// A new map with this script's marks remembered. An empty list forgets it.
+export function rememberClimaxMarks(stored, hash, marks, now = 0, { limit = MAX_REMEMBERED_CLIMAXES } = {}) {
+    const next = readClimaxMarks(stored, { limit: Infinity });
+    if (!isHash(hash)) return readClimaxMarks(next, { limit });
+    const clean = cleanMarkList(marks);
+    if (clean.length === 0) delete next[hash];
+    else next[hash] = { marks: clean, at: finite(now) ? now : 0 };
+    return readClimaxMarks(next, { limit });
+}
+
+function cleanMarkList(marks) {
+    const list = (Array.isArray(marks) ? marks : [])
+        .map((m) => Number(m))
+        .filter((m) => finite(m) && m >= 0)
+        .map((m) => Math.round(m))
+        .sort((a, b) => a - b);
+    const unique = [];
+    for (const m of list) {
+        if (unique.length === 0 || unique[unique.length - 1] !== m) unique.push(m);
+    }
+    return unique.slice(0, MAX_CLIMAX_MARKS);
+}
+
+// Click the heat map: a click on a mark removes it, a click on empty time
+// adds one. `xPx` / `widthPx` are the click in the canvas; a mark within
+// `hitPx` of that x is the one removed.
+export function editClimaxMarks(marks, timeMs, { durationMs = 0, widthPx = 0, xPx = 0, hitPx = 14 } = {}) {
+    const list = cleanMarkList(marks);
+    const dur = Number(durationMs);
+    if (!finite(dur) || dur <= 0) return list;
+    const width = Number(widthPx);
+    const x = Number(xPx);
+    if (finite(width) && width > 0 && finite(x)) {
+        let hit = -1;
+        for (let i = 0; i < list.length; i++) {
+            const mx = (list[i] / dur) * width;
+            if (Math.abs(mx - x) <= hitPx) hit = i;
+        }
+        if (hit >= 0) return list.filter((_, i) => i !== hit);
+    }
+    const t = Math.round(Math.max(0, Math.min(dur, Number(timeMs) || 0)));
+    return cleanMarkList(list.concat([t]));
 }
 
 // "+120 ms", "0 ms", "-50 ms".

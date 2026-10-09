@@ -115,6 +115,8 @@ function setup({ status = 'IDLE', coupled = true, block = null } = {}) {
         onStall: (s) => calls.push(`stall:${s}`),
         onScript: (s) => calls.push({ script: s }),
         onScriptCleared: (r) => calls.push({ cleared: r }),
+        onSecondary: (s) => calls.push({ secondary: s }),
+        onSecondaryCleared: () => calls.push('secondary-cleared'),
         onOffset: (ms) => calls.push(`offset:${ms}`),
         onMediaError: (m) => calls.push(`error:${m}`)
     };
@@ -288,6 +290,29 @@ describe('player: files', () => {
         await s.player.addFiles([fakeFile('Other.mp4', 'y'), fakeFile('Other.funscript', SCRIPT)]);
         assert.deepEqual(s.revoked, ['blob:1']);
         assert.equal(s.video.src, 'blob:2');
+    });
+
+    it('loads a .v0.funscript onto the secondary and leaves the plain script as the stroke', async () => {
+        const s = setup();
+        await s.player.addFiles([
+            fakeFile('Movie.mp4', 'x', 'video/mp4'),
+            fakeFile('Movie.funscript', SCRIPT),
+            fakeFile('Movie.v0.funscript', SCRIPT)
+        ]);
+        assert.equal(s.player.script().meta.actions, 3);
+        assert.equal(s.player.secondary().name, 'Movie.v0.funscript');
+        assert.equal(s.player.secondary().meta.actions, 3);
+        assert.ok(s.calls.some((c) => c.secondary));
+    });
+
+    it('keeps a secondary chosen on its own when the drop has no .v0', async () => {
+        const s = setup();
+        const chosen = fakeFile('other-toy.funscript', SCRIPT);
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4'), fakeFile('Movie.funscript', SCRIPT)]);
+        assert.equal(await s.player.chooseSecondary(chosen), true);
+        assert.equal(s.player.secondary().name, 'other-toy.funscript');
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4')]);
+        assert.equal(s.player.secondary().name, 'other-toy.funscript');
     });
 
     it('refuses a bad script with its reason and leaves no script loaded', async () => {

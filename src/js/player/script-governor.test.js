@@ -23,7 +23,12 @@ import {
     DEFAULT_SCRIPT_SETTINGS,
     sessionTargetForVideo,
     complementSecondary,
-    scriptMotion
+    scriptMotion,
+    secondaryFromScript,
+    climaxApproach,
+    boostedAllowance,
+    CLIMAX_RAMP_MS,
+    CLIMAX_PEAK_MS
 } from './script-governor.js';
 import { resolveEdgeTriggerHr } from '../engine.js';
 import { warmupShape, orgasmFrame } from '../patterns.js';
@@ -119,6 +124,37 @@ describe('a script session and a secondary with no script of its own', () => {
         assert.equal(complementSecondary(0, 1), 0);
         assert.ok(complementSecondary(100, 1) >= complementSecondary(100, 0.2));
         assert.ok(complementSecondary(100, 1) <= 100);
+    });
+
+    it('plays a secondary script as its level, scaled by the allowance', () => {
+        assert.equal(secondaryFromScript(80, 50), 40);
+        assert.equal(secondaryFromScript(100, 100), 100);
+        assert.equal(secondaryFromScript(0, 100), 0);
+        assert.equal(secondaryFromScript(40, 0), 0);
+        assert.equal(secondaryFromScript(null, 80), 0);
+    });
+});
+
+describe('climax marks', () => {
+    it('ramps the allowance up to a mark, holds, then lets the pulse lead again', () => {
+        const mark = 120000;
+        assert.equal(climaxApproach(mark - CLIMAX_RAMP_MS - 1, [mark]), 0);
+        assert.equal(climaxApproach(mark - CLIMAX_RAMP_MS, [mark]), 0);
+        assert.ok(Math.abs(climaxApproach(mark - CLIMAX_RAMP_MS / 2, [mark]) - 0.5) < 1e-9);
+        assert.equal(climaxApproach(mark, [mark]), 1);
+        assert.equal(climaxApproach(mark + CLIMAX_PEAK_MS, [mark]), 1);
+        assert.equal(climaxApproach(mark + CLIMAX_PEAK_MS + 1, [mark]), 0);
+        assert.equal(climaxApproach(NaN, [mark]), 0);
+        assert.equal(climaxApproach(mark, []), 0);
+    });
+
+    it('uses the closest mark when there are several, and a hard stop stays stopped', () => {
+        assert.equal(climaxApproach(10000, [100000, 12000]), climaxApproach(10000, [12000]));
+        assert.equal(boostedAllowance(40, 0), 40);
+        assert.equal(boostedAllowance(40, 0.5), 70);
+        assert.equal(boostedAllowance(40, 1), 100);
+        assert.equal(boostedAllowance(0, 1), 0);
+        assert.equal(boostedAllowance(80, climaxApproach(0, [0])), 100);
     });
 });
 

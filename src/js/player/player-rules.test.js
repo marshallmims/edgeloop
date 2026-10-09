@@ -20,6 +20,10 @@ import {
     offsetFor,
     rememberOffset,
     formatOffset,
+    readClimaxMarks,
+    climaxMarksFor,
+    rememberClimaxMarks,
+    editClimaxMarks,
     describeToyNotes,
     describeVideoPlayRefused,
     scriptPhaseLabel,
@@ -286,6 +290,19 @@ describe('per-script offsets', () => {
         assert.equal(Object.keys(many).length, MAX_REMEMBERED_OFFSETS);
         assert.equal('0'.repeat(64) in many, false);
         assert.deepEqual(rememberOffset({}, 'not-a-hash', 10, 1), {});
+    });
+
+    it('remembers climax marks per script and edits them from a click', () => {
+        const stored = rememberClimaxMarks({}, HASH_A, [5000, 1000, 1000], 1);
+        assert.deepEqual(climaxMarksFor(stored, HASH_A), [1000, 5000]);
+        assert.deepEqual(climaxMarksFor(rememberClimaxMarks(stored, HASH_A, [], 2), HASH_A), []);
+        assert.deepEqual(readClimaxMarks(null), {});
+        const added = editClimaxMarks([], 2500, { durationMs: 10000, widthPx: 100, xPx: 25 });
+        assert.deepEqual(added, [2500]);
+        const removed = editClimaxMarks(added, 2500, { durationMs: 10000, widthPx: 100, xPx: 26 });
+        assert.deepEqual(removed, []);
+        const two = editClimaxMarks([1000], 8000, { durationMs: 10000, widthPx: 200, xPx: 160 });
+        assert.deepEqual(two, [1000, 8000]);
     });
 
     it('formats the offset with its sign', () => {

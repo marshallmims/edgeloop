@@ -224,6 +224,48 @@ export function complementSecondary(allowance, motion) {
     return roundSpeed(a * (0.4 + 0.6 * m));
 }
 
+// A loaded secondary script: its position (0–100) is the level, scaled by
+// the allowance. Outside the file, or on a real 0, the toy stops.
+export function secondaryFromScript(position, allowance) {
+    const pos = Number(position);
+    const a = clampPercent(allowance);
+    if (!Number.isFinite(pos) || pos <= 0 || a <= 0) return 0;
+    return roundSpeed((Math.min(100, pos) * a) / 100);
+}
+
+// How far a climax mark has taken over, 0–1. The ramp starts `rampMs` before
+// the mark and holds for `peakMs` after it, then the pulse limiter is in
+// charge again. Several marks: the strongest one wins. A mark does not end
+// the session.
+export const CLIMAX_RAMP_MS = 45000;
+export const CLIMAX_PEAK_MS = 8000;
+
+export function climaxApproach(scriptMs, marks, { rampMs = CLIMAX_RAMP_MS, peakMs = CLIMAX_PEAK_MS } = {}) {
+    const t = Number(scriptMs);
+    if (!Number.isFinite(t) || !Array.isArray(marks) || marks.length === 0) return 0;
+    const ramp = Number(rampMs) > 0 ? Number(rampMs) : CLIMAX_RAMP_MS;
+    const peak = Number(peakMs) > 0 ? Number(peakMs) : 0;
+    let best = 0;
+    for (const raw of marks) {
+        const mark = Number(raw);
+        if (!Number.isFinite(mark)) continue;
+        const dist = mark - t;
+        if (dist > ramp) continue;
+        if (dist >= 0) best = Math.max(best, 1 - dist / ramp);
+        else if (-dist <= peak) best = 1;
+    }
+    return Math.max(0, Math.min(1, best));
+}
+
+// Blend the pulse allowance toward full as a climax mark gets close. A hard
+// stop (allowance 0: skip, stall, STOP) stays a stop.
+export function boostedAllowance(pulseAllowance, approach) {
+    const a = clampPercent(pulseAllowance);
+    const k = Math.max(0, Math.min(1, Number(approach) || 0));
+    if (a <= 0 || k <= 0) return roundSpeed(a);
+    return roundSpeed(a + (100 - a) * k);
+}
+
 // Default: the session is the video. Continue-after keeps the timer the
 // wearer already set, and the video ending does not end the session.
 export function sessionTargetForVideo({ continueAfter = false, videoSeconds = 0, configuredSeconds = 0 } = {}) {

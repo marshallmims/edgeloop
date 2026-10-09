@@ -179,9 +179,10 @@ import {
 } from './voice-cues.js';
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
-import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion } from './player/script-governor.js';
-import { offsetFor, rememberOffset, readOffsets, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
+import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance } from './player/script-governor.js';
+import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
+import { posAt } from './player/script-track.js';
 import { effectiveInvert } from './player/script-shaper.js';
 
 // Load persisted settings. The old 15/85 default envelope is migrated to
@@ -294,6 +295,8 @@ export const isRemoteController = Boolean(partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
 let player = null;
+let secondaryTrack = null;
+let loadedClimaxMarks = [];
 const scriptFeed = isRemotePage ? null : createScriptFeed();
 if (scriptFeed) setIntifaceScriptFeed(scriptFeed);
 const handyHsp = (!isRemotePage && scriptFeed) ? createHandyHsp({
@@ -1065,8 +1068,13 @@ function updateEngine() {
     if (scriptFeed) {
         scriptFeed.setSettings(sanitizeScriptSettings(advancedSettings));
         scriptFeed.setActive(state.activeMode === 'script');
-        scriptFeed.setAllowance(state.activeMode === 'script' ? result.primaryPercent : 0);
     }
+    let sentPrimary = result.primaryPercent;
+    if (state.activeMode === 'script' && scriptFeed?.hasTrack() && loadedClimaxMarks.length > 0) {
+        const t = scriptFeed.scriptNow();
+        sentPrimary = boostedAllowance(sentPrimary, climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks));
+    }
+    if (scriptFeed) scriptFeed.setAllowance(state.activeMode === 'script' ? sentPrimary : 0);
     if (player && state.activeMode === 'script') {
         const pauseVideo = advancedSettings.scriptStrokeModel !== 'keep' && edgeActionPausesVideo(advancedSettings.scriptEdgeAction);
         if (pauseVideo && result.isEdged) player.holdForEdge();
@@ -1142,12 +1150,23 @@ function updateEngine() {
     let secondary = result.secondaryPercent;
     if (state.activeMode === 'script' && scriptFeed?.hasTrack() && advancedSettings.scriptSecondChannel !== 'off') {
         const t = scriptFeed.scriptNow();
-        const rhythm = rhythmAt(scriptFeed.track(), Number.isFinite(t) ? t : NaN, {
-            invert: effectiveInvert(scriptFeed.meta(), scriptFeed.settings())
-        });
-        secondary = complementSecondary(result.primaryPercent, scriptMotion(rhythm.meanSpeed));
+        const time = Number.isFinite(t) ? t : NaN;
+        if (secondaryTrack) {
+            secondary = secondaryFromScript(posAt(secondaryTrack, time), sentPrimary);
+        } else {
+            const rhythm = rhythmAt(scriptFeed.track(), time, {
+                invert: effectiveInvert(scriptFeed.meta(), scriptFeed.settings())
+            });
+            secondary = complementSecondary(sentPrimary, scriptMotion(rhythm.meanSpeed));
+        }
     }
-    dispatchHardware(result.primaryPercent, secondary, result.strokeMinPercent, result.strokeMaxPercent);
+    state.strokerSpeed = sentPrimary;
+    state.prostateSpeed = secondary;
+    if (strokerVal) strokerVal.textContent = `${sentPrimary}%`;
+    if (strokerBar) strokerBar.style.width = `${sentPrimary}%`;
+    if (prostateVal) prostateVal.textContent = `${secondary}%`;
+    if (prostateBar) prostateBar.style.width = `${secondary}%`;
+    dispatchHardware(sentPrimary, secondary, result.strokeMinPercent, result.strokeMaxPercent);
 }
 
 // Physical stroke bounds to send to the toys. engine.js has ALREADY mapped
@@ -5457,6 +5476,13 @@ function storedScriptOffsets() {
         return {};
     }
 }
+function storedClimaxMarks() {
+    try {
+        return readClimaxMarks(JSON.parse(safeGet(SCRIPT_CLIMAX_STORAGE_KEY, '') || 'null'));
+    } catch (e) {
+        return {};
+    }
+}
 if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
     const byId = (id) => document.getElementById(id);
     player = createPlayer({
@@ -5476,6 +5502,12 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             hudStop: byId('hudStopBtn'),
             fileInput: byId('playerFileInput'),
             chooseBtn: byId('playerChooseBtn'),
+            primaryBtn: byId('playerPrimaryBtn'),
+            primaryInput: byId('playerPrimaryInput'),
+            secondaryBtn: byId('playerSecondaryBtn'),
+            secondaryInput: byId('playerSecondaryInput'),
+            heatmap: byId('playerHeatmap'),
+            heatmapHint: byId('playerHeatmapHint'),
             clearBtn: byId('playerClearBtn'),
             dropZone: byId('playerDrop'),
             packRow: byId('playerPackRow'),
@@ -5504,13 +5536,28 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 loadedScriptHash = script.hash || '';
                 scriptFeed.setTrack(script.track, script.meta);
                 player?.setOffset(offsetFor(storedScriptOffsets(), script.hash));
+                loadedClimaxMarks = climaxMarksFor(storedClimaxMarks(), script.hash);
+                player?.setClimaxMarks(loadedClimaxMarks);
                 const card = document.getElementById('scriptModeCard');
                 if (card) card.disabled = false;
                 card?.classList.remove('opacity-50');
                 checkReadiness();
             },
+            onSecondary: (script) => {
+                secondaryTrack = script.track || null;
+            },
+            onSecondaryCleared: () => {
+                secondaryTrack = null;
+            },
+            onClimax: (marks) => {
+                loadedClimaxMarks = Array.isArray(marks) ? marks.slice() : [];
+                if (!loadedScriptHash) return;
+                const next = rememberClimaxMarks(storedClimaxMarks(), loadedScriptHash, loadedClimaxMarks, Date.now());
+                safeSet(SCRIPT_CLIMAX_STORAGE_KEY, JSON.stringify(next));
+            },
             onScriptCleared: () => {
                 loadedScriptHash = '';
+                loadedClimaxMarks = [];
                 scriptFeed.setTrack(null);
                 if (state.teaseMode === 'script') applyModeSelection('classic');
                 const card = document.getElementById('scriptModeCard');
