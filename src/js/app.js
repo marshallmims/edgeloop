@@ -181,7 +181,7 @@ import {
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
 import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, clampClimaxSeconds } from './player/script-governor.js';
-import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
+import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, describePlayerHardwareWait, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
 import { posAt } from './player/script-track.js';
 import { effectiveInvert } from './player/script-shaper.js';
@@ -639,8 +639,21 @@ function transportWaitingReason(now = Date.now()) {
     return null;
 }
 
+function renderPlayerHardwareNotice() {
+    const el = document.getElementById('playerNotice');
+    if (!el) return;
+    const showingVideo = Boolean(player && player.hasVideo());
+    const idle = state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED';
+    const text = (!isRemotePage && showingVideo && idle) ? describePlayerHardwareWait(transportWaitingReason()) : '';
+    el.textContent = text;
+    el.classList.toggle('hidden', !text);
+}
+
 function checkReadiness() {
-    if (!playPauseBtn) return;
+    if (!playPauseBtn) {
+        renderPlayerHardwareNotice();
+        return;
+    }
 
     const active = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN';
 
@@ -655,11 +668,13 @@ function checkReadiness() {
             playPauseBtn.classList.remove('cursor-pointer');
             playPauseBtn.classList.add('cursor-not-allowed', 'opacity-70');
         }
+        renderPlayerHardwareNotice();
         return;
     }
 
     if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
         playPauseBtn.disabled = false;
+        renderPlayerHardwareNotice();
         return;
     }
 
@@ -668,6 +683,7 @@ function checkReadiness() {
     const reason = transportWaitingReason();
     if (reason) renderTransportWaiting(reason);
     else renderTransport(state.sessionStatus === 'PAUSED' ? 'PAUSED' : 'IDLE');
+    renderPlayerHardwareNotice();
 }
 
 // Center Intensity Slider
@@ -5766,6 +5782,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             },
             onHudPause: () => { if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') playPauseBtn?.click(); },
             onHudStop: () => stopBtn?.click(),
+            onVideo: () => renderPlayerHardwareNotice(),
             onPlayButton: () => playPauseBtn?.click()
         }
     });

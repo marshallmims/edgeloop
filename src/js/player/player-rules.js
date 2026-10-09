@@ -229,6 +229,23 @@ export function describeMediaError(code, { typeSupported = null } = {}) {
 
 // Why START or RESUME must wait in Script mode, or null. The script must be
 // valid and the video loaded far enough to show a frame.
+// Why the video's Play button did nothing. Scrubbing still works. Empty
+// when the block is not a missing monitor or toy.
+export function describePlayerHardwareWait(reason) {
+    switch (reason) {
+        case 'WAITING FOR HR SENSOR & TOY':
+            return 'Connect a heart-rate monitor and a toy before this video can play. You can still scrub through it.';
+        case 'WAITING FOR HR SENSOR':
+            return 'Connect a heart-rate monitor before this video can play. You can still scrub through it.';
+        case 'WAITING FOR TOY CONNECTION':
+            return 'Connect a toy before this video can play. You can still scrub through it.';
+        case 'WAITING FOR PULSE':
+            return 'Waiting for a heart-rate reading before this video can play. You can still scrub through it.';
+        default:
+            return '';
+    }
+}
+
 export function scriptWaitingReason({ activeMode, hasTrack = false, hasVideo = false, videoReady = false, videoError = false } = {}) {
     if (activeMode !== 'script') return null;
     if (!hasTrack) return 'LOAD A SCRIPT';
