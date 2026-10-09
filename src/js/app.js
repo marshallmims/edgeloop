@@ -5794,15 +5794,39 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             onPlayButton: () => playPauseBtn?.click()
         }
     });
-    const modelSelect = document.getElementById('scriptStrokeModelSelect');
-    if (modelSelect) {
-        modelSelect.value = advancedSettings.scriptStrokeModel === 'keep' ? 'keep' : 'cactus';
-        modelSelect.addEventListener('change', () => {
-            advancedSettings.scriptStrokeModel = modelSelect.value === 'keep' ? 'keep' : 'cactus';
+    const STROKE_MODEL_DETAILS = {
+        cactus: 'Strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going.',
+        keep: 'Strokes stay the shape in the file. Your heart rate only turns them down. A pause in the file is a real stop.'
+    };
+    function renderStrokeModel() {
+        const model = advancedSettings.scriptStrokeModel === 'keep' ? 'keep' : 'cactus';
+        document.querySelectorAll('.stroke-model-card').forEach((card) => {
+            const on = card.getAttribute('data-stroke-model') === model;
+            const check = card.querySelector('.stroke-model-check');
+            const title = card.querySelector('.font-bold');
+            if (on) {
+                card.className = 'stroke-model-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between';
+                if (title) title.className = 'font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1';
+                check?.classList.remove('hidden');
+            } else {
+                card.className = 'stroke-model-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between';
+                if (title) title.className = 'font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1';
+                check?.classList.add('hidden');
+            }
+        });
+        const detail = document.getElementById('strokeModelDetail');
+        if (detail) detail.textContent = STROKE_MODEL_DETAILS[model];
+    }
+    document.querySelectorAll('.stroke-model-card').forEach((card) => {
+        card.addEventListener('click', () => {
+            const next = card.getAttribute('data-stroke-model') === 'keep' ? 'keep' : 'cactus';
+            advancedSettings.scriptStrokeModel = next;
             persistSettings();
+            renderStrokeModel();
             updateEngine();
         });
-    }
+    });
+    renderStrokeModel();
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => {
         document.getElementById('playerBody')?.classList.toggle('hidden');
     });
