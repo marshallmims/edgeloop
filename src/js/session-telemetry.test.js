@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
     isDevTelemetryHost,
     publicDeviceName,
@@ -99,10 +100,51 @@ describe('buildSessionExport', () => {
         assert.equal(exported.devices.heartRate.name, '');
         assert.equal(exported.devices.intiface[0].name, 'Lovense Edge');
         assert.equal(exported.devices.intiface[0].axes[0].role, 'secondary');
+        assert.equal(exported.devices.intiface[0].axes[0].vibeMode, undefined);
         assert.equal(exported.script.hash, 'a'.repeat(64));
         assert.deepEqual(exported.script.climaxMarks, [12000, 40000]);
         assert.equal(exported.summary.hrMax, 110);
         assert.equal(exported.summary.edgedSeconds, 1);
         assert.equal(exported.series.length, 2);
+        assert.match(exported.note, /stays on your device/);
+        assert.match(exported.note, /Bluetooth address/);
+    });
+
+    it('keeps a vibrate mode and a product name, and drops an address', () => {
+        const exported = buildSessionExport({
+            devices: {
+                heartRate: { connected: true, name: 'HeartCast' },
+                intiface: [{
+                    name: 'Lovense Edge',
+                    axes: [{ kind: 'Vibrate', role: 'secondary', maxCap: 80, vibeMode: 'pulsed', pulsePeriodMs: 800, address: 'AA:BB:CC:DD:EE:FF' }]
+                }],
+                tcode: { connected: true, name: 'FUNSR Pro', axes: [{ id: 'L0', role: 'primary', maxCap: 100 }] }
+            }
+        });
+        const text = JSON.stringify(exported);
+        assert.equal(exported.devices.heartRate.name, 'HeartCast');
+        assert.equal(exported.devices.intiface[0].axes[0].vibeMode, 'pulsed');
+        assert.equal(exported.devices.intiface[0].axes[0].pulsePeriodMs, 800);
+        assert.equal(exported.devices.tcode.name, 'FUNSR Pro');
+        assert.equal(text.includes('AA:BB'), false);
+        const junk = buildSessionExport({
+            devices: { intiface: [{ name: 'Edge', axes: [{ kind: 'Vibrate', role: 'secondary', vibeMode: 'strobe', pulsePeriodMs: 1000 }] }] }
+        });
+        assert.equal(junk.devices.intiface[0].axes[0].vibeMode, undefined);
+        assert.equal(junk.devices.intiface[0].axes[0].pulsePeriodMs, undefined);
+    });
+});
+
+describe('the history opt-in', () => {
+    it('is a switch on the history screen, off until the page turns recording on', () => {
+        const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+        const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+        assert.match(html, /id="sessionLogPanel"/);
+        assert.match(html, /id="sessionLogOptIn"/);
+        assert.match(html, /does not upload it/);
+        assert.match(html, /Bluetooth addresses/);
+        assert.match(app, /sessionLogWanted\(\)/);
+        assert.match(app, /edgeloop_session_log/);
+        assert.match(app, /safeParse\(SESSION_LOG_KEY, false\) === true/);
     });
 });

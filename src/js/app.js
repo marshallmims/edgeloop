@@ -297,7 +297,13 @@ export const isRemoteController = Boolean(partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
 const devTelemetry = !isRemotePage && isDevTelemetryHost(typeof location !== 'undefined' ? location.hostname : '');
+const SESSION_LOG_KEY = 'edgeloop_session_log';
 const sessionLog = createSessionLog();
+let sessionLogOptIn = safeParse(SESSION_LOG_KEY, false) === true;
+
+function sessionLogWanted() {
+    return devTelemetry && sessionLogOptIn;
+}
 let player = null;
 let secondaryTrack = null;
 let loadedClimaxMarks = [];
@@ -1800,7 +1806,7 @@ setInterval(() => {
             strokeMin: range.min,
             strokeMax: range.max
         });
-        if (devTelemetry) {
+        if (sessionLogWanted()) {
             sessionLog.observe({
                 t: now - funscriptSessionStart,
                 hr: state.sensorHr,
@@ -5151,7 +5157,9 @@ function deviceLogSnapshot() {
             axes: (dev.axes || []).filter((axis) => !axis.inert).map((axis) => ({
                 kind: axis.type || axis.kind || '',
                 role: axis.role,
-                maxCap: axis.maxCap
+                maxCap: axis.maxCap,
+                vibeMode: axis.vibeMode,
+                pulsePeriodMs: axis.pulsePeriodMs
             }))
         })) : [],
         vacuglide: {
@@ -5204,7 +5212,7 @@ function saveSessionToHistory(outcome) {
         // Raw 4 Hz timeline; both funscripts are built from it on download.
         samples: [...funscriptSamples]
     };
-    if (devTelemetry) {
+    if (sessionLogWanted()) {
         entry.telemetry = buildSessionExport({
             appVersion: APP_VERSION,
             session: {
@@ -5292,30 +5300,37 @@ window.downloadFunscript = (sessionId, channel) => {
     URL.revokeObjectURL(url);
 };
 
+function paintSessionLogOptIn() {
+    const panel = document.getElementById('sessionLogPanel');
+    if (panel) panel.classList.toggle('hidden', !devTelemetry);
+    const box = document.getElementById('sessionLogOptIn');
+    if (box) box.checked = sessionLogOptIn;
+    const label = document.getElementById('sessionLogOptInState');
+    if (label) {
+        label.textContent = sessionLogOptIn ? 'On' : 'Off';
+        label.className = sessionLogOptIn
+            ? 'font-mono text-[10px] font-bold text-amber-300'
+            : 'font-mono text-[10px] font-bold text-slate-400';
+    }
+}
+
+window.setSessionLogOptIn = (on) => {
+    sessionLogOptIn = Boolean(on);
+    safeSet(SESSION_LOG_KEY, sessionLogOptIn);
+    if (!sessionLogOptIn) sessionLog.reset();
+    paintSessionLogOptIn();
+};
+
 function renderHistory() {
     const history = safeParse('edgeloop_history', []);
     const list = document.getElementById('historyList');
+    paintSessionLogOptIn();
     if (!list) return;
     if (history.length === 0) {
         list.innerHTML = `<div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 text-xs text-center italic">No completed sessions recorded yet.</div>`;
         return;
     }
     list.innerHTML = '';
-    if (isDevTelemetryHost(location.hostname)) {
-        const note = document.createElement('p');
-        note.className = 'text-[10px] text-amber-200/90 leading-snug';
-        note.append(
-            'Session log can be downloaded and shared for diagnosis and tuning. It has the pulse, the toy speeds, the settings, and which toys were on. It leaves out connection keys and file names. Post it in ',
-        );
-        const discord = document.createElement('a');
-        discord.href = 'https://discord.gg/ZFrkehxAC';
-        discord.target = '_blank';
-        discord.rel = 'noopener noreferrer';
-        discord.className = 'underline text-amber-100 hover:text-white';
-        discord.textContent = 'Discord';
-        note.append(discord, '.');
-        list.appendChild(note);
-    }
     history.forEach((s, idx) => {
         const mins = Math.floor(s.duration / 60);
         const secs = s.duration % 60;
@@ -5335,7 +5350,7 @@ function renderHistory() {
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         .v0.funscript
         </button>
-        ${isDevTelemetryHost(location.hostname) ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log and share it for diagnosis and tuning. No keys or file names.">Session log</button>` : ''}
+        ${devTelemetry && s.telemetry ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log. It stays on your device until you share it.">Session log</button>` : ''}
         </div>
         `;
         list.appendChild(item);

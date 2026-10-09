@@ -1127,6 +1127,21 @@
           <span>Recorded Sessions & Funscripts</span>
           <button id="clearHistoryBtn" class="text-rose-400 hover:underline cursor-pointer">Clear Log</button>
         </div>
+        <div id="sessionLogPanel" class="hidden p-2.5 bg-slate-950 rounded-xl border border-amber-900/60 space-y-1.5">
+          <label class="flex items-center justify-between gap-2 cursor-pointer">
+            <span class="text-xs font-bold text-slate-200">Record a session log</span>
+            <span class="flex items-center gap-2 shrink-0">
+              <span id="sessionLogOptInState" class="font-mono text-[10px] font-bold text-slate-400">Off</span>
+              <input id="sessionLogOptIn" type="checkbox" class="accent-amber-500 cursor-pointer" onchange="setSessionLogOptIn(this.checked)">
+            </span>
+          </label>
+          <p class="text-[9px] text-slate-400 leading-snug">
+            Off until you turn it on. The log stays in this browser. EdgeLoop does not upload it, and it has no account to attach it to. Stop a session and a JSON download appears on that row. Post it in <a href="https://discord.gg/ZFrkehxAC" target="_blank" rel="noopener noreferrer" class="underline text-amber-200/90 hover:text-white">Discord</a> if you want a hand reading what the toys did.
+          </p>
+          <p class="text-[9px] text-slate-400 leading-snug">
+            The file has your heart rate once a second, the speeds sent to the toys, your session settings, and the make and model of the toys that were on. It leaves out Handy keys, device tokens, Bluetooth addresses, and the names of videos and scripts.
+          </p>
+        </div>
         <div id="historyList" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar scroll-smooth pr-0.5">
           <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 text-xs text-center italic">
             No completed sessions recorded yet.

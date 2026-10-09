@@ -206,13 +206,20 @@ function cleanScript(script) {
     };
 }
 
+const VIBE_MODES = Object.freeze(['constant', 'pulsed']);
+const PULSE_PERIODS_MS = Object.freeze([800, 1600, 2400]);
+
 function cleanAxis(axis) {
     const src = axis && typeof axis === 'object' ? axis : {};
-    return {
+    const out = {
         kind: shortText(src.kind || src.type, 24),
         role: roleOf(src.role),
         maxCap: pct(src.maxCap)
     };
+    const mode = VIBE_MODES.includes(src.vibeMode) ? src.vibeMode : '';
+    if (mode) out.vibeMode = mode;
+    if (mode === 'pulsed' && PULSE_PERIODS_MS.includes(src.pulsePeriodMs)) out.pulsePeriodMs = src.pulsePeriodMs;
+    return out;
 }
 
 export function deviceSnapshot(raw) {
@@ -306,7 +313,7 @@ export function buildSessionExport(input = {}) {
     return {
         telemetryVersion: TELEMETRY_VERSION,
         appVersion: shortText(input.appVersion, 16),
-        note: 'Download and share this file for diagnosis and tuning. It has no connection keys, tokens, file names, or video addresses.',
+        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the settings, and the make and model of the toys. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
         session: cleanSession(input.session),
         summary: summarize(series),
         settings: pickSettings(input.settings),
