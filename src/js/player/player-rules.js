@@ -23,6 +23,27 @@ export function describeVideoFormats() {
     };
 }
 
+// A second at this speed (% of the script range per second) is solid red.
+// A pause is green. 200 %/s is a full stroke about twice a second.
+export const HEATMAP_RED_PER_SECOND = 200;
+
+export function heatLevel(speed) {
+    const v = Number(speed);
+    if (!Number.isFinite(v) || v <= 0) return 0;
+    return Math.min(1, v / HEATMAP_RED_PER_SECOND);
+}
+
+// 0 is green (a pause), 1 is red (fast). Yellow is the middle.
+export function heatColor(amount) {
+    const t = Math.max(0, Math.min(1, Number(amount) || 0));
+    const mix = (a, b, u) => Math.round(a + (b - a) * u);
+    const green = [34, 197, 94];
+    const yellow = [250, 204, 21];
+    const red = [239, 68, 68];
+    const [from, to, u] = t < 0.5 ? [green, yellow, t / 0.5] : [yellow, red, (t - 0.5) / 0.5];
+    return `rgb(${mix(from[0], to[0], u)}, ${mix(from[1], to[1], u)}, ${mix(from[2], to[2], u)})`;
+}
+
 // A link the wearer pasted or dropped. A direct file address can be given
 // to the video element. A page on a video site is not a file: those sites
 // do not hand the video to another page, so the link is refused.
@@ -208,6 +229,23 @@ export function describeMediaError(code, { typeSupported = null } = {}) {
 
 // Why START or RESUME must wait in Script mode, or null. The script must be
 // valid and the video loaded far enough to show a frame.
+// Why the video's Play button did nothing. Scrubbing still works. Empty
+// when the block is not a missing monitor or toy.
+export function describePlayerHardwareWait(reason) {
+    switch (reason) {
+        case 'WAITING FOR HR SENSOR & TOY':
+            return 'Connect a heart-rate monitor and a toy before this video can play. You can still scrub through it.';
+        case 'WAITING FOR HR SENSOR':
+            return 'Connect a heart-rate monitor before this video can play. You can still scrub through it.';
+        case 'WAITING FOR TOY CONNECTION':
+            return 'Connect a toy before this video can play. You can still scrub through it.';
+        case 'WAITING FOR PULSE':
+            return 'Waiting for a heart-rate reading before this video can play. You can still scrub through it.';
+        default:
+            return '';
+    }
+}
+
 export function scriptWaitingReason({ activeMode, hasTrack = false, hasVideo = false, videoReady = false, videoError = false } = {}) {
     if (activeMode !== 'script') return null;
     if (!hasTrack) return 'LOAD A SCRIPT';
@@ -217,9 +255,9 @@ export function scriptWaitingReason({ activeMode, hasTrack = false, hasVideo = f
     return null;
 }
 
-// Whether the video follows the session transport: Script mode is
-// selected and a script is loaded. Otherwise it is a plain player.
-export function videoCoupled({ activeMode, hasTrack = false } = {}) {
+// A loaded video follows the session. A script session still needs its track.
+export function videoCoupled({ activeMode, hasTrack = false, hasVideo = false } = {}) {
+    if (hasVideo) return true;
     return activeMode === 'script' && Boolean(hasTrack);
 }
 
@@ -380,6 +418,19 @@ export function editClimaxMarks(marks, timeMs, { durationMs = 0, widthPx = 0, xP
         if (hit >= 0) return list.filter((_, i) => i !== hit);
     }
     const t = Math.round(Math.max(0, Math.min(dur, Number(timeMs) || 0)));
+    return cleanMarkList(list.concat([t]));
+}
+
+// The Mark button: add the time under the playhead, or remove the mark
+// already sitting on it. `nearMs` is how close counts as the same mark.
+export function toggleClimaxAt(marks, timeMs, { durationMs = 0, nearMs = 1500 } = {}) {
+    const list = cleanMarkList(marks);
+    const dur = Number(durationMs);
+    if (!finite(dur) || dur <= 0) return list;
+    const t = Math.round(Math.max(0, Math.min(dur, Number(timeMs) || 0)));
+    const near = finite(nearMs) && nearMs > 0 ? nearMs : 0;
+    const hit = list.findIndex((m) => Math.abs(m - t) <= near);
+    if (hit >= 0) return list.filter((_, i) => i !== hit);
     return cleanMarkList(list.concat([t]));
 }
 

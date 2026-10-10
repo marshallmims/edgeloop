@@ -36,9 +36,10 @@ function apply(page) {
             button.tabIndex = on ? 0 : -1;
         }
     }
-    // The player stays in the document either way. Hiding the panel does not
-    // pause the element, so the toys and the picture keep their place.
-    if (page === 'video') document.getElementById('playerBody')?.classList.remove('hidden');
+    // Opening Video uses the same switch as the Player button, so Play and
+    // Stop move onto the picture. Closing it puts them back. The element
+    // stays in the document, so a playing video keeps its place.
+    setPlayerOpen(page === 'video');
     if (page === 'session') mountSession();
     else unmountSession();
 }
@@ -64,6 +65,17 @@ function unmountSession() {
     paramsHome.appendChild(params);
 }
 
+// The Player button is what 1.1.4.13 uses to open the picture and move the
+// session controls onto it. The shell calls that same button. It does not
+// replace it.
+function setPlayerOpen(open) {
+    const section = document.getElementById('playerSection');
+    const button = document.getElementById('playerHeaderBtn');
+    if (!section || !button) return;
+    const isOpen = !section.classList.contains('hidden');
+    if (isOpen !== open) button.click();
+}
+
 function bindPageClicks() {
     for (const id of ['openParamsBtn', 'sessionParamsHeaderBtn']) {
         document.getElementById(id)?.addEventListener('click', (event) => {
@@ -73,11 +85,6 @@ function bindPageClicks() {
             show('session');
         }, true);
     }
-    document.getElementById('playerHeaderBtn')?.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        show('video');
-    }, true);
     document.getElementById('modalCloseBtn')?.addEventListener('click', () => {
         if (current !== 'session') return;
         setTimeout(() => document.getElementById('modalBodyParams')?.classList.remove('hidden'), 0);

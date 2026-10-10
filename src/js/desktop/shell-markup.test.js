@@ -25,6 +25,6 @@ describe('the desktop shell stays off the website', () => {
         assert.match(html, /id="shellSession" data-shell="session" class="hidden"/);
         assert.match(html, /id="playerSection" data-shell="video"/);
         assert.match(html, /data-shell="loop"/);
-        assert.match(html, /id="deviceStatus"/);
+        assert.match(html, /id="deviceBar"/);
     });
 });

@@ -26,6 +26,7 @@ import {
     HANDSHAKE_TIMEOUT_TEXT
 } from './intiface.js';
 import { REST_MOVE_MS } from './stroke-planner.js';
+import { pulsePhase } from './vibe-pulse.js';
 
 const sockets = [];
 
@@ -402,6 +403,7 @@ describe('dispatch', () => {
     it('applies the cap to scalars and honours linear invert', async () => {
         const ws = connectWith([EDGE, OSR2]);
         setAxisMaxCap(0, 1, 50);
+        setAxisVibeMode(0, 1, { mode: 'constant' });
         setAxisInvert(1, 0, true);
         dispatchIntiface(100, 100, 20, 80);
         const scalars = ws.messages('ScalarCmd').filter((m) => m.Scalars[0].Index === 1);
@@ -484,23 +486,35 @@ describe('pulsed vibration', () => {
         return ws.messages('ScalarCmd').flatMap((cmd) => cmd.Scalars).filter((s) => s.Index === index).map((s) => s.Scalar);
     }
 
-    it('holds the engine level for half the period, then rests, and a stop ends the train', async () => {
+    it('holds the engine level through the run, then rests, and a stop ends the train', async () => {
         const ws = connectWith([EDGE]);
         assert.equal(setAxisVibeMode(0, 0, { mode: 'pulsed', periodMs: 800 }), true);
         assert.equal(setAxisVibeMode(0, 0, { mode: 'nope' }), false);
         // Arming Pulsed while the engine is still at 0 sends that 0 once.
-        // The first positive level is the peak, at once.
+        // The first positive level is the peak, at once. It does not tick off
+        // at half a period.
         dispatchIntiface(0, 50, 0, 100);
-        assert.deepEqual(levels(ws, 0), [0, 0.5]);
-        await sleep(420);
-        assert.deepEqual(levels(ws, 0), [0, 0.5, 0]);
+        assert.ok(levels(ws, 0).at(-1) > 0 && levels(ws, 0).at(-1) < 0.5, 'a ramp starts below the peak');
+        const startedAt = intifaceDevices.get(0).axes[0].pulse.startedAt;
         await sleep(400);
-        assert.deepEqual(levels(ws, 0), [0, 0.5, 0, 0.5]);
+        assert.ok(levels(ws, 0).at(-1) > 0, 'the first beat of a ramp is not a rest');
+        let cursor = startedAt;
+        let restStart = startedAt;
+        for (let step = 0; step < 40; step += 1) {
+            const phase = pulsePhase(startedAt, cursor, 800);
+            if (phase.gain === 0) {
+                restStart = cursor;
+                break;
+            }
+            cursor = phase.changeAt;
+        }
+        await sleep(Math.max(1, restStart - Date.now() + 40));
+        assert.equal(levels(ws, 0).at(-1), 0, 'the rest is sent when the phrase says');
         const beforeStop = levels(ws, 0).length;
         dispatchIntiface(0, 0, 0, 100, 0, 100, true);
         assert.equal(levels(ws, 0).at(-1), 0);
         await sleep(500);
-        assert.equal(levels(ws, 0).length, beforeStop + 1, 'a stop cuts the train');
+        assert.equal(levels(ws, 0).length, beforeStop, 'a stop cuts the train, so the next run never starts');
     });
 
     it('remembers Constant or Pulsed with the toy', () => {
@@ -508,14 +522,14 @@ describe('pulsed vibration', () => {
         setAxisVibeMode(0, 1, { mode: 'pulsed', periodMs: 2400 });
         const stored = JSON.parse(memory.get(INTIFACE_STORAGE_KEY));
         const axes = stored['Lovense Edge|S:Vibrate,Vibrate|L:|R:'].axes;
-        assert.equal(axes['scalar:0'].vibeMode, 'constant');
+        assert.equal(axes['scalar:0'].vibeMode, 'pulsed');
         assert.equal(axes['scalar:0'].pulsePeriodMs, 1600);
         assert.equal(axes['scalar:1'].vibeMode, 'pulsed');
         assert.equal(axes['scalar:1'].pulsePeriodMs, 2400);
         disconnectIntiface();
         connectWith([{ ...EDGE, DeviceIndex: 4 }]);
         const edge = intifaceDevices.get(4);
-        assert.equal(edge.axes[0].vibeMode, 'constant');
+        assert.equal(edge.axes[0].vibeMode, 'pulsed');
         assert.equal(edge.axes[1].vibeMode, 'pulsed');
         assert.equal(edge.axes[1].pulsePeriodMs, 2400);
     });

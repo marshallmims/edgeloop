@@ -12,6 +12,7 @@ import {
     toySpeedLimit,
     describeMediaError,
     scriptWaitingReason,
+    describePlayerHardwareWait,
     videoCoupled,
     videoEventAction,
     isAudible,
@@ -24,6 +25,7 @@ import {
     climaxMarksFor,
     rememberClimaxMarks,
     editClimaxMarks,
+    toggleClimaxAt,
     describeToyNotes,
     describeVideoPlayRefused,
     scriptPhaseLabel,
@@ -31,7 +33,8 @@ import {
     BEAT_SYNC_CONSENT_TEXT,
     MAX_REMEMBERED_OFFSETS,
     describeVideoFormats,
-    classifyVideoLink
+    classifyVideoLink,
+    heatColor
 } from './player-rules.js';
 import { stats } from './script-track.js';
 import { clampScriptOffset } from './script-governor.js';
@@ -181,6 +184,18 @@ describe('describeMediaError', () => {
     });
 });
 
+describe('the player says why Play did nothing', () => {
+    it('names the monitor, the toy, or both, and stays quiet otherwise', () => {
+        assert.match(describePlayerHardwareWait('WAITING FOR HR SENSOR & TOY'), /heart-rate monitor and a toy/);
+        assert.match(describePlayerHardwareWait('WAITING FOR HR SENSOR'), /heart-rate monitor/);
+        assert.doesNotMatch(describePlayerHardwareWait('WAITING FOR HR SENSOR'), /and a toy/);
+        assert.match(describePlayerHardwareWait('WAITING FOR TOY CONNECTION'), /Connect a toy/);
+        assert.match(describePlayerHardwareWait('WAITING FOR PULSE'), /heart-rate reading/);
+        assert.equal(describePlayerHardwareWait('WAITING FOR A SCRIPT'), '');
+        assert.equal(describePlayerHardwareWait(null), '');
+    });
+});
+
 describe('scriptWaitingReason: START needs a valid script and a ready video', () => {
     it('only ever speaks in Script mode', () => {
         assert.equal(scriptWaitingReason({ activeMode: 'classic' }), null);
@@ -196,10 +211,11 @@ describe('scriptWaitingReason: START needs a valid script and a ready video', ()
 });
 
 describe('videoCoupled', () => {
-    it('couples the video to the transport only in Script mode with a script', () => {
+    it('couples a loaded video, and a script session that has its track', () => {
         assert.equal(videoCoupled({ activeMode: 'script', hasTrack: true }), true);
         assert.equal(videoCoupled({ activeMode: 'script', hasTrack: false }), false);
-        assert.equal(videoCoupled({ activeMode: 'classic', hasTrack: true }), false);
+        assert.equal(videoCoupled({ activeMode: 'classic', hasTrack: false }), false);
+        assert.equal(videoCoupled({ activeMode: 'classic', hasVideo: true }), true);
     });
 });
 
@@ -303,6 +319,9 @@ describe('per-script offsets', () => {
         assert.deepEqual(removed, []);
         const two = editClimaxMarks([1000], 8000, { durationMs: 10000, widthPx: 200, xPx: 160 });
         assert.deepEqual(two, [1000, 8000]);
+        assert.deepEqual(toggleClimaxAt([], 2500, { durationMs: 10000 }), [2500]);
+        assert.deepEqual(toggleClimaxAt([2500], 3000, { durationMs: 10000, nearMs: 1500 }), []);
+        assert.deepEqual(toggleClimaxAt([2500], 5000, { durationMs: 10000, nearMs: 1500 }), [2500, 5000]);
     });
 
     it('formats the offset with its sign', () => {
@@ -367,6 +386,9 @@ describe('video files and links', () => {
             assert.match(formats.hint, new RegExp(name));
         }
         assert.match(formats.hint, /funscript/);
+        assert.equal(heatColor(0), 'rgb(34, 197, 94)');
+        assert.equal(heatColor(0.5), 'rgb(250, 204, 21)');
+        assert.equal(heatColor(1), 'rgb(239, 68, 68)');
         assert.match(formats.hint, /MP4 \(H\.264\) and WebM/);
     });
 

@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createPlayer } from './player.js';
 import { createScriptFeed } from './script-feed.js';
 import { VIDEO_STALL_PAUSE_MS } from './player-rules.js';
@@ -103,6 +104,14 @@ function setup({ status = 'IDLE', coupled = true, block = null } = {}) {
         offsetValue: new FakeEl(),
         error: new FakeEl(),
         pairList: new FakeEl(),
+        primaryBtn: new FakeEl(),
+        secondaryBtn: new FakeEl(),
+        bothBtn: new FakeEl(),
+        clearScriptsBtn: new FakeEl(),
+        primaryInput: new FakeEl(),
+        secondaryInput: new FakeEl(),
+        heatmapHint: new FakeEl(),
+        markBtn: new FakeEl(),
         fullscreenBtn: new FakeEl(),
         theaterBtn: new FakeEl()
     };
@@ -305,6 +314,48 @@ describe('player: files', () => {
         assert.ok(s.calls.some((c) => c.secondary));
     });
 
+    it('switches the heat map once a script is loaded, and clears scripts without the video', async () => {
+        const s = setup();
+        let picks = 0;
+        s.els.primaryInput.click = () => { picks += 1; };
+        s.els.secondaryInput.click = () => { picks += 1; };
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4'), fakeFile('Movie.funscript', SCRIPT)]);
+        await s.player.chooseSecondary(fakeFile('other-toy.funscript', SCRIPT));
+        s.els.primaryBtn.click();
+        s.els.secondaryBtn.click();
+        assert.equal(picks, 0);
+        assert.equal(s.player.heatmapView(), 'secondary');
+        s.els.bothBtn.click();
+        assert.equal(s.player.heatmapView(), 'both');
+        assert.equal(s.player.clearScripts(), true);
+        assert.equal(s.player.script(), null);
+        assert.equal(s.player.secondary(), null);
+        assert.equal(s.player.hasVideo(), true);
+        s.els.primaryBtn.click();
+        assert.equal(picks, 1);
+    });
+
+    it('marks the playhead and removes that mark on a second press', async () => {
+        const s = setup();
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4'), fakeFile('Movie.funscript', SCRIPT)]);
+        s.video.currentTime = 1.25;
+        s.video.duration = 10;
+        s.els.markBtn.click();
+        assert.deepEqual(s.player.climaxMarks(), [1250]);
+        s.els.markBtn.click();
+        assert.deepEqual(s.player.climaxMarks(), []);
+    });
+
+    it('drops the loaded scripts when a different video is chosen', async () => {
+        const s = setup();
+        await s.player.addFiles([fakeFile('Movie.mp4', 'x', 'video/mp4'), fakeFile('Movie.funscript', SCRIPT)]);
+        await s.player.chooseSecondary(fakeFile('other-toy.funscript', SCRIPT));
+        await s.player.addFiles([fakeFile('Other.mp4', 'y', 'video/mp4'), fakeFile('Other.funscript', SCRIPT)]);
+        assert.equal(s.player.secondary(), null);
+        assert.equal(s.player.script().meta.actions, 3);
+        assert.equal(s.player.hasVideo(), true);
+    });
+
     it('keeps a secondary chosen on its own when the drop has no .v0', async () => {
         const s = setup();
         const chosen = fakeFile('other-toy.funscript', SCRIPT);
@@ -382,5 +433,43 @@ describe('player: offset and theater', () => {
         assert.equal(s.els.hud.classList.contains('hidden'), false);
         s.player.setTheater(false);
         assert.equal(s.els.hud.classList.contains('hidden'), true);
+    });
+});
+
+describe('player markup', () => {
+    const html = readFileSync(new URL('../../../index.html', import.meta.url), 'utf8');
+
+    it('names the three climax times and keeps their inputs', () => {
+        assert.match(html, /Pre-Climax Ramp Up/);
+        assert.match(html, /Climax Duration/);
+        assert.match(html, /Post Climax Ramp Down/);
+        assert.match(html, /id="scriptClimaxRampSeconds"/);
+        assert.match(html, /id="scriptClimaxSeconds"/);
+        assert.match(html, /id="scriptClimaxEaseSeconds"/);
+        assert.doesNotMatch(html, />Ramp</);
+        assert.doesNotMatch(html, />Hold</);
+        assert.doesNotMatch(html, />Ease</);
+    });
+
+    it('puts devices in one row, play and stop on the picture, and the climax times with morphing', () => {
+        assert.match(html, /#deviceCardGrid\s*\{[^}]*display:\s*flex/);
+        assert.match(html, /#deviceCardGrid\s*\{[^}]*flex-wrap:\s*nowrap/);
+        assert.match(html, /#sessionResetBtn,\s*\n\s*#pipBtn\s*\{[^}]*display:\s*none\s*!important/);
+        const device = html.indexOf('id="deviceBar"');
+        const player = html.indexOf('id="playerSection"');
+        const stage = html.indexOf('id="playerStage"');
+        const dock = html.indexOf('id="playerDock"');
+        const transport = html.indexOf('id="playerTransportSlot"');
+        const files = html.indexOf('id="playerFiles"');
+        const morph = html.indexOf('>Funscript morphing<');
+        const ramp = html.indexOf('id="scriptClimaxRampSeconds"');
+        assert.ok(device > 0 && device < player && player < stage);
+        assert.ok(stage < dock && dock < transport && transport < files && files < morph && morph < ramp);
+        assert.match(html, /Tap to configure/);
+        assert.match(html, /Stats Overlay/);
+        const handy = html.indexOf('id="modalBodyHandy"');
+        const beat = html.indexOf('id="beatSyncToggle"');
+        const filesEnd = html.indexOf('id="playerFiles"');
+        assert.ok(handy > 0 && handy < beat && beat > filesEnd);
     });
 });

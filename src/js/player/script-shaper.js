@@ -344,7 +344,11 @@ export function shapeWindow({
     if (from >= last) return answer([], 'after-end');
 
     const flip = settings.invert === true;
-    const amp = amplitudeFactor(settings.approach, a, settings.strokeModel);
+    const rawExpand = Number(settings.expand);
+    const expand = resolveStrokeModel(settings.strokeModel) === 'keep' || !finite(rawExpand) || rawExpand < 1
+        ? 1
+        : Math.min(2, rawExpand);
+    const amp = amplitudeFactor(settings.approach, a, settings.strokeModel) * expand;
     const shape = (pos) => {
         const x = flip ? 1 - pos / 100 : pos / 100;
         return clamp01(x * amp);

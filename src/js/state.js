@@ -175,6 +175,7 @@ export const advancedSettings = {
     endgameType: 'orgasm',
     gammaCurve: 2.0,
     warmupMinutes: 5,
+    warmupEnabled: true,
     orgasmSettleSeconds: 45,
     edgeStrokeDepth: 100,
     cadenceBreathing: true,
@@ -214,7 +215,9 @@ export const advancedSettings = {
         cameEarly: { kind: 'key', code: 'ArrowLeft' },
         forceOrgasm: { kind: 'key', code: 'ArrowRight' },
         valvePlus: { kind: 'key', code: 'ArrowUp' },
-        valveMinus: { kind: 'key', code: 'ArrowDown' }
+        valveMinus: { kind: 'key', code: 'ArrowDown' },
+        offsetEarlier: { kind: 'key', code: 'BracketLeft' },
+        offsetLater: { kind: 'key', code: 'BracketRight' }
     },
     // Session speed window. 0 and 100 leave the pattern alone. A stop is
     // still 0; everything above 0 is scaled into this pair.
@@ -231,6 +234,12 @@ export const advancedSettings = {
     scriptSecondChannel: 'hr',
     scriptVideoEnd: 'stop',
     scriptContinueAfterVideo: false,
+    // Theater and fullscreen: the top readout stays while the bottom bar hides.
+    playerHudPin: true,
+    // A marked climax: climb into the dot, hold at full, then ease back into the script.
+    scriptClimaxRampSeconds: 45,
+    scriptClimaxSeconds: 20,
+    scriptClimaxEaseSeconds: 15,
     // Autoblow VacuGlide 2. Speed only. The token lives in its own store.
     vacuglideRole: 'primary',
     vacuglideMaxCap: 100,

@@ -31,6 +31,9 @@ import {
     formatMediaTime,
     formatOffset,
     editClimaxMarks,
+    toggleClimaxAt,
+    heatColor,
+    heatLevel,
     describeMediaError,
     videoEventAction,
     isAudible
@@ -97,6 +100,7 @@ export function createPlayer({
     let secondaryToken = 0;
     let secondaryPinned = false;
     let climaxMarks = [];
+    let heatmapView = 'primary';
     let refused = '';
     let edgeHold = false;
     let waitingSince = null;
@@ -164,6 +168,27 @@ export function createPlayer({
         lastFrameAt = -Infinity;
     }
 
+    let externalClock = false;
+
+    // The headset is the video. Samples are the same shape the <video>
+    // element feeds the clock, so the script follows HereSphere or DeoVR.
+    function followExternal({ state, mediaMs, rate } = {}) {
+        externalClock = true;
+        const next = state === 'playing' || state === 'paused' || state === 'seeking' || state === 'ended' ? state : 'paused';
+        setVideoState(next);
+        if (next === 'playing' && Number.isFinite(Number(mediaMs))) {
+            try {
+                feed?.sample({
+                    mediaMs: Number(mediaMs),
+                    perfMs: now(),
+                    rate: Number(rate) > 0 ? Number(rate) : 1,
+                    source: 'read'
+                });
+            } catch (e) {}
+        }
+        return true;
+    }
+
     function setVideoState(state) {
         try { feed?.setVideoState(state); } catch (e) {}
     }
@@ -195,13 +220,30 @@ export function createPlayer({
             }
             if (Number.isFinite(cur)) els.seek.value = String(Math.round(cur * 10) / 10);
         }
+        if (els.seekThumb) {
+            const bar = barDurationMs();
+            const at = seeking && els.seek && Number.isFinite(Number(els.seek.value)) ? Number(els.seek.value) * 1000 : (Number.isFinite(cur) ? cur * 1000 : 0);
+            const pct = bar > 0 ? Math.max(0, Math.min(100, (at / bar) * 100)) : 0;
+            els.seekThumb.style.left = `${pct}%`;
+        }
         if (els.playBtn) {
             const playing = !video.paused;
             els.playBtn.textContent = playing ? 'Pause' : 'Play';
             els.playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
         }
-        if (els.muteBtn) els.muteBtn.textContent = video.muted ? 'Unmute' : 'Mute';
+        if (els.hudPause) {
+            const playing = !video.paused;
+            els.hudPause.textContent = playing ? 'Pause' : 'Play';
+        }
+        if (els.hudSeek && !seeking) {
+            if (Number.isFinite(dur) && dur > 0) {
+                els.hudSeek.max = String(Math.round(dur * 10) / 10);
+                els.hudSeek.value = String(Math.round((Number.isFinite(cur) ? cur : 0) * 10) / 10);
+            }
+        }
+        if (els.hudMute) els.hudMute.textContent = video.muted ? 'Unmute' : 'Mute';
         drawHeatmap();
+        updateMarkButton();
     }
 
     function readinessChanged() {
@@ -332,8 +374,29 @@ export function createPlayer({
         }
     }
 
+    function sameVideo(a, b) {
+        if (!a || !b) return false;
+        if (a.remote || b.remote) return Boolean(a.remote && b.remote && a.name === b.name);
+        return fileKey(a) === fileKey(b);
+    }
+
+    function unloadScripts() {
+        heatmapView = 'primary';
+        if (scriptFile || script) clearScript('');
+        if (secondaryFile || secondary) clearSecondary('');
+        renderHeatmapModes();
+    }
+
+    function forgetScripts() {
+        picked = picked.filter((f) => extensionOf(f.name) !== 'funscript');
+        packName = null;
+        unloadScripts();
+    }
+
     function setVideoFile(file) {
         if (file === videoFile) return;
+        const replacing = Boolean(videoFile) && Boolean(file) && !sameVideo(videoFile, file);
+        if (replacing) unloadScripts();
         stopClock();
         edgeHold = false;
         if (videoUrl) {
@@ -357,6 +420,7 @@ export function createPlayer({
         }
         call(handlers, 'onVideo', { hasVideo: Boolean(videoFile) });
         readinessChanged();
+        paintStageEmpty();
     }
 
     function setVideoAddress(href) {
@@ -365,11 +429,16 @@ export function createPlayer({
             setError(block);
             return false;
         }
+        const replacing = Boolean(videoFile) && !(videoFile.remote && videoFile.name === href);
         stopClock();
         edgeHold = false;
         if (videoUrl) {
             try { urls.revokeObjectURL(videoUrl); } catch (e) {}
             videoUrl = null;
+        }
+        if (replacing) {
+            forgetScripts();
+            renderPairing(pairFiles(picked));
         }
         remoteVideo = true;
         videoFile = { name: href, remote: true };
@@ -381,7 +450,14 @@ export function createPlayer({
         setError('');
         call(handlers, 'onVideo', { hasVideo: true });
         readinessChanged();
+        paintStageEmpty();
         return true;
+    }
+
+    function paintStageEmpty() {
+        const empty = !videoFile;
+        if (els.stage) els.stage.dataset.empty = empty ? 'on' : 'off';
+        if (els.stageEmpty) els.stageEmpty.classList.toggle('hidden', !empty);
     }
 
     function useVideoLink(raw) {
@@ -485,7 +561,9 @@ export function createPlayer({
         };
         setError('');
         call(handlers, 'onSecondary', { ...secondary, name: file.name });
+        renderHeatmapModes();
         renderPanel();
+        drawHeatmap();
         return true;
     }
 
@@ -602,6 +680,9 @@ export function createPlayer({
         packName = null;
         await applyPairing();
         if (scriptFile !== file) await loadScript(file);
+        heatmapView = 'primary';
+        renderHeatmapModes();
+        drawHeatmap();
         return true;
     }
 
@@ -615,9 +696,72 @@ export function createPlayer({
         setError('');
         secondaryPinned = true;
         const ok = await loadSecondary(file, { pinned: true });
+        if (ok) heatmapView = 'secondary';
+        renderPairing(pairFiles(picked));
+        renderHeatmapModes();
+        renderPanel();
+        drawHeatmap();
+        return ok;
+    }
+
+    function seriesOf(which) {
+        const loaded = which === 'secondary' ? secondary : script;
+        const series = loaded && loaded.stats ? loaded.stats.intensityPerSecond : null;
+        return series && series.length ? series : null;
+    }
+
+    function renderHeatmapModes() {
+        const hasPrimary = Boolean(script);
+        const hasSecondary = Boolean(secondary);
+        if (!hasSecondary && heatmapView === 'secondary') heatmapView = 'primary';
+        if (!(hasPrimary && hasSecondary) && heatmapView === 'both') heatmapView = hasSecondary ? 'secondary' : 'primary';
+        const press = (btn, on) => {
+            if (!btn) return;
+            btn.classList?.toggle('bg-slate-800', !on);
+            btn.classList?.toggle('bg-sky-800', on);
+            btn.classList?.toggle('border', on);
+            btn.classList?.toggle('border-sky-400', on);
+            btn.setAttribute?.('aria-pressed', on ? 'true' : 'false');
+        };
+        if (els.primaryBtn) els.primaryBtn.textContent = hasPrimary && scriptFile ? scriptFile.name : 'Choose a funscript';
+        if (els.secondaryBtn) els.secondaryBtn.textContent = hasSecondary && secondaryFile ? secondaryFile.name : 'Choose a funscript';
+        press(els.primaryBtn, hasPrimary && (heatmapView === 'primary' || heatmapView === 'both'));
+        press(els.secondaryBtn, hasSecondary && (heatmapView === 'secondary' || heatmapView === 'both'));
+        press(els.bothBtn, heatmapView === 'both');
+        els.bothBtn?.classList?.toggle('hidden', !(hasPrimary && hasSecondary));
+        if (els.clearScriptsBtn) els.clearScriptsBtn.disabled = false;
+        if (els.heatmapHint && (videoFile || script || secondary)) {
+            const lead = !script && !secondary
+                ? 'Video only.'
+                : heatmapView === 'both'
+                    ? 'Both scripts. The color is the primary and the white line is the secondary.'
+                    : heatmapView === 'secondary'
+                        ? 'Secondary script.'
+                        : 'Primary script.';
+            const color = (script || secondary) ? ' Green is a pause, red is fast.' : '';
+            const saved = script && climaxMarks.length ? ` ${climaxMarks.length} climax${climaxMarks.length === 1 ? '' : 'es'} saved on this device for this script.` : '';
+            els.heatmapHint.textContent = `${lead}${color} A marked climax uses Pre-Climax Ramp Up, then Climax Duration, then Post Climax Ramp Down.${saved}`;
+        }
+    }
+
+    function clearScripts() {
+        const block = call(handlers, 'canChangeFiles');
+        if (typeof block === 'string' && block) {
+            setError(block);
+            return false;
+        }
+        forgetScripts();
+        setError('');
         renderPairing(pairFiles(picked));
         renderPanel();
-        return ok;
+        drawHeatmap();
+        return true;
+    }
+
+    function barDurationMs() {
+        const videoMs = video && Number.isFinite(Number(video.duration)) && Number(video.duration) > 0 ? Number(video.duration) * 1000 : 0;
+        if (videoMs > 0) return videoMs;
+        return mapDurationMs();
     }
 
     function mapDurationMs() {
@@ -628,16 +772,23 @@ export function createPlayer({
     }
 
     function drawHeatmap() {
-        const canvas = els.heatmap;
-        if (!canvas || typeof canvas.getContext !== 'function') return;
         const dur = mapDurationMs();
         const show = dur > 0 && Boolean(videoFile || script);
-        canvas.classList?.toggle('hidden', !show);
         els.heatmapHint?.classList?.toggle('hidden', !show);
+        els.markBtn?.classList?.toggle('hidden', !show);
+        paintHeatCanvas(els.seekHeat, { show, dur: barDurationMs(), playhead: false, fallbackH: 44 });
+        renderClimaxList();
+        if (show) renderHeatmapModes();
+        updateMarkButton();
+    }
+
+    function paintHeatCanvas(canvas, { show, dur, playhead, fallbackH }) {
+        if (!canvas || typeof canvas.getContext !== 'function') return;
+        canvas.classList?.toggle('hidden', !show);
         if (!show) return;
         const dpr = (win && win.devicePixelRatio) || 1;
         const cssW = canvas.clientWidth || 320;
-        const cssH = canvas.clientHeight || 64;
+        const cssH = canvas.clientHeight || fallbackH;
         const w = Math.max(1, Math.round(cssW * dpr));
         const h = Math.max(1, Math.round(cssH * dpr));
         if (canvas.width !== w) canvas.width = w;
@@ -647,33 +798,95 @@ export function createPlayer({
         ctx.clearRect(0, 0, w, h);
         ctx.fillStyle = '#020617';
         ctx.fillRect(0, 0, w, h);
-        const series = script && script.stats ? script.stats.intensityPerSecond : null;
-        if (series && series.length) {
-            let max = 1;
-            for (const v of series) if (v > max) max = v;
-            const barW = w / series.length;
-            for (let i = 0; i < series.length; i++) {
-                const heat = series[i] / max;
-                const bh = heat * (h - 4 * dpr);
-                ctx.fillStyle = `rgba(244, 114, 182, ${0.28 + 0.72 * heat})`;
-                ctx.fillRect(i * barW, h - bh, Math.max(dpr, barW - dpr), bh);
-            }
-        }
+        const showSecondary = heatmapView === 'secondary' || heatmapView === 'both';
+        const showPrimary = heatmapView !== 'secondary';
+        if (showPrimary) paintSeries(ctx, seriesOf('primary'), dur, w, h, 'bars');
+        if (showSecondary) paintSeries(ctx, seriesOf('secondary'), dur, w, h, heatmapView === 'both' ? 'line' : 'bars');
         for (const mark of climaxMarks) {
             const x = (mark / dur) * w;
             ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(Math.round(x) - (3 * dpr), 0, Math.max(6, dpr * 6), h);
+            ctx.fillStyle = '#fffbeb';
             ctx.beginPath();
             ctx.moveTo(x, 2 * dpr);
-            ctx.lineTo(x - 6 * dpr, 2 * dpr);
-            ctx.lineTo(x, 12 * dpr);
+            ctx.lineTo(x - 8 * dpr, 2 * dpr);
+            ctx.lineTo(x, 16 * dpr);
             ctx.closePath();
             ctx.fill();
-            ctx.fillRect(Math.round(x) - dpr, 0, Math.max(1, dpr * 2), h);
         }
-        if (video && Number.isFinite(Number(video.currentTime))) {
+        renderClimaxList();
+        if (playhead && video && Number.isFinite(Number(video.currentTime))) {
             const x = (Number(video.currentTime) * 1000 / dur) * w;
             ctx.fillStyle = '#38bdf8';
             ctx.fillRect(Math.round(x), 0, Math.max(1, dpr), h);
+        }
+    }
+
+    function mediaNowMs() {
+        if (seeking && els.seek && Number.isFinite(Number(els.seek.value))) return Number(els.seek.value) * 1000;
+        if (video && Number.isFinite(Number(video.currentTime))) return Number(video.currentTime) * 1000;
+        if (els.seek && Number.isFinite(Number(els.seek.value))) return Number(els.seek.value) * 1000;
+        return 0;
+    }
+
+    function updateMarkButton() {
+        const btn = els.markBtn;
+        if (!btn) return;
+        const dur = mapDurationMs();
+        const show = dur > 0 && Boolean(videoFile || script);
+        if (!show) return;
+        const t = mediaNowMs();
+        const near = climaxMarks.some((m) => Math.abs(m - t) <= 1500);
+        const label = near ? 'Remove climax' : 'Climax here';
+        if (btn.textContent !== label) btn.textContent = label;
+    }
+
+    function markHere() {
+        const dur = barDurationMs();
+        if (!(dur > 0)) return false;
+        climaxMarks = toggleClimaxAt(climaxMarks, mediaNowMs(), { durationMs: dur, nearMs: 1500 });
+        drawHeatmap();
+        call(handlers, 'onClimax', climaxMarks.slice());
+        return true;
+    }
+
+    function seekToMs(ms) {
+        if (!video) return;
+        const seconds = Math.max(0, Number(ms) || 0) / 1000;
+        const videoDur = Number(video.duration);
+        const capped = Number.isFinite(videoDur) && videoDur > 0 ? Math.min(seconds, videoDur) : seconds;
+        try { video.currentTime = capped; } catch (e) {}
+        if (els.seek) els.seek.value = String(Math.round(capped * 10) / 10);
+        renderTime();
+    }
+
+    function removeClimax(ms) {
+        climaxMarks = climaxMarks.filter((m) => m !== ms);
+        drawHeatmap();
+        call(handlers, 'onClimax', climaxMarks.slice());
+    }
+
+    function renderClimaxList() {
+        const list = els.climaxList;
+        if (!list || typeof list.replaceChildren !== 'function') return;
+        list.classList?.toggle('hidden', climaxMarks.length === 0);
+        list.replaceChildren();
+        for (const ms of climaxMarks) {
+            const chip = doc.createElement('span');
+            chip.className = 'inline-flex items-center gap-1 rounded-lg border border-amber-500 bg-amber-950/80 text-amber-100 text-[10px] font-semibold';
+            const jump = doc.createElement('button');
+            jump.type = 'button';
+            jump.className = 'min-h-[2.25rem] pl-2 pr-1 cursor-pointer';
+            jump.textContent = formatMediaTime(ms);
+            jump.addEventListener('click', () => seekToMs(ms));
+            const remove = doc.createElement('button');
+            remove.type = 'button';
+            remove.className = 'min-h-[2.25rem] min-w-[2.25rem] pr-2 cursor-pointer text-amber-200';
+            remove.textContent = '×';
+            remove.setAttribute('aria-label', `Remove climax at ${formatMediaTime(ms)}`);
+            remove.addEventListener('click', () => removeClimax(ms));
+            chip.append(jump, remove);
+            list.appendChild(chip);
         }
     }
 
@@ -690,6 +903,49 @@ export function createPlayer({
         call(handlers, 'onClimax', climaxMarks.slice());
     }
 
+    // One column per pixel, colored by how fast that moment is. Scaling to
+    // the file's own peak made a busy script one color. A fixed scale does
+    // not: a pause is green, a fast stroke is red.
+    function paintSeries(ctx, series, dur, w, h, mode) {
+        if (!series || !series.length || !(dur > 0) || w < 1 || h < 1) return;
+        const cols = Math.max(1, Math.floor(w));
+        const values = new Float32Array(cols);
+        const seen = new Uint8Array(cols);
+        for (let i = 0; i < series.length; i++) {
+            const start = Math.max(0, Math.min(cols - 1, Math.floor((i * 1000 / dur) * cols)));
+            const end = Math.max(start + 1, Math.min(cols, Math.ceil(((i + 1) * 1000 / dur) * cols)));
+            for (let c = start; c < end; c++) {
+                if (!seen[c] || series[i] > values[c]) values[c] = series[i];
+                seen[c] = 1;
+            }
+        }
+        if (mode === 'line') {
+            ctx.beginPath();
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = Math.max(2, Math.round(h * 0.06));
+            let moved = false;
+            for (let c = 0; c < cols; c++) {
+                if (!seen[c]) {
+                    moved = false;
+                    continue;
+                }
+                const x = c + 0.5;
+                const y = (h - 2) - heatLevel(values[c]) * (h - 4);
+                if (!moved) {
+                    ctx.moveTo(x, y);
+                    moved = true;
+                } else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            return;
+        }
+        for (let c = 0; c < cols; c++) {
+            if (!seen[c]) continue;
+            ctx.fillStyle = heatColor(heatLevel(values[c]));
+            ctx.fillRect(c, 0, 1, h);
+        }
+    }
+
     async function addFiles(list) {
         const incoming = Array.from(list || []).filter((f) => f && typeof f.name === 'string');
         if (!incoming.length) return false;
@@ -700,21 +956,16 @@ export function createPlayer({
         }
         setError('');
         // A file of the same name replaces the one picked before it. A new
-        // video replaces the one before it, and takes the scripts named
-        // after that one along: one video plays at a time, and an old
-        // script must not be paired with the new video by default.
+        // video replaces the one before it and drops the scripts already
+        // picked: one video plays at a time. Scripts in this same drop stay.
         const names = new Set(incoming.map((f) => f.name.toLowerCase()));
         const known = new Set(incoming.map(fileKey));
         const isVideoName = (name) => VIDEO_EXTENSIONS.includes(extensionOf(name));
-        const stems = incoming.some((f) => isVideoName(f.name))
-            ? picked.filter((f) => isVideoName(f.name)).map((f) => stemOf(f.name))
-            : [];
-        const belongsToOld = (f) => isVideoName(f.name)
-            ? stems.length > 0
-            : stems.some((stem) => {
-                const s = stemOf(f.name);
-                return s === stem || s.startsWith(`${stem}.`);
-            });
+        const incomingVideo = incoming.some((f) => isVideoName(f.name));
+        // A different video starts clean: the scripts already picked belonged
+        // to the video before it. Scripts in this same drop stay, because
+        // they are concatenated after this filter.
+        const belongsToOld = (f) => incomingVideo && (isVideoName(f.name) || extensionOf(f.name) === 'funscript');
         picked = picked
             .filter((f) => !names.has(f.name.toLowerCase()) && !known.has(fileKey(f)) && !belongsToOld(f))
             .concat(incoming)
@@ -767,16 +1018,61 @@ export function createPlayer({
         if (els.stage) {
             els.stage.dataset.theater = theater ? 'on' : 'off';
             els.stage.dataset.immersive = on ? 'on' : 'off';
+            els.stage.dataset.fullscreen = fullscreenElement() === els.stage ? 'on' : 'off';
         }
         els.hud?.classList?.toggle('hidden', !on);
         if (els.theaterBtn) els.theaterBtn.textContent = theater ? 'Exit theater' : 'Theater';
         if (els.fullscreenBtn) els.fullscreenBtn.textContent = fullscreenElement() === els.stage && els.stage ? 'Exit fullscreen' : 'Fullscreen';
+        if (els.hudExit) els.hudExit.textContent = fullscreenElement() === els.stage ? 'Exit fullscreen' : 'Exit theater';
         if (on) showHud();
+    }
+
+    function leaveImmersive() {
+        const onStage = fullscreenElement() === els.stage;
+        if (onStage || fullscreenElement()) {
+            try {
+                const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+                const p = exit && exit.call(doc);
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (e) {}
+        }
+        if (theater) setTheater(false);
+        else renderImmersive();
+    }
+
+    function layoutTheater() {
+        const stage = els.stage;
+        if (!stage || !stage.style) return;
+        if (!theater) {
+            stage.style.width = '';
+            stage.style.height = '';
+            stage.style.marginLeft = '';
+            stage.style.flex = '';
+            return;
+        }
+        // flex-1 would collapse this box: the video is taken out of flow.
+        stage.style.flex = 'none';
+        if (typeof stage.getBoundingClientRect !== 'function') {
+            stage.style.width = '100vw';
+            stage.style.height = 'calc(100vh - 7rem)';
+            return;
+        }
+        const view = win && win.innerHeight ? win.innerHeight : 0;
+        let top = stage.getBoundingClientRect().top;
+        if (view && top > view * 0.35 && typeof stage.scrollIntoView === 'function') {
+            stage.scrollIntoView({ block: 'start' });
+            top = stage.getBoundingClientRect().top;
+        }
+        const left = stage.getBoundingClientRect().left - (parseFloat(stage.style.marginLeft) || 0);
+        stage.style.width = '100vw';
+        stage.style.marginLeft = `${-Math.round(left)}px`;
+        if (view) stage.style.height = `${Math.max(240, Math.round(view - Math.max(0, top)))}px`;
     }
 
     function setTheater(on) {
         theater = Boolean(on);
         renderImmersive();
+        layoutTheater();
     }
 
     function toggleFullscreen() {
@@ -826,8 +1122,26 @@ export function createPlayer({
         if (els.chooseBtn) els.chooseBtn.textContent = formats.button;
         if (els.formatHint) els.formatHint.textContent = formats.hint;
         els.chooseBtn?.addEventListener('click', () => els.fileInput?.click());
-        els.primaryBtn?.addEventListener('click', () => els.primaryInput?.click());
-        els.secondaryBtn?.addEventListener('click', () => els.secondaryInput?.click());
+        els.primaryBtn?.addEventListener('click', () => {
+            if (!script) els.primaryInput?.click();
+            else {
+                heatmapView = 'primary';
+                drawHeatmap();
+            }
+        });
+        els.secondaryBtn?.addEventListener('click', () => {
+            if (!secondary) els.secondaryInput?.click();
+            else {
+                heatmapView = 'secondary';
+                drawHeatmap();
+            }
+        });
+        els.bothBtn?.addEventListener('click', () => {
+            if (!script || !secondary) return;
+            heatmapView = 'both';
+            drawHeatmap();
+        });
+        els.clearScriptsBtn?.addEventListener('click', () => clearScripts());
         els.primaryInput?.addEventListener('change', (e) => {
             const file = e.target && e.target.files && e.target.files[0];
             if (file) choosePrimary(file);
@@ -838,6 +1152,45 @@ export function createPlayer({
             if (file) chooseSecondary(file);
             try { e.target.value = ''; } catch (x) {}
         });
+        els.markBtn?.addEventListener('click', () => markHere());
+        bindScrub();
+
+    function bindScrub() {
+        const bar = els.scrub;
+        if (!bar) return;
+        const place = (e) => {
+            if (!video) return;
+            const durMs = barDurationMs();
+            if (!(durMs > 0)) return;
+            const rect = bar.getBoundingClientRect();
+            const width = rect.width || 1;
+            const x = Math.max(0, Math.min(width, (e.clientX ?? 0) - rect.left));
+            const seconds = (x / width) * (durMs / 1000);
+            seeking = true;
+            if (els.seek) els.seek.value = String(Math.round(seconds * 10) / 10);
+            const videoDur = Number(video.duration);
+            const capped = Number.isFinite(videoDur) && videoDur > 0 ? Math.min(seconds, videoDur) : seconds;
+            try { video.currentTime = capped; } catch (err) {}
+            renderTime();
+        };
+        bar.addEventListener('pointerdown', (e) => {
+            if (e.button !== undefined && e.button !== 0) return;
+            try { bar.setPointerCapture(e.pointerId); } catch (err) {}
+            place(e);
+        });
+        bar.addEventListener('pointermove', (e) => {
+            const captured = typeof bar.hasPointerCapture === 'function' && bar.hasPointerCapture(e.pointerId);
+            if (!captured) return;
+            place(e);
+        });
+        const release = () => { seeking = false; };
+        bar.addEventListener('pointerup', release);
+        bar.addEventListener('pointercancel', release);
+    }
+        if (els.seekHeat && typeof globalThis.ResizeObserver === 'function') {
+            const observer = new globalThis.ResizeObserver(() => drawHeatmap());
+            observer.observe(els.seekHeat);
+        }
         els.heatmap?.addEventListener('pointerdown', (e) => {
             if (e.button !== undefined && e.button !== 0) return;
             onHeatmapPointer(e);
@@ -905,8 +1258,40 @@ export function createPlayer({
         if (els.fullscreenBtn && !canFullscreen()) els.fullscreenBtn.classList?.add('hidden');
         els.hudPause?.addEventListener('click', (e) => {
             e.stopPropagation?.();
-            call(handlers, 'onHudPause');
+            call(handlers, 'onPlayButton', { playing: Boolean(video && !video.paused) });
             showHud();
+        });
+        els.hudSeek?.addEventListener('input', () => {
+            seeking = true;
+            const t = Number(els.hudSeek.value);
+            if (video && Number.isFinite(t)) {
+                try { video.currentTime = t; } catch (err) {}
+            }
+            renderTime();
+        });
+        els.hudSeek?.addEventListener('change', () => { seeking = false; });
+        els.hudVolume?.addEventListener('input', () => {
+            if (!video) return;
+            const level = Number(els.hudVolume.value);
+            if (!Number.isFinite(level)) return;
+            video.volume = Math.max(0, Math.min(1, level / 100));
+            if (video.volume > 0) video.muted = false;
+            renderTime();
+        });
+        els.hudExit?.addEventListener('click', (e) => {
+            e.stopPropagation?.();
+            leaveImmersive();
+            showHud();
+        });
+        els.hudMute?.addEventListener('click', (e) => {
+            e.stopPropagation?.();
+            if (!video) return;
+            video.muted = !video.muted;
+            renderTime();
+            showHud();
+        });
+        video?.addEventListener('click', () => {
+            if (immersive()) call(handlers, 'onPlayButton', { playing: Boolean(video && !video.paused) });
         });
         els.hudStop?.addEventListener('click', (e) => {
             e.stopPropagation?.();
@@ -919,6 +1304,7 @@ export function createPlayer({
         }
         doc?.addEventListener?.('fullscreenchange', renderImmersive);
         doc?.addEventListener?.('webkitfullscreenchange', renderImmersive);
+        win?.addEventListener?.('resize', () => { if (theater) layoutTheater(); });
         // Escape leaves theater the way the browser lets it leave fullscreen,
         // unless something else (a modal) took the key first.
         doc?.addEventListener?.('keydown', (e) => {
@@ -965,6 +1351,10 @@ export function createPlayer({
         addFiles,
         choosePrimary,
         chooseSecondary,
+        clearScripts,
+        heatmapView() {
+            return heatmapView;
+        },
         clearFiles,
         // The video follows the session. play() resolves { ok, reason }.
         async play() {
@@ -1010,6 +1400,14 @@ export function createPlayer({
         hasVideo() {
             return Boolean(videoFile);
         },
+        followExternal,
+        usingExternalClock() {
+            return externalClock;
+        },
+        clearExternalClock() {
+            externalClock = false;
+            setVideoState(videoFile ? 'paused' : 'idle');
+        },
         duration() {
             const d = video ? Number(video.duration) : NaN;
             return Number.isFinite(d) ? d : 0;
@@ -1028,7 +1426,36 @@ export function createPlayer({
             return isAudible({ paused: video.paused, muted: video.muted, volume: Number(video.volume), hasAudio: hasAudio() });
         },
         script() {
-            return script ? { ...script } : null;
+            return script ? { ...script, name: scriptFile ? scriptFile.name : '' } : null;
+        },
+        nowMs() {
+            return mediaNowMs();
+        },
+        clearPrimary() {
+            const block = call(handlers, 'canChangeFiles');
+            if (typeof block === 'string' && block) {
+                setError(block);
+                return false;
+            }
+            clearScript('');
+            setError('');
+            renderPairing(pairFiles(picked));
+            renderPanel();
+            drawHeatmap();
+            return true;
+        },
+        clearSecondaryScript() {
+            const block = call(handlers, 'canChangeFiles');
+            if (typeof block === 'string' && block) {
+                setError(block);
+                return false;
+            }
+            clearSecondary('');
+            setError('');
+            renderPairing(pairFiles(picked));
+            renderPanel();
+            drawHeatmap();
+            return true;
         },
         secondary() {
             return secondary ? { ...secondary, name: secondaryFile ? secondaryFile.name : '' } : null;
@@ -1047,6 +1474,7 @@ export function createPlayer({
         nudgeOffset,
         setTheater,
         toggleFullscreen,
+        leaveImmersive,
         immersive,
         showHud,
         // Readouts the HUD shows; app.js fills them.
@@ -1057,6 +1485,8 @@ export function createPlayer({
             set(els.hudPhase, values.phase ?? '');
             set(els.hudEdges, values.edges ?? '0');
             set(els.hudTimer, values.timer ?? '00:00');
+            set(els.hudPrimary, values.primary ?? '0%');
+            set(els.hudSecondary, values.secondary ?? '0%');
             set(els.hudNotice, values.notice ?? '');
             els.hudNotice?.classList?.toggle('hidden', !values.notice);
             if (els.hudBar) els.hudBar.style.width = `${Math.max(0, Math.min(100, Number(values.allowance) || 0))}%`;

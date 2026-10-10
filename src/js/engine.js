@@ -350,7 +350,10 @@ export function calculateEngineOutputs({
             isEdged: nextIsEdged,
             sessionStatus,
             sessionSeconds: seconds,
-            warmupMinutes,
+            // The file has its own timing. The session warm-up must not
+            // shrink the script, and the stroke mode's zone is not used:
+            // the range below is the whole travel envelope.
+            warmupMinutes: 0,
             stallGuardEngaged: Boolean(stallGuardEngaged) && sessionStatus === 'RUNNING',
             orgasmMode: Boolean(orgasmMode) && sessionStatus === 'RUNNING',
             orgasmBoost,

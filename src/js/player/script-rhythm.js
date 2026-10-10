@@ -106,9 +106,11 @@ export function hampTarget(rhythm, allowance, device = {}) {
     const travelMm = finite(device.travelMm) && device.travelMm > 0 ? device.travelMm : HANDY_DEFAULT_TRAVEL_MM;
     const topMmS = finite(device.maxSpeedMmS) && device.maxSpeedMmS > 0 ? device.maxSpeedMmS : HANDY_DEFAULT_MAX_SPEED_MM_S;
 
-    // The range: the rhythm's percentiles scaled from the base, in the envelope.
-    const lo = Math.max(0, Math.min(100, rhythm.lo)) * amp;
-    const hi = Math.max(0, Math.min(100, rhythm.hi)) * amp;
+    // The range is the script's own span, inside the envelope. The pulse
+    // changes the speed below. It does not leave the slide at a shorter
+    // range from the last stroke mode, and it does not shrink the file.
+    const lo = Math.max(0, Math.min(100, rhythm.lo));
+    const hi = Math.max(0, Math.min(100, rhythm.hi));
     const strokeMin = Math.round(envMin + (lo / 100) * envSpan);
     const strokeMax = Math.max(strokeMin, Math.round(envMin + (hi / 100) * envSpan));
 

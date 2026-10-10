@@ -67,11 +67,12 @@ import { applySettingSchema } from './settings-schema.js';
 import { createWriteCoalescer } from './write-coalescer.js';
 import { planBannerUpdate, canClearBanner, hiddenBannerState, BANNER_OWNER_ANY } from './alert-banner.js';
 import { pushSample, buildFunscripts, toFunscript } from './funscript.js';
+import { isDevTelemetryHost, createSessionLog, buildSessionExport } from './session-telemetry.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
-import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting } from './hardware/ble.js';
+import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError } from './hardware/ble-protocol.js';
 import { createHrWatchdog, clampStaleSeconds } from './hr-watchdog.js';
-import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey } from './hardware/handy.js';
+import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey, getHandyInfo } from './hardware/handy.js';
 import { createHandyHsp } from './hardware/handy-hsp.js';
 import { handyScriptRoute, resolveApplicationId, HANDY_APP_ID_STORAGE_KEY } from './hardware/handy-hsp-protocol.js';
 import { normalizeEnvelope, applyEndMargin, clampEndMargin } from './hardware/handy-protocol.js';
@@ -107,6 +108,7 @@ import {
     connectTCode,
     disconnectTCode,
     dispatchTCode,
+    setTCodeScriptFeed,
     stopTCode,
     setTCodeHandlers,
     setAxisRole as setTCodeAxisRole,
@@ -179,8 +181,8 @@ import {
 } from './voice-cues.js';
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
-import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance } from './player/script-governor.js';
-import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
+import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, scriptExpand, clampClimaxSeconds, clampClimaxPhaseSeconds, DEFAULT_CLIMAX_RAMP_SECONDS, DEFAULT_CLIMAX_EASE_SECONDS } from './player/script-governor.js';
+import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, describePlayerHardwareWait, videoCoupled, OFFSET_NUDGE_MS, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
 import { posAt } from './player/script-track.js';
 import { effectiveInvert } from './player/script-shaper.js';
@@ -294,11 +296,22 @@ const viewerRoom = urlParams.get('group_sub');
 export const isRemoteController = Boolean(partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
+const devTelemetry = !isRemotePage && isDevTelemetryHost(typeof location !== 'undefined' ? location.hostname : '');
+const SESSION_LOG_KEY = 'edgeloop_session_log';
+const sessionLog = createSessionLog();
+let sessionLogOptIn = safeParse(SESSION_LOG_KEY, false) === true;
+
+function sessionLogWanted() {
+    return devTelemetry && sessionLogOptIn;
+}
 let player = null;
 let secondaryTrack = null;
 let loadedClimaxMarks = [];
 const scriptFeed = isRemotePage ? null : createScriptFeed();
-if (scriptFeed) setIntifaceScriptFeed(scriptFeed);
+if (scriptFeed) {
+    setIntifaceScriptFeed(scriptFeed);
+    setTCodeScriptFeed(scriptFeed);
+}
 const handyHsp = (!isRemotePage && scriptFeed) ? createHandyHsp({
     feed: scriptFeed,
     getKey: () => getHandyKey(),
@@ -505,6 +518,7 @@ function renderTransport(status) {
         if (playPauseIcon) playPauseIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
         playPauseBtn.className = "flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 shadow-lg shadow-emerald-950/40 cursor-pointer";
     }
+    paintPlayerChannels();
 }
 
 // Grey out the transport with a reason while the hardware is not ready.
@@ -513,6 +527,7 @@ function renderTransportWaiting(reason) {
     playPauseBtn.disabled = true;
     if (playPauseText) playPauseText.textContent = reason;
     playPauseBtn.className = "flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed";
+    paintPlayerChannels();
 }
 
 // Flag a numeric input as invalid (red border) or restore its normal border.
@@ -569,6 +584,7 @@ function setBadgeState(type, status, nameLabel, batteryLabel = null) {
         }
     }
 
+    if (card) card.dataset.link = status;
     if (card && dot) {
         if (status === 'connected') {
             card.className = "text-left p-2 rounded-xl bg-emerald-950/20 border border-emerald-800/80 hover:border-emerald-600 transition flex items-start gap-2 cursor-pointer min-w-0";
@@ -584,8 +600,81 @@ function setBadgeState(type, status, nameLabel, batteryLabel = null) {
             dot.className = "h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1";
         }
     }
+    layoutDeviceCards();
     checkReadiness();
 }
+
+let deviceCardsExpanded = false;
+const DEVICE_CARD_TYPES = ['Ble', 'Handy', 'Intiface', 'Vacuglide', 'TCode'];
+
+let channelConfig = null;
+
+function sessionIsLive() {
+    return state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN';
+}
+
+function paintPlayerChannels() {
+    if (!document.getElementById('playerPrimaryConfigBtn')) return;
+    const live = sessionIsLive();
+    const open = live ? null : channelConfig;
+    const primaryScript = player && typeof player.script === 'function' ? player.script() : null;
+    const secondaryScript = player && typeof player.secondary === 'function' ? player.secondary() : null;
+    const label = (script) => script ? (script.name || 'Funscript') : 'EdgeLoop';
+    const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    setText('playerPrimaryConfigName', label(primaryScript));
+    setText('playerSecondaryConfigName', label(secondaryScript));
+    setText('playerPrimaryConfigHint', open === 'primary' ? 'Tap to close' : 'Tap to configure');
+    setText('playerSecondaryConfigHint', open === 'secondary' ? 'Tap to close' : 'Tap to configure');
+    document.getElementById('playerPrimaryConfig')?.classList.toggle('hidden', open !== 'primary');
+    document.getElementById('playerSecondaryConfig')?.classList.toggle('hidden', open !== 'secondary');
+    document.getElementById('playerClearPrimaryBtn')?.classList.toggle('hidden', !primaryScript);
+    document.getElementById('playerClearSecondaryBtn')?.classList.toggle('hidden', !secondaryScript);
+    document.getElementById('playerMorph')?.classList.toggle('hidden', !(open && (primaryScript || secondaryScript)));
+    const edgeOpen = (open === 'primary' && !primaryScript) || (open === 'secondary' && !secondaryScript);
+    document.getElementById('playerEdgeLoopSettings')?.classList.toggle('hidden', !edgeOpen);
+    document.getElementById('playerOffsetRow')?.classList.toggle('hidden', !primaryScript);
+    const mark = (id, on) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('bg-sky-800', on);
+        el.classList.toggle('bg-slate-800', !on);
+    };
+    mark('playerPrimaryEdgeBtn', !primaryScript);
+    mark('playerSecondaryEdgeBtn', !secondaryScript);
+}
+
+function placeSessionSetup(inPlayer) {
+    const slot = document.getElementById('playerEdgeLoopSettings');
+    const home = document.getElementById('sessionSetupHome');
+    const play = document.getElementById('playStylePanel');
+    const end = document.getElementById('endgamePanel');
+    document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', inPlayer);
+    const target = inPlayer && slot ? slot : home;
+    if (play && target && play.parentElement !== target) target.appendChild(play);
+    if (end && target && end.parentElement !== target) target.appendChild(end);
+    play?.classList.remove('hidden');
+    end?.classList.remove('hidden');
+}
+
+function layoutDeviceCards() {
+    const ready = hardwareReadiness();
+    const paired = ready.hrReady && ready.toyReady;
+    const hint = document.getElementById('deviceNeedHint');
+    const more = document.getElementById('deviceMoreBtn');
+    if (hint) hint.classList.toggle('hidden', paired);
+    if (more) more.classList.add('hidden');
+    for (const type of DEVICE_CARD_TYPES) {
+        document.getElementById(`card${type}`)?.classList.remove('hidden');
+    }
+}
+
+document.getElementById('deviceMoreBtn')?.addEventListener('click', () => {
+    deviceCardsExpanded = !deviceCardsExpanded;
+    layoutDeviceCards();
+});
 
 // Whether the host has a pulse source and a toy to drive. Sent to the remote
 // controller so its transport can mirror the host's readiness.
@@ -629,15 +718,29 @@ function transportWaitingReason(now = Date.now()) {
     if (state.sessionStatus === 'PAUSED' && state.hrSignalPaused) return "WAITING FOR PULSE";
     if (!pulseIsFresh(now)) return "WAITING FOR PULSE";
     if ((state.activeMode === 'script' || state.teaseMode === 'script') && !scriptFeed?.hasTrack()) return 'WAITING FOR A SCRIPT';
-    if (state.activeMode === 'script' || state.teaseMode === 'script') {
+    const externalClock = player && typeof player.usingExternalClock === 'function' && player.usingExternalClock();
+    if ((state.activeMode === 'script' || state.teaseMode === 'script') && !externalClock) {
         const video = document.getElementById('playerVideo');
         if (video && video.readyState < 2) return 'WAITING FOR THE VIDEO';
     }
     return null;
 }
 
+function renderPlayerHardwareNotice() {
+    const el = document.getElementById('playerNotice');
+    if (!el) return;
+    const showingVideo = Boolean(player && player.hasVideo());
+    const idle = state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED';
+    const text = (!isRemotePage && showingVideo && idle) ? describePlayerHardwareWait(transportWaitingReason()) : '';
+    el.textContent = text;
+    el.classList.toggle('hidden', !text);
+}
+
 function checkReadiness() {
-    if (!playPauseBtn) return;
+    if (!playPauseBtn) {
+        renderPlayerHardwareNotice();
+        return;
+    }
 
     const active = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN';
 
@@ -652,11 +755,13 @@ function checkReadiness() {
             playPauseBtn.classList.remove('cursor-pointer');
             playPauseBtn.classList.add('cursor-not-allowed', 'opacity-70');
         }
+        renderPlayerHardwareNotice();
         return;
     }
 
     if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
         playPauseBtn.disabled = false;
+        renderPlayerHardwareNotice();
         return;
     }
 
@@ -665,6 +770,7 @@ function checkReadiness() {
     const reason = transportWaitingReason();
     if (reason) renderTransportWaiting(reason);
     else renderTransport(state.sessionStatus === 'PAUSED' ? 'PAUSED' : 'IDLE');
+    renderPlayerHardwareNotice();
 }
 
 // Center Intensity Slider
@@ -1039,7 +1145,7 @@ function updateEngine() {
         handyHwMin: advancedSettings.handyHwMin,
         handyHwMax: advancedSettings.handyHwMax,
         sessionSeconds: state.sessionSeconds,
-        warmupMinutes: advancedSettings.warmupMinutes,
+        warmupMinutes: effectiveWarmupMinutes(),
         warmupElapsedSeconds: Math.max(0, state.sessionSeconds - (state.warmupOriginSeconds || 0)),
         cadenceBreathing: advancedSettings.cadenceBreathing,
         milkingWave: advancedSettings.milkingWave,
@@ -1070,11 +1176,45 @@ function updateEngine() {
         scriptFeed.setActive(state.activeMode === 'script');
     }
     let sentPrimary = result.primaryPercent;
-    if (state.activeMode === 'script' && scriptFeed?.hasTrack() && loadedClimaxMarks.length > 0) {
-        const t = scriptFeed.scriptNow();
-        sentPrimary = boostedAllowance(sentPrimary, climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks));
+    let climaxK = 0;
+    const climaxLive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+    const climaxMarks = typeof player?.climaxMarks === 'function' ? player.climaxMarks() : loadedClimaxMarks;
+    if (climaxLive && climaxMarks.length > 0) {
+        const peakMs = clampClimaxSeconds(advancedSettings.scriptClimaxSeconds) * 1000;
+        const rampMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxRampSeconds, DEFAULT_CLIMAX_RAMP_SECONDS) * 1000;
+        const easeMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxEaseSeconds, DEFAULT_CLIMAX_EASE_SECONDS) * 1000;
+        const t = state.activeMode === 'script' && scriptFeed?.hasTrack()
+            ? scriptFeed.scriptNow()
+            : (typeof player?.nowMs === 'function' ? player.nowMs() : NaN);
+        climaxK = climaxApproach(Number.isFinite(t) ? t : NaN, climaxMarks, { rampMs, peakMs, easeMs });
+        if (state.activeMode === 'script' && scriptFeed?.hasTrack()) {
+            sentPrimary = boostedAllowance(sentPrimary, climaxK);
+        } else if (state.activeMode !== 'script' && climaxK > 0) {
+            const lift = (percent) => {
+                const base = Number(percent) || 0;
+                return Math.round(base + (100 - base) * Math.max(0, Math.min(1, climaxK)));
+            };
+            result.primaryPercent = lift(result.primaryPercent);
+            result.secondaryPercent = lift(result.secondaryPercent);
+            sentPrimary = result.primaryPercent;
+        }
     }
-    if (scriptFeed) scriptFeed.setAllowance(state.activeMode === 'script' ? sentPrimary : 0);
+    const expand = state.activeMode === 'script'
+        ? scriptExpand({
+            hr: state.sensorHr,
+            minHr: state.effectiveMinHr,
+            maxHr: state.effectiveMaxHr,
+            strokeModel: advancedSettings.scriptStrokeModel,
+            allowance: sentPrimary,
+            climax: climaxK
+        })
+        : 1;
+    state.scriptExpand = expand;
+    state.scriptClimax = climaxK;
+    if (scriptFeed) {
+        scriptFeed.setExpand(state.activeMode === 'script' ? expand : 1);
+        scriptFeed.setAllowance(state.activeMode === 'script' ? sentPrimary : 0);
+    }
     if (player && state.activeMode === 'script') {
         const pauseVideo = advancedSettings.scriptStrokeModel !== 'keep' && edgeActionPausesVideo(advancedSettings.scriptEdgeAction);
         if (pauseVideo && result.isEdged) player.holdForEdge();
@@ -1159,6 +1299,7 @@ function updateEngine() {
             });
             secondary = complementSecondary(sentPrimary, scriptMotion(rhythm.meanSpeed));
         }
+        if (state.scriptExpand > 1) secondary = Math.min(100, Math.round(secondary * state.scriptExpand));
     }
     state.strokerSpeed = sentPrimary;
     state.prostateSpeed = secondary;
@@ -1167,6 +1308,7 @@ function updateEngine() {
     if (prostateVal) prostateVal.textContent = `${secondary}%`;
     if (prostateBar) prostateBar.style.width = `${secondary}%`;
     dispatchHardware(sentPrimary, secondary, result.strokeMinPercent, result.strokeMaxPercent);
+    paintPlayerHud();
 }
 
 // Physical stroke bounds to send to the toys. engine.js has ALREADY mapped
@@ -1338,9 +1480,10 @@ function warmupElapsedSeconds() {
 function updateWarmupBadge() {
     const badge = document.getElementById('warmupBadge');
     const remainingEl = document.getElementById('warmupRemainingText');
-    const warmupSeconds = Math.max(0, advancedSettings.warmupMinutes || 0) * 60;
+    const warmupSeconds = effectiveWarmupMinutes() * 60;
     const elapsed = warmupElapsedSeconds();
-    const active = state.sessionStatus === 'RUNNING' && warmupSeconds > 0 && elapsed < warmupSeconds;
+    const scripting = state.activeMode === 'script' || state.teaseMode === 'script';
+    const active = !scripting && state.sessionStatus === 'RUNNING' && warmupSeconds > 0 && elapsed < warmupSeconds;
     if (badge) badge.classList.toggle('hidden', !active);
     if (active && remainingEl) {
         const left = warmupSeconds - elapsed;
@@ -1511,6 +1654,7 @@ function resetSessionCounters() {
     clearSettle();
     funscriptSamples = [];
     funscriptSessionStart = 0;
+    sessionLog.reset();
     const edgeEl = document.getElementById('edgeCount');
     const pauseEl = document.getElementById('pauseCount');
     const sVal = document.getElementById('strokerVal');
@@ -1608,7 +1752,7 @@ function tickSessionGuardsAndGames() {
     if (guard.justResumed) cueVoice('stallResume');
     if (guard.justReleased) cueVoice('stallRecover');
 
-    const warmupSeconds = Math.max(0, advancedSettings.warmupMinutes || 0) * 60;
+    const warmupSeconds = effectiveWarmupMinutes() * 60;
     if (warmupSeconds > 0 && warmupElapsedSeconds() === warmupSeconds) {
         cueVoice('warmupDone');
     }
@@ -1750,6 +1894,16 @@ function tickSessionGuardsAndGames() {
     }
 }
 
+function primaryStrokeLive() {
+    if (handyConnected && state.handyRole === 'primary') return 1;
+    if (isIntifaceConnected() && Array.from(intifaceDevices.values()).some((dev) => (dev.axes || []).some((axis) => axis.role === 'primary' && !axis.inert))) return 1;
+    if (isTCodeConnected()) {
+        const dev = getTCodeDevice();
+        if (dev && Array.isArray(dev.axes) && dev.axes.some((axis) => axis.role === 'primary')) return 1;
+    }
+    return 0;
+}
+
 // 250ms Live Funscript Sampling Loop (4Hz). Records what was really sent to
 // the toys (speed plus the physical stroke zone); the buffer is capped at
 // four hours, oldest dropped first.
@@ -1771,6 +1925,32 @@ setInterval(() => {
             strokeMin: range.min,
             strokeMax: range.max
         });
+        if (sessionLogWanted()) {
+            sessionLog.observe({
+                t: now - funscriptSessionStart,
+                hr: state.sensorHr,
+                engineHr: state.effectiveHr,
+                mic: state.micApplied,
+                speed: paused ? 0 : state.strokerSpeed,
+                secondary: paused ? 0 : state.prostateSpeed,
+                strokeMin: range.min,
+                strokeMax: range.max,
+                edged: state.isEdged,
+                orgasm: state.orgasmMode,
+                stall: state.stallGuardEngaged,
+                edges: state.edges,
+                mode: state.teaseMode,
+                game: state.gameMode || '',
+                status: state.sessionStatus,
+                hrSignal: state.hrSignalState,
+                scriptMs: scriptFeed && state.activeMode === 'script' ? scriptFeed.scriptNow() : 0,
+                offsetMs: scriptFeed ? scriptFeed.offset() : 0,
+                expand: Math.round((Number(state.scriptExpand) || 1) * 100),
+                climax: Math.round((Number(state.scriptClimax) || 0) * 100),
+                ceiling: state.effectiveMaxHr,
+                primaryOn: primaryStrokeLive()
+            });
+        }
     }
 }, 250);
 
@@ -2073,6 +2253,29 @@ function updateTimerDisplay() {
         timerEl.textContent = activeStr;
         subLabelEl.textContent = "Endless Mode";
     }
+    paintPlayerHud();
+}
+
+function paintPlayerHud() {
+    if (!player || typeof player.renderHud !== 'function') return;
+    const hr = document.getElementById('hrDisplay');
+    const timer = document.getElementById('sessionTimer');
+    const phase = document.getElementById('playerPhase');
+    const mark = Number.isFinite(state.effectiveMaxHr) ? String(state.effectiveMaxHr) : '--';
+    player.renderHud({
+        hr: hr ? hr.textContent : '--',
+        mark,
+        phase: state.activeMode === 'script' && phase ? phase.textContent : '',
+        edges: String(state.edges || 0),
+        timer: timer ? timer.textContent : '00:00',
+        primary: `${Math.round(Number(state.strokerSpeed) || 0)}%`,
+        secondary: `${Math.round(Number(state.prostateSpeed) || 0)}%`
+    });
+}
+
+function applyHudPin() {
+    const hud = document.getElementById('playerHud');
+    if (hud) hud.dataset.pin = advancedSettings.playerHudPin ? 'on' : 'off';
 }
 
 // Start from IDLE or resume from PAUSED. Returns false when the session was
@@ -2085,10 +2288,9 @@ function videoDurationSeconds() {
 }
 
 function applyVideoSessionLength() {
-    const scriptOn = state.activeMode === 'script' || state.teaseMode === 'script';
     const picked = sessionTargetForVideo({
         continueAfter: Boolean(advancedSettings.scriptContinueAfterVideo),
-        videoSeconds: scriptOn ? videoDurationSeconds() : 0,
+        videoSeconds: player && player.hasVideo() ? videoDurationSeconds() : 0,
         configuredSeconds: state.configuredTargetSeconds
     });
     state.scriptVideoClock = picked.fromVideo;
@@ -2138,9 +2340,7 @@ function startOrResumeSession() {
     clearHrSignalPause();
     document.getElementById('rampdownNotice')?.classList.toggle('hidden', !resumingRampdown);
     renderTransport(state.sessionStatus);
-    if ((state.activeMode === 'script' || state.teaseMode === 'script') && player && !player.isPlaying()) {
-        player.play();
-    }
+    if (player && player.hasVideo() && !player.isPlaying()) player.play();
     if (state.activeMode === 'script') state.scriptReleasedAt = state.sessionSeconds;
     return true;
 }
@@ -2633,28 +2833,95 @@ const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain', 'nnn'];
 const modeCards = document.querySelectorAll('.mode-card');
 
 const MODE_DETAILS = {
-    classic: 'Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical, then Crawl or Full Stop at the ceiling.',
+    classic: 'Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks the stroke back up. Crawl or Full Stop still decides the ceiling.',
     finisher: 'Speed rises with your heart rate and stays at full speed on the mark, so it can carry you over. "At the ceiling" does not slow it down. Room noise does not speed it up either: the climb follows the pulse the sensor measured.',
-    milker: 'The stroker eases off as you climb and the internal toy takes over. Short bursts and the on-off pulse wait until your pulse is close to the heart rate you set.',
     shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Classic. The secondary channel stays low.',
     headplay: 'Full strokes until your pulse is close to the heart rate you set, then the stroke climbs toward the head. Speed eases off with your pulse, and the stroke opens back up when your pulse drops.',
-    ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Stops and short bursts wait until your pulse is close to the heart rate you set. The internal toy follows the same chapters.',
+    ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Close to the heart rate you set, it runs a long fast stretch, stops for a beat, then climbs back up. The internal toy stays with you through the climb.',
+    milker: 'The stroker eases off as you climb and the internal toy takes over. Close to the heart rate you set, the stroker runs a fast stretch, stops for a beat, and climbs back. The internal toy rests on its own timing.',
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
     nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.',
-    script: 'Your video and its funscript. Shorten and skip makes strokes shorter as you climb and skips them at the edge. Keep the script leaves the stroke shape alone and only turns the intensity down.'
+    script: 'Your video and its funscript. The session warm-up does not apply, so the file plays at once. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. The primary meter is how much of the file is allowed, and 100% is the whole file inside your travel range.',
+    'goal-off': 'No game. The play style you picked runs on its own.'
 };
 
-// The paragraph above the cards follows the goal when one is on, including
-// Calibration, and the stroke otherwise.
+const MODE_NAMES = {
+    classic: 'Classic Tease',
+    finisher: 'Finisher',
+    milker: 'Prostate Milker',
+    shortener: 'Glans Protector',
+    headplay: 'Head Play',
+    ultimate: 'Ultimate Milker',
+    ruin: 'Ruin & Leak',
+    script: 'Funscript',
+    'goal-off': 'Tease',
+    survival: 'Survival',
+    edgetrain: 'Edge Training',
+    oracle: 'The Oracle',
+    nnn: 'NNN practice',
+    calibrate: 'Calibration'
+};
+
 function renderModeDetail() {
-    const el = document.getElementById('modeDetail');
-    if (!el) return;
-    const mode = state.gameMode || state.teaseMode;
-    el.textContent = MODE_DETAILS[mode] || '';
+    const style = state.teaseMode || 'classic';
+    const goal = state.gameMode || 'goal-off';
+    const styleName = document.getElementById('playStyleName');
+    const styleDetail = document.getElementById('playStyleDetail');
+    const goalName = document.getElementById('endgameName');
+    const goalDetail = document.getElementById('endgameDetail');
+    if (styleName) styleName.textContent = MODE_NAMES[style] || style;
+    if (styleDetail) styleDetail.textContent = MODE_DETAILS[style] || '';
+    if (goalName) goalName.textContent = MODE_NAMES[goal] || goal;
+    if (goalDetail) goalDetail.textContent = MODE_DETAILS[goal] || '';
+    document.getElementById('trainSettings')?.classList.toggle('hidden', state.gameMode !== 'edgetrain');
+    document.getElementById('nnnSettings')?.classList.toggle('hidden', state.gameMode !== 'nnn');
+    const choosingEnding = document.getElementById('endgameDrawer') && !document.getElementById('endgameDrawer').classList.contains('hidden');
+    // Tease, Survival, and Edge Training still end when the session timer
+    // runs out. The Oracle decides its own finish. NNN uses the denial
+    // percent on its own card.
+    const timerMatters = !state.gameMode || state.gameMode === 'survival' || state.gameMode === 'edgetrain';
+    document.getElementById('timerEnding')?.classList.toggle('hidden', choosingEnding || !timerMatters);
+}
+
+function setChoiceDrawer(drawerId, buttonId, open) {
+    const drawer = document.getElementById(drawerId);
+    const button = document.getElementById(buttonId);
+    const style = buttonId === 'playStyleToggle';
+    const prompt = document.getElementById(style ? 'playStylePrompt' : 'endgamePrompt');
+    const name = document.getElementById(style ? 'playStyleName' : 'endgameName');
+    const hint = document.getElementById(style ? 'playStyleHint' : 'endgameHint');
+    const detail = document.getElementById(style ? 'playStyleDetail' : 'endgameDetail');
+    if (drawer) drawer.classList.toggle('hidden', !open);
+    if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    prompt?.classList.toggle('hidden', !open);
+    name?.classList.toggle('hidden', open);
+    hint?.classList.toggle('hidden', open);
+    detail?.classList.toggle('hidden', open);
+    if (prompt && open) prompt.textContent = style ? 'Select your play style' : 'Select your ending';
+    if (!style) renderModeDetail();
+}
+
+document.getElementById('playStyleToggle')?.addEventListener('click', () => {
+    const drawer = document.getElementById('playStyleDrawer');
+    setChoiceDrawer('playStyleDrawer', 'playStyleToggle', Boolean(drawer && drawer.classList.contains('hidden')));
+});
+document.getElementById('endgameToggle')?.addEventListener('click', () => {
+    const drawer = document.getElementById('endgameDrawer');
+    setChoiceDrawer('endgameDrawer', 'endgameToggle', Boolean(drawer && drawer.classList.contains('hidden')));
+});
+
+let strokeBeforeScript = 'classic';
+
+function syncFollowScript() {
+    const row = document.getElementById('playerFollowRow');
+    const input = document.getElementById('playerFollowScript');
+    const has = Boolean(scriptFeed?.hasTrack());
+    if (row) row.classList.toggle('hidden', !has);
+    if (input) input.checked = has && state.teaseMode === 'script';
 }
 
 function highlightModeCard() {
@@ -2676,6 +2943,7 @@ function highlightModeCard() {
             check?.classList.add('hidden');
         }
     });
+    syncFollowScript();
 }
 
 function applyModeSelection(mode, enabled) {
@@ -2823,6 +3091,8 @@ function runKeyAction(action) {
     else if (action === 'stop') document.getElementById('sessionStopBtn')?.click();
     else if (action === 'cameEarly') document.getElementById('cameEarlyBtn')?.click();
     else if (action === 'forceOrgasm') document.getElementById('orgasmBtn')?.click();
+    else if (action === 'offsetEarlier') player?.nudgeOffset(-OFFSET_NUDGE_MS);
+    else if (action === 'offsetLater') player?.nudgeOffset(OFFSET_NUDGE_MS);
 }
 
 function paintKeybinds() {
@@ -2870,9 +3140,14 @@ document.addEventListener('keydown', (event) => {
         assignBind(bindFromKey(event.code));
         return;
     }
-    if (keyEventIsTyping(event.target)) return;
+    if (keyEventIsTyping(event.target, event.code)) return;
     if (event.code === 'Escape' && document.getElementById('modalOverlay') && !document.getElementById('modalOverlay').classList.contains('hidden')) {
         closeModal();
+        return;
+    }
+    if (event.code === 'Escape' && player && typeof player.immersive === 'function' && player.immersive()) {
+        event.preventDefault();
+        player.leaveImmersive();
         return;
     }
     const action = actionForKey(advancedSettings.keybinds, event.code);
@@ -2902,7 +3177,6 @@ function pollGamepads() {
 }
 
 const pipBtn = document.getElementById('pipBtn');
-if (pipBtn && window.documentPictureInPicture) pipBtn.classList.remove('hidden');
 pipBtn?.addEventListener('click', async () => {
     try {
         await openDocumentPip();
@@ -2991,11 +3265,19 @@ document.getElementById('calibrateBtn')?.addEventListener('click', () => {
 });
 
 modeCards.forEach(card => {
+    if (!card.querySelector('.use-style')) {
+        const use = document.createElement('span');
+        use.className = 'use-style mt-1 text-[9px] font-bold uppercase tracking-wider text-purple-300';
+        use.textContent = 'Use this';
+        card.appendChild(use);
+    }
     card.addEventListener('click', () => {
         if (isRemoteViewer) return;
         const mode = card.getAttribute('data-mode');
-        const enabled = GAME_CARD_MODES.includes(mode) ? state.gameMode !== mode : true;
+        const enabled = GAME_CARD_MODES.includes(mode) ? true : true;
         applyModeSelection(mode, enabled);
+        if (GAME_CARD_MODES.includes(mode) || mode === 'goal-off') setChoiceDrawer('endgameDrawer', 'endgameToggle', false);
+        else setChoiceDrawer('playStyleDrawer', 'playStyleToggle', false);
         if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled });
         else syncTelemetry();
     });
@@ -3452,10 +3734,10 @@ bleTabSimBtn?.addEventListener('click', () => {
 
 // Session Setup Sub-Tabs (4 Tabs: duration, guards, audio, backup)
 const paramsTabMap = {
-    duration: { btn: document.getElementById('paramsTabDurationBtn'), sec: document.getElementById('paramsDurationSection') },
     guards: { btn: document.getElementById('paramsTabGuardsBtn'), sec: document.getElementById('paramsGuardsSection') },
     audio: { btn: document.getElementById('paramsTabAudioBtn'), sec: document.getElementById('paramsAudioSection') },
-    backup: { btn: document.getElementById('paramsTabBackupBtn'), sec: document.getElementById('paramsBackupSection') }
+    backup: { btn: document.getElementById('paramsTabBackupBtn'), sec: document.getElementById('paramsBackupSection') },
+    keys: { btn: document.getElementById('paramsTabKeysBtn'), sec: document.getElementById('paramsKeysSection') }
 };
 
 function setParamsTab(activeKey) {
@@ -3471,10 +3753,10 @@ function setParamsTab(activeKey) {
     });
 }
 
-paramsTabMap.duration.btn?.addEventListener('click', () => setParamsTab('duration'));
 paramsTabMap.guards.btn?.addEventListener('click', () => setParamsTab('guards'));
 paramsTabMap.audio.btn?.addEventListener('click', () => setParamsTab('audio'));
 paramsTabMap.backup.btn?.addEventListener('click', () => setParamsTab('backup'));
+paramsTabMap.keys.btn?.addEventListener('click', () => setParamsTab('keys'));
 
 // Duration Mode Switcher
 const durFixedBtn = document.getElementById('durFixedBtn');
@@ -3509,14 +3791,46 @@ durFixedBtn?.addEventListener('click', () => { setDurationMode('fixed'); persist
 durRangeBtn?.addEventListener('click', () => { setDurationMode('range'); persistSessionLimits(true); });
 durEndlessBtn?.addEventListener('click', () => { setDurationMode('endless'); persistSessionLimits(true); });
 
-// Warm-up Slider Listener
-const warmupInput = document.getElementById('warmupInput');
-const warmupDisplay = document.getElementById('warmupValDisplay');
-warmupInput?.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value, 10);
-    if (warmupDisplay) {
-        warmupDisplay.textContent = (val === 0) ? "0 min (Instant)" : `${val} Minutes`;
+function effectiveWarmupMinutes() {
+    if (advancedSettings.warmupEnabled === false) return 0;
+    const minutes = Number(advancedSettings.warmupMinutes);
+    return Number.isFinite(minutes) && minutes > 0 ? minutes : 0;
+}
+
+function paintWarmup() {
+    const minutes = Math.max(0, Math.min(10, Number(advancedSettings.warmupMinutes) || 0));
+    const enabled = advancedSettings.warmupEnabled !== false && minutes > 0;
+    const toggle = document.getElementById('warmupToggle');
+    const input = document.getElementById('warmupInput');
+    if (toggle) toggle.checked = enabled;
+    if (input) {
+        if (document.activeElement !== input) input.value = String(minutes);
+        input.disabled = !enabled;
+        input.classList.toggle('opacity-40', !enabled);
     }
+}
+
+function commitWarmup() {
+    if (isRemotePage) return;
+    paintWarmup();
+    persistSettings();
+    updateEngine();
+    updateWarmupBadge();
+}
+
+document.getElementById('warmupToggle')?.addEventListener('change', (e) => {
+    if (isRemotePage) return;
+    const on = Boolean(e.target.checked);
+    advancedSettings.warmupEnabled = on;
+    if (on && !(Number(advancedSettings.warmupMinutes) > 0)) advancedSettings.warmupMinutes = 5;
+    commitWarmup();
+});
+document.getElementById('warmupInput')?.addEventListener('change', (e) => {
+    if (isRemotePage) return;
+    const minutes = Math.max(0, Math.min(10, parseInt(e.target.value, 10) || 0));
+    advancedSettings.warmupMinutes = minutes;
+    advancedSettings.warmupEnabled = minutes > 0;
+    commitWarmup();
 });
 
 function syncParamsUI() {
@@ -3560,9 +3874,6 @@ function syncParamsUI() {
     const decayCount = document.getElementById('decayEdgeCountInput');
     const decayBpm = document.getElementById('decayBpmInput');
     const decayFloor = document.getElementById('decayFloorInput');
-    const warmup = document.getElementById('warmupInput');
-    const warmupDisp = document.getElementById('warmupValDisplay');
-
     if (stallToggle) stallToggle.checked = Boolean(advancedSettings.stallGuard);
     if (stallSec) stallSec.value = clampStallGuardSeconds(advancedSettings.stallGuardSeconds);
     const stallPause = document.getElementById('stallPauseSecondsInput');
@@ -3599,8 +3910,7 @@ function syncParamsUI() {
     if (staleInput) staleInput.value = clampStaleSeconds(advancedSettings.hrStaleSeconds);
     if (autoResumeToggle) autoResumeToggle.checked = advancedSettings.hrAutoResume !== false;
 
-    if (warmup) warmup.value = advancedSettings.warmupMinutes ?? 5;
-    if (warmupDisp) warmupDisp.textContent = (advancedSettings.warmupMinutes === 0) ? "0 min (Instant)" : `${advancedSettings.warmupMinutes ?? 5} Minutes`;
+    paintWarmup();
 
     const voiceToggle = document.getElementById('paramVoiceToggle');
     const micToggle = document.getElementById('paramMicToggle');
@@ -4039,6 +4349,7 @@ document.getElementById('applyParamsBtn')?.addEventListener('click', async () =>
     syncWatchdogSettings();
     const warmupParsed = parseInt(document.getElementById('warmupInput')?.value, 10);
     advancedSettings.warmupMinutes = Number.isFinite(warmupParsed) ? warmupParsed : 5;
+    advancedSettings.warmupEnabled = document.getElementById('warmupToggle')?.checked === true && advancedSettings.warmupMinutes > 0;
     advancedSettings.voiceEnabled = document.getElementById('paramVoiceToggle')?.checked ?? false;
     advancedSettings.voiceURI = document.getElementById('paramVoiceSelect')?.value || '';
     const voiceForm = currentVoiceCues();
@@ -4361,7 +4672,7 @@ document.getElementById('modalBleScanBtn')?.addEventListener('click', async () =
     if (warnBluetoothUnsupported()) return;
     try {
         setBadgeState('Ble', 'connecting', 'Scanning...');
-        setBleStatus('Pick your sensor in the browser chooser...', 'busy');
+        setBleStatus('Connecting. If the browser asks, pick the sensor that is advertising the Heart Rate service.', 'busy');
         const dev = await connectBleHeartRate({
             onHrMeasurement: (bpm, info) => {
                 recordHrReading(bpm, info ? info.sensorContact : null);
@@ -4804,7 +5115,7 @@ function renderIntifaceDevices() {
             <button onclick="setDeviceVibeMode(${devIdx}, ${aIdx}, 'pulsed')" class="flex-1 py-0.5 rounded ${pulsed ? 'bg-slate-700 text-amber-300 font-bold' : 'bg-slate-800 text-slate-400'} cursor-pointer">Pulsed</button>
             <select aria-label="Pulse period" onchange="setDevicePulsePeriod(${devIdx}, ${aIdx}, this.value)" ${pulsed ? '' : 'disabled'} class="bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-[9px] text-slate-200 ${pulsed ? 'cursor-pointer' : 'opacity-40'}">${periods}</select>
             </div>
-            ${pulsed ? '<p class="text-[9px] text-slate-500 leading-snug">On for half of each period, off for the other half. The intensity sets the peak, and it stays under the cap.</p>' : ''}
+            ${pulsed ? '<p class="text-[9px] text-slate-500 leading-snug">Ramps up and down a few times, then rests for a beat. The lengths change. Shorter spacing rests more often. The intensity sets the peak, and it stays under the cap.</p>' : ''}
             </div>`;
             })() : ''}
             ${invertRow}
@@ -4932,6 +5243,23 @@ document.getElementById('modalTCodeDisconnectBtn')?.addEventListener('click', ()
 // Best effort: rest every axis when the page goes away.
 window.addEventListener('pagehide', () => { stopTCode(); });
 
+// A refresh used to leave HeartCast connected to the dead page, and the next
+// visit could not pair until the computer's Bluetooth list forgot the device.
+bindBlePageLifecycle(window);
+window.addEventListener('pageshow', () => {
+    if (isBleConnected() || state.simEngaged) return;
+    if (!state.hrDeviceName) return;
+    state.hrDeviceName = '';
+    state.bleBattery = null;
+    setBadgeState('Ble', 'disconnected', 'Disconnected');
+    setBleStatus('The heart-rate link closed when the page was hidden. Scan and pair again.', 'idle');
+    document.getElementById('modalBleDisconnectBtn')?.classList.add('hidden');
+    document.getElementById('modalBleBatteryDisplay')?.classList.add('hidden');
+    const devName = document.getElementById('modalBleDeviceName');
+    if (devName) devName.textContent = 'No device paired';
+    if (!state.simEngaged) document.getElementById('hrWarningTag')?.classList.remove('hidden');
+});
+
 window.setTCodeRole = (axisIdx, role) => {
     setTCodeAxisRole(axisIdx, role);
     renderTCodeDevice();
@@ -4991,7 +5319,7 @@ function renderTCodeDevice() {
         </div>
         <div class="space-y-0.5 pt-1 border-t border-slate-800/60">
         <div class="flex justify-between text-[9px] text-slate-400">
-        <span>Max cap:</span>
+        <span>Max speed:</span>
         <span id="tcodeCapVal_${aIdx}" class="font-bold font-mono text-amber-400">${axis.maxCap ?? 100}%</span>
         </div>
         <input type="range" min="10" max="100" step="5" value="${axis.maxCap ?? 100}" oninput="setTCodeCap(${aIdx}, this.value)" class="w-full accent-amber-500 h-1 bg-slate-800 rounded cursor-pointer">
@@ -5020,11 +5348,79 @@ function renderTCodeSummaryBadge() {
     setBadgeState('TCode', 'connected', nameLabel, null);
 }
 
+function handyLogFields() {
+    const info = getHandyInfo();
+    const fw = info && (info.fwVersion ?? info.firmwareVersion ?? info.firmware);
+    const model = info && (info.model ?? info.hwVersion);
+    return {
+        connected: Boolean(handyConnected),
+        role: state.handyRole,
+        maxCap: state.handyMaxCap,
+        beatSync: Boolean(handyHsp && handyHsp.beatSync()),
+        firmware: fw ? String(fw) : '',
+        model: model ? String(model) : ''
+    };
+}
+
+function deviceLogSnapshot() {
+    const tcode = isTCodeConnected() ? getTCodeDevice() : null;
+    return {
+        handy: handyLogFields(),
+        heartRate: {
+            connected: isBleConnected(),
+            simulator: Boolean(state.simEngaged),
+            name: state.simEngaged ? 'Simulator' : (state.hrDeviceName || '')
+        },
+        intiface: isIntifaceConnected() ? Array.from(intifaceDevices.values()).map((dev) => ({
+            name: dev.displayName || dev.name || '',
+            axes: (dev.axes || []).filter((axis) => !axis.inert).map((axis) => ({
+                kind: axis.type || axis.kind || '',
+                role: axis.role,
+                maxCap: axis.maxCap,
+                vibeMode: axis.vibeMode,
+                pulsePeriodMs: axis.pulsePeriodMs
+            }))
+        })) : [],
+        vacuglide: {
+            connected: isVacuglideConnected(),
+            role: advancedSettings.vacuglideRole,
+            maxCap: advancedSettings.vacuglideMaxCap
+        },
+        tcode: {
+            connected: Boolean(tcode),
+            name: tcode ? tcode.name : '',
+            axes: tcode && Array.isArray(tcode.axes) ? tcode.axes.map((axis) => ({
+                id: axis.id,
+                role: axis.role,
+                maxCap: axis.maxCap
+            })) : []
+        }
+    };
+}
+
+function scriptLogSnapshot() {
+    const loaded = player && player.script ? player.script() : null;
+    const secondary = player && player.secondary ? player.secondary() : null;
+    return {
+        loaded: Boolean(loaded),
+        actions: loaded && loaded.meta ? loaded.meta.actions : 0,
+        durationMs: loaded && loaded.meta ? loaded.meta.durationMs : 0,
+        offsetMs: scriptFeed ? scriptFeed.offset() : 0,
+        hash: loaded && loaded.hash ? loaded.hash : '',
+        secondary: Boolean(secondary),
+        secondaryActions: secondary && secondary.meta ? secondary.meta.actions : 0,
+        secondaryDurationMs: secondary && secondary.meta ? secondary.meta.durationMs : 0,
+        climaxMarks: loadedClimaxMarks.slice(),
+        videoSeconds: player && player.hasVideo() ? player.duration() : 0,
+        strokeModel: advancedSettings.scriptStrokeModel
+    };
+}
+
 // Session History & Funscript Downloader Hook
 function saveSessionToHistory(outcome) {
     const history = safeParse('edgeloop_history', []);
     const sessionId = Date.now();
-    history.unshift({
+    const entry = {
         id: sessionId,
         date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         duration: state.sessionSeconds,
@@ -5034,7 +5430,29 @@ function saveSessionToHistory(outcome) {
         outcome,
         // Raw 4 Hz timeline; both funscripts are built from it on download.
         samples: [...funscriptSamples]
-    });
+    };
+    if (sessionLogWanted()) {
+        entry.telemetry = buildSessionExport({
+            appVersion: APP_VERSION,
+            session: {
+                id: sessionId,
+                date: entry.date,
+                duration: state.sessionSeconds,
+                edges: state.edges,
+                pauses: state.pauses,
+                peakHr: state.peakHr,
+                outcome,
+                intensity: state.intensityValue,
+                targetSeconds: state.chosenTargetSeconds,
+                videoClock: state.scriptVideoClock
+            },
+            settings: advancedSettings,
+            devices: deviceLogSnapshot(),
+            script: scriptLogSnapshot(),
+            trace: sessionLog.snapshot()
+        });
+    }
+    history.unshift(entry);
     while (history.length > 10) history.pop();
     const result = saveHistoryTrimmed('edgeloop_history', history);
     if (!result.saved) {
@@ -5056,6 +5474,31 @@ function funscriptForSession(session, channel) {
     return toFunscript(Array.isArray(legacy) ? legacy : []);
 }
 
+window.downloadSessionTelemetry = (sessionId) => {
+    if (!isDevTelemetryHost(location.hostname)) return;
+    const history = safeParse('edgeloop_history', []);
+    const session = history.find(s => s.id === sessionId);
+    if (!session || !session.telemetry) return alert('This session has no Dev session log.');
+    const stored = session.telemetry;
+    const clean = buildSessionExport({
+        appVersion: stored.appVersion,
+        session: stored.session,
+        settings: stored.settings,
+        devices: stored.devices,
+        script: stored.script,
+        trace: { series: stored.series, events: stored.events }
+    });
+    const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `edgeloop_session_${sessionId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
 window.downloadFunscript = (sessionId, channel) => {
     const history = safeParse('edgeloop_history', []);
     const session = history.find(s => s.id === sessionId);
@@ -5076,9 +5519,31 @@ window.downloadFunscript = (sessionId, channel) => {
     URL.revokeObjectURL(url);
 };
 
+function paintSessionLogOptIn() {
+    const panel = document.getElementById('sessionLogPanel');
+    if (panel) panel.classList.toggle('hidden', !devTelemetry);
+    const box = document.getElementById('sessionLogOptIn');
+    if (box) box.checked = sessionLogOptIn;
+    const label = document.getElementById('sessionLogOptInState');
+    if (label) {
+        label.textContent = sessionLogOptIn ? 'On' : 'Off';
+        label.className = sessionLogOptIn
+            ? 'font-mono text-[10px] font-bold text-amber-300'
+            : 'font-mono text-[10px] font-bold text-slate-400';
+    }
+}
+
+window.setSessionLogOptIn = (on) => {
+    sessionLogOptIn = Boolean(on);
+    safeSet(SESSION_LOG_KEY, sessionLogOptIn);
+    if (!sessionLogOptIn) sessionLog.reset();
+    paintSessionLogOptIn();
+};
+
 function renderHistory() {
     const history = safeParse('edgeloop_history', []);
     const list = document.getElementById('historyList');
+    paintSessionLogOptIn();
     if (!list) return;
     if (history.length === 0) {
         list.innerHTML = `<div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 text-xs text-center italic">No completed sessions recorded yet.</div>`;
@@ -5104,6 +5569,7 @@ function renderHistory() {
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         .v0.funscript
         </button>
+        ${devTelemetry && s.telemetry ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log. It stays on your device until you share it.">Session log</button>` : ''}
         </div>
         `;
         list.appendChild(item);
@@ -5490,22 +5956,32 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         els: {
             video: byId('playerVideo'),
             stage: byId('playerStage'),
+            stageEmpty: byId('playerStageEmpty'),
             hud: byId('playerHud'),
             hudHr: byId('hudHr'),
             hudMark: byId('hudMark'),
             hudPhase: byId('hudPhase'),
             hudEdges: byId('hudEdges'),
             hudTimer: byId('hudTimer'),
+            hudPrimary: byId('hudPrimary'),
+            hudSecondary: byId('hudSecondary'),
             hudNotice: byId('hudNotice'),
             hudBar: byId('hudBar'),
             hudPause: byId('hudPauseBtn'),
             hudStop: byId('hudStopBtn'),
+            hudExit: byId('hudExitBtn'),
+            hudSeek: byId('hudSeek'),
+            hudVolume: byId('hudVolume'),
+            hudMute: byId('hudMuteBtn'),
+            climaxList: byId('playerClimaxList'),
             fileInput: byId('playerFileInput'),
             chooseBtn: byId('playerChooseBtn'),
             primaryBtn: byId('playerPrimaryBtn'),
             primaryInput: byId('playerPrimaryInput'),
             secondaryBtn: byId('playerSecondaryBtn'),
             secondaryInput: byId('playerSecondaryInput'),
+            bothBtn: byId('playerBothBtn'),
+            clearScriptsBtn: byId('playerClearScriptsBtn'),
             heatmap: byId('playerHeatmap'),
             heatmapHint: byId('playerHeatmapHint'),
             clearBtn: byId('playerClearBtn'),
@@ -5517,6 +5993,10 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             playBtn: byId('playerPlayBtn'),
             muteBtn: byId('playerMuteBtn'),
             seek: byId('playerSeek'),
+            scrub: byId('playerScrub'),
+            seekThumb: byId('playerSeekThumb'),
+            seekHeat: byId('playerSeekHeat'),
+            markBtn: byId('playerMarkBtn'),
             time: byId('playerTime'),
             offsetMinus: byId('playerOffsetMinus'),
             offsetPlus: byId('playerOffsetPlus'),
@@ -5528,7 +6008,14 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             videoUrlBtn: byId('playerVideoUrlBtn')
         },
         handlers: {
-            transport: () => ({ coupled: state.activeMode === 'script', sessionStatus: state.sessionStatus }),
+            transport: () => ({
+                coupled: videoCoupled({
+                    activeMode: state.activeMode,
+                    hasTrack: Boolean(scriptFeed?.hasTrack()),
+                    hasVideo: Boolean(player?.hasVideo())
+                }),
+                sessionStatus: state.sessionStatus
+            }),
             canChangeFiles: () => (state.activeMode === 'script' && (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN')
                 ? 'Press STOP before changing the files.'
                 : null),
@@ -5538,16 +6025,20 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 player?.setOffset(offsetFor(storedScriptOffsets(), script.hash));
                 loadedClimaxMarks = climaxMarksFor(storedClimaxMarks(), script.hash);
                 player?.setClimaxMarks(loadedClimaxMarks);
-                const card = document.getElementById('scriptModeCard');
-                if (card) card.disabled = false;
-                card?.classList.remove('opacity-50');
+                if (state.teaseMode !== 'script') strokeBeforeScript = state.teaseMode || 'classic';
+                applyModeSelection('script');
+                channelConfig = 'primary';
+                paintPlayerChannels();
                 checkReadiness();
             },
             onSecondary: (script) => {
                 secondaryTrack = script.track || null;
+                channelConfig = 'secondary';
+                paintPlayerChannels();
             },
             onSecondaryCleared: () => {
                 secondaryTrack = null;
+                paintPlayerChannels();
             },
             onClimax: (marks) => {
                 loadedClimaxMarks = Array.isArray(marks) ? marks.slice() : [];
@@ -5559,12 +6050,10 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 loadedScriptHash = '';
                 loadedClimaxMarks = [];
                 scriptFeed.setTrack(null);
-                if (state.teaseMode === 'script') applyModeSelection('classic');
-                const card = document.getElementById('scriptModeCard');
-                if (card) {
-                    card.disabled = true;
-                    card.classList.add('opacity-50');
-                }
+                if (state.teaseMode === 'script') {
+                    applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic');
+                } else syncFollowScript();
+                paintPlayerChannels();
                 checkReadiness();
             },
             onPlayRequest: () => playPauseBtn?.click(),
@@ -5605,24 +6094,139 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             },
             onHudPause: () => { if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') playPauseBtn?.click(); },
             onHudStop: () => stopBtn?.click(),
+            onVideo: () => renderPlayerHardwareNotice(),
             onPlayButton: () => playPauseBtn?.click()
         }
     });
-    const modelSelect = document.getElementById('scriptStrokeModelSelect');
-    if (modelSelect) {
-        modelSelect.value = advancedSettings.scriptStrokeModel === 'keep' ? 'keep' : 'cactus';
-        modelSelect.addEventListener('change', () => {
-            advancedSettings.scriptStrokeModel = modelSelect.value === 'keep' ? 'keep' : 'cactus';
+    const STROKE_MODEL_DETAILS = {
+        cactus: 'Strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going.',
+        keep: 'Strokes stay the shape in the file. Your heart rate only turns them down. A pause in the file is a real stop.'
+    };
+    function renderStrokeModel() {
+        const model = advancedSettings.scriptStrokeModel === 'keep' ? 'keep' : 'cactus';
+        document.querySelectorAll('.stroke-model-card').forEach((card) => {
+            const on = card.getAttribute('data-stroke-model') === model;
+            const check = card.querySelector('.stroke-model-check');
+            const title = card.querySelector('.font-bold');
+            if (on) {
+                card.className = 'stroke-model-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between';
+                if (title) title.className = 'font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1';
+                check?.classList.remove('hidden');
+            } else {
+                card.className = 'stroke-model-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between';
+                if (title) title.className = 'font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1';
+                check?.classList.add('hidden');
+            }
+        });
+        const detail = document.getElementById('strokeModelDetail');
+        if (detail) detail.textContent = STROKE_MODEL_DETAILS[model];
+    }
+    document.querySelectorAll('.stroke-model-card').forEach((card) => {
+        card.addEventListener('click', () => {
+            const next = card.getAttribute('data-stroke-model') === 'keep' ? 'keep' : 'cactus';
+            advancedSettings.scriptStrokeModel = next;
             persistSettings();
+            renderStrokeModel();
             updateEngine();
         });
+    });
+    renderStrokeModel();
+    document.getElementById('playerFollowScript')?.addEventListener('change', () => {
+        if (isRemoteViewer) {
+            syncFollowScript();
+            return;
+        }
+        const on = document.getElementById('playerFollowScript').checked;
+        if (on) {
+            if (state.teaseMode !== 'script') strokeBeforeScript = state.teaseMode || 'classic';
+            applyModeSelection('script');
+        } else if (state.teaseMode === 'script') {
+            applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic');
+        }
+        syncFollowScript();
+        if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode: state.teaseMode, enabled: true });
+        else syncTelemetry();
+    });
+    function togglePlayer(force) {
+        const section = document.getElementById('playerSection');
+        const body = document.getElementById('playerBody');
+        const header = document.getElementById('playerHeaderBtn');
+        if (!section) return;
+        const open = typeof force === 'boolean' ? force : section.classList.contains('hidden');
+        section.classList.toggle('hidden', !open);
+        if (open) body?.classList.remove('hidden');
+        header?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        placeSessionSetup(open);
+        if (!open) channelConfig = null;
+        paintPlayerChannels();
+        placeSessionControls(open);
     }
-    document.getElementById('playerHeaderBtn')?.addEventListener('click', () => {
-        document.getElementById('playerBody')?.classList.toggle('hidden');
+    function placeSessionControls(inPlayer) {
+        const move = (id, slotId, homeId) => {
+            const node = document.getElementById(id);
+            const slot = document.getElementById(slotId);
+            const home = document.getElementById(homeId);
+            const target = inPlayer && slot ? slot : home;
+            if (node && target && node.parentElement !== target) target.appendChild(node);
+        };
+        move('sessionTransport', 'playerTransportSlot', 'sessionTransportHome');
+        move('sessionActions', 'playerActionsSlot', 'sessionActionsHome');
+    }
+    document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
+    document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());
+    document.getElementById('playerPrimaryConfigBtn')?.addEventListener('click', () => {
+        channelConfig = channelConfig === 'primary' ? null : 'primary';
+        paintPlayerChannels();
     });
-    document.getElementById('playerToggleBtn')?.addEventListener('click', () => {
-        document.getElementById('playerBody')?.classList.toggle('hidden');
+    document.getElementById('playerSecondaryConfigBtn')?.addEventListener('click', () => {
+        channelConfig = channelConfig === 'secondary' ? null : 'secondary';
+        paintPlayerChannels();
     });
+    document.getElementById('playerPrimaryEdgeBtn')?.addEventListener('click', () => {
+        if (player?.script()) player.clearPrimary();
+        else paintPlayerChannels();
+    });
+    document.getElementById('playerSecondaryEdgeBtn')?.addEventListener('click', () => {
+        if (player?.secondary()) player.clearSecondaryScript();
+        else paintPlayerChannels();
+    });
+    document.getElementById('playerClearPrimaryBtn')?.addEventListener('click', () => player?.clearPrimary());
+    document.getElementById('playerClearSecondaryBtn')?.addEventListener('click', () => player?.clearSecondaryScript());
+    function bindClimaxSeconds(id, read, write) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.value = String(read());
+        input.addEventListener('change', () => {
+            const next = write(input.value);
+            input.value = String(next);
+            persistSettings();
+        });
+    }
+    bindClimaxSeconds(
+        'scriptClimaxRampSeconds',
+        () => clampClimaxPhaseSeconds(advancedSettings.scriptClimaxRampSeconds, DEFAULT_CLIMAX_RAMP_SECONDS),
+        (value) => { advancedSettings.scriptClimaxRampSeconds = clampClimaxPhaseSeconds(value, DEFAULT_CLIMAX_RAMP_SECONDS); return advancedSettings.scriptClimaxRampSeconds; }
+    );
+    bindClimaxSeconds(
+        'scriptClimaxSeconds',
+        () => clampClimaxSeconds(advancedSettings.scriptClimaxSeconds),
+        (value) => { advancedSettings.scriptClimaxSeconds = clampClimaxSeconds(value); return advancedSettings.scriptClimaxSeconds; }
+    );
+    bindClimaxSeconds(
+        'scriptClimaxEaseSeconds',
+        () => clampClimaxPhaseSeconds(advancedSettings.scriptClimaxEaseSeconds, DEFAULT_CLIMAX_EASE_SECONDS),
+        (value) => { advancedSettings.scriptClimaxEaseSeconds = clampClimaxPhaseSeconds(value, DEFAULT_CLIMAX_EASE_SECONDS); return advancedSettings.scriptClimaxEaseSeconds; }
+    );
+    const hudPin = document.getElementById('playerHudPin');
+    if (hudPin) {
+        hudPin.checked = advancedSettings.playerHudPin !== false;
+        applyHudPin();
+        hudPin.addEventListener('change', () => {
+            advancedSettings.playerHudPin = hudPin.checked;
+            applyHudPin();
+            persistSettings();
+        });
+    }
     const continueAfter = document.getElementById('scriptContinueAfterVideo');
     if (continueAfter) {
         continueAfter.checked = Boolean(advancedSettings.scriptContinueAfterVideo);
@@ -5657,12 +6261,121 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             const line = document.getElementById('beatSyncRoute');
             if (line) {
                 line.textContent = beatToggle.checked
-                    ? 'Beat sync sends the next few seconds of script positions to The Handy. Firmware 4 or later. Intiface linear toys still follow the script point by point.'
-                    : 'Beat sync is off. The Handy follows the script’s rhythm (speed and depth). Intiface linear toys still follow each stroke.';
+                    ? 'On. With a funscript, the next few seconds of stroke positions go to The Handy. Firmware 4 or later.'
+                    : 'Off. The Handy follows speed and depth. It does not chase each stroke in a file.';
             }
         });
         beatToggle.dispatchEvent(new Event('change'));
     }
+    startLocalApp();
+}
+
+const loadedAppScripts = { stroke: '', vib: '' };
+
+async function loadAppScript(which, file) {
+    if (!file || !file.id || !player) return;
+    if (loadedAppScripts[which] === file.id) return;
+    const response = await fetch(`/app/script?id=${encodeURIComponent(file.id)}`);
+    if (!response.ok) return;
+    const body = await response.json();
+    if (!body || typeof body.text !== 'string' || !body.name) return;
+    const blob = new File([body.text], body.name, { type: 'application/json' });
+    const ok = which === 'vib' ? await player.chooseSecondary(blob) : await player.choosePrimary(blob);
+    if (ok) loadedAppScripts[which] = file.id;
+}
+
+function startLocalApp() {
+    const card = document.getElementById('appSyncCard');
+    if (!card || !player) return;
+    fetch('/edgeloop-app.json', { cache: 'no-store' }).then((response) => {
+        if (!response.ok) return null;
+        return response.json();
+    }).then((info) => {
+        if (!info || info.app !== true) return;
+        card.classList.remove('hidden');
+        const hostInput = document.getElementById('appHeadsetHost');
+        const portInput = document.getElementById('appHeadsetPort');
+        const kindInput = document.getElementById('appSyncKind');
+        const passwordInput = document.getElementById('appVlcPassword');
+        const help = document.getElementById('appSyncHelp');
+        const libraryInput = document.getElementById('appLibraryPath');
+        const status = document.getElementById('appSyncStatus');
+        const VLC_HELP = 'VLC plays the video on this computer. In VLC: Preferences, Show All, Interface, Main interfaces, turn on Web. Then Interface, Main interfaces, Lua, and set the HTTP password if you want one. Leave the password here empty when VLC has none. Port 8080 is the usual one. Play a file whose name matches a script in the folder.';
+        const HEADSET_HELP = 'HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one. To test without a headset, choose VLC.';
+        function applyKind() {
+            const vlc = kindInput && kindInput.value === 'vlc';
+            passwordInput?.classList.toggle('hidden', !vlc);
+            if (help) help.textContent = vlc ? VLC_HELP : HEADSET_HELP;
+            if (hostInput && !hostInput.value) hostInput.placeholder = vlc ? '127.0.0.1' : '192.168.1.20';
+            if (portInput && document.activeElement !== portInput) {
+                const current = Number(portInput.value);
+                if (!current || current === 23554 || current === 8080) portInput.value = vlc ? '8080' : '23554';
+            }
+        }
+        kindInput?.addEventListener('change', applyKind);
+        const source = new EventSource('/app/events');
+        source.onmessage = (event) => {
+            let data = null;
+            try { data = JSON.parse(event.data); } catch (e) { return; }
+            if (!data || data.type !== 'sync') return;
+            if (kindInput && data.source && document.activeElement !== kindInput && kindInput.value !== data.source) {
+                kindInput.value = data.source === 'vlc' ? 'vlc' : 'headset';
+                applyKind();
+            }
+            if (hostInput && data.host && document.activeElement !== hostInput) hostInput.value = data.host;
+            if (portInput && data.port && document.activeElement !== portInput) portInput.value = String(data.port);
+            if (libraryInput && data.library && document.activeElement !== libraryInput) libraryInput.value = data.library;
+            if (player.usingExternalClock() || data.connected) {
+                player.followExternal({
+                    state: data.state === 'playing' ? 'playing' : 'paused',
+                    mediaMs: data.mediaMs,
+                    rate: data.rate
+                });
+            }
+            const video = data.name ? `Video: ${data.name}. ` : '';
+            const script = data.stroke ? `Script: ${data.stroke.name}. ` : (data.name ? 'No script with that name in the folder. ' : '');
+            const who = data.source === 'vlc' ? 'VLC' : 'Headset';
+            const link = data.connected ? `${who} connected. ` : (data.error || 'Not connected. ');
+            const count = data.libraryCount ? `${data.libraryCount} scripts in the folder. ` : '';
+            if (status) status.textContent = `${link}${count}${video}${script}Start the session here once a heart-rate monitor and a toy are connected. The player only supplies the time.`;
+            if (data.scriptChanged) {
+                loadAppScript('stroke', data.stroke).catch(() => {});
+                loadAppScript('vib', data.vib).catch(() => {});
+            }
+        };
+        document.getElementById('appConnectBtn')?.addEventListener('click', () => {
+            fetch('/app/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    kind: kindInput ? kindInput.value : 'headset',
+                    host: hostInput ? hostInput.value : '',
+                    port: portInput ? portInput.value : 23554,
+                    password: passwordInput ? passwordInput.value : ''
+                })
+            }).then((response) => response.json()).then((body) => {
+                if (status && body && body.error) status.textContent = body.error;
+            }).catch(() => {
+                if (status) status.textContent = 'Could not reach the local app.';
+            });
+        });
+        document.getElementById('appQuitBtn')?.addEventListener('click', () => {
+            if (status) status.textContent = 'EdgeLoop is closing. The player connection closes with it.';
+            fetch('/app/quit', { method: 'POST' }).catch(() => {});
+        });
+        document.getElementById('appLibraryBtn')?.addEventListener('click', () => {
+            fetch('/app/library', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: libraryInput ? libraryInput.value : '' })
+            }).then((response) => response.json()).then((body) => {
+                if (status && body && body.error) status.textContent = body.error;
+                else if (status && body && body.ok) status.textContent = `${body.count} videos and scripts in that folder.`;
+            }).catch(() => {
+                if (status) status.textContent = 'Could not read that folder.';
+            });
+        });
+    }).catch(() => {});
 }
 
 // Boot Initialization

@@ -62,6 +62,7 @@ export function createScriptFeed({ clock = createMediaClock(), perfNow = default
     let offset = 0;
     let active = false;
     let allowance = 0;
+    let expand = 1;
     // Bumped on every change that moves the timeline under a driver without
     // the clock seeing it: a new track, a new offset, Script mode switched on.
     let localGeneration = 0;
@@ -152,6 +153,14 @@ export function createScriptFeed({ clock = createMediaClock(), perfNow = default
         },
         allowance() {
             return allowance;
+        },
+        setExpand(value) {
+            const n = Number(value);
+            expand = Number.isFinite(n) && n >= 1 ? Math.min(2, n) : 1;
+            return expand;
+        },
+        expand() {
+            return expand;
         },
 
         // The video's state, from its events (media-clock.js setState). A
@@ -244,7 +253,8 @@ export function createScriptFeed({ clock = createMediaClock(), perfNow = default
                     invert: effectiveInvert(meta, settings),
                     smoothing: settings.scriptSmoothing,
                     maxSpeed: settings.scriptMaxSpeed,
-                    strokeModel: settings.scriptStrokeModel
+                    strokeModel: settings.scriptStrokeModel,
+                    expand
                 },
                 device: { window, ceiling: resolveCeiling(profile), cap, minSegmentMs },
                 startPos,
@@ -262,7 +272,8 @@ export function createScriptFeed({ clock = createMediaClock(), perfNow = default
             const p = posAt(smoothedTrack(track, settings.scriptSmoothing), t);
             if (p === null || !Number.isFinite(p)) return null;
             const x = effectiveInvert(meta, settings) ? 1 - p / 100 : p / 100;
-            const shaped = x * amplitudeFactor(settings.scriptApproach, a, settings.scriptStrokeModel);
+            const gain = settings.scriptStrokeModel === 'keep' ? 1 : expand;
+            const shaped = x * amplitudeFactor(settings.scriptApproach, a, settings.scriptStrokeModel) * gain;
             return shaped < 0 ? 0 : shaped > 1 ? 1 : shaped;
         },
 
