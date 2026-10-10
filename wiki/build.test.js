@@ -88,6 +88,9 @@ describe('wiki build', () => {
             const desktopRun = readFileSync(join(outDir, 'desktop', 'run', 'index.html'), 'utf8');
             assert.match(desktop, /Desktop 2\.0/);
             assert.match(desktop, /experimental/);
+            const css = readFileSync(join(outDir, 'wiki.css'), 'utf8');
+            assert.match(css, /#34d399/);
+            assert.match(css, /edition-pulse/);
             assert.match(desktopRun, /127\.0\.0\.1:8787/);
             assert.match(desktopRun, /Node\.js 22/);
             assert.equal(/download the installer|available on flathub/i.test(desktop + desktopRun), false);
