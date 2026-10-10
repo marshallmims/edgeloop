@@ -17,6 +17,9 @@ import {
     isIntifaceConnected,
     isIntifaceScanning,
     isValidIntifaceUrl,
+    normalizeIntifaceUrl,
+    describeIntifaceTarget,
+    REMOTE_WS_BLOCKED_TEXT,
     getIntifaceStatus,
     countAssignedIntifaceDevices,
     resetIntifaceForTests,
@@ -163,29 +166,52 @@ describe('connection lifecycle', () => {
     });
 
     it('rejects an invalid URL synchronously without throwing', () => {
-        const ok = connectIntifaceServer('localhost:12345', handlersRecorder());
+        const ok = connectIntifaceServer('not a websocket url', handlersRecorder());
         assert.equal(ok, false);
         assert.equal(getIntifaceStatus().state, 'error');
         assert.match(getIntifaceStatus().text, /Invalid WebSocket URL/);
         assert.equal(sockets.length, 0);
     });
 
-    it('rejects scheme-less and http URLs before touching the socket (browsers resolve them relatively)', () => {
-        // A permissive socket, like a real browser: no throw on odd URLs.
+    it('turns a tablet address into a websocket URL, and still refuses http', () => {
         const Permissive = class extends FakeSocket { constructor(url) { super('ws://x'); this.url = url; } };
         globalThis.WebSocket = Permissive;
-        for (const bad of ['127.0.0.1:12345', 'not a websocket url', 'http://localhost:12345', 'ws://', '']) {
-            const ok = connectIntifaceServer(bad, handlersRecorder());
-            if (bad === '') {
-                assert.equal(ok, true, 'empty falls back to the default URL');
-                disconnectIntiface();
-                continue;
-            }
+        assert.equal(normalizeIntifaceUrl('192.168.1.20').url, 'ws://192.168.1.20:12345/');
+        assert.equal(normalizeIntifaceUrl('192.168.1.20:12346').url, 'ws://192.168.1.20:12346/');
+        assert.equal(normalizeIntifaceUrl('ws://192.168.1.20:12345').url, 'ws://192.168.1.20:12345/');
+        const tablet = connectIntifaceServer('192.168.1.20', handlersRecorder(), 'http://127.0.0.1:17321/?shell=1');
+        assert.equal(tablet, true);
+        assert.equal(sockets[0].url, 'ws://192.168.1.20:12345/');
+        disconnectIntiface();
+        for (const bad of ['not a websocket url', 'http://localhost:12345', 'ws://']) {
+            const ok = connectIntifaceServer(bad, handlersRecorder(), 'http://127.0.0.1/');
             assert.equal(ok, false, bad);
             assert.match(getIntifaceStatus().text, /Invalid WebSocket URL/, bad);
         }
-        assert.equal(sockets.length, 1);
+        const empty = connectIntifaceServer('', handlersRecorder(), 'http://127.0.0.1/');
+        assert.equal(empty, true);
+        assert.equal(sockets[sockets.length - 1].url, 'ws://localhost:12345');
+        disconnectIntiface();
         assert.equal(isValidIntifaceUrl('WSS://intiface.example.org:12345/'), true);
+    });
+
+    it('an https page cannot open ws:// to another device, and the desktop app can', () => {
+        const blocked = describeIntifaceTarget('192.168.1.20', 'https://edgeloop.app/');
+        assert.equal(blocked.ok, false);
+        assert.equal(blocked.message, REMOTE_WS_BLOCKED_TEXT);
+        const ok = connectIntifaceServer('192.168.1.20', handlersRecorder(), 'https://dev.edgeloop.app/');
+        assert.equal(ok, false);
+        assert.equal(sockets.length, 0);
+        assert.match(getIntifaceStatus().text, /desktop app/);
+        const local = connectIntifaceServer('ws://localhost:12345', handlersRecorder(), 'https://edgeloop.app/');
+        assert.equal(local, true);
+        disconnectIntiface();
+        const secure = connectIntifaceServer('wss://intiface.example.org:12345', handlersRecorder(), 'https://edgeloop.app/');
+        assert.equal(secure, true);
+        disconnectIntiface();
+        const desktop = connectIntifaceServer('tablet.local', handlersRecorder(), 'http://127.0.0.1:17321/');
+        assert.equal(desktop, true);
+        assert.equal(sockets[sockets.length - 1].url, 'ws://tablet.local:12345/');
     });
 
     it('times out the handshake and closes the socket', async () => {

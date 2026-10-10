@@ -78,7 +78,7 @@ The footer shows this build number. 1.1.4 is the dev release. The fourth number 
 
 ## 1.1.4
 
-The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release on edgeloop.app.
+The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release on edgeloop.app. The full application is a separate project, tentatively EdgeLoop 2.0, and it is not part of this release. See desktop/README.md.
 
 ### Player
 - **Your video and your funscript.** Nothing is uploaded. Load them from disk. The Player button is in the header. Intiface linear axes play the script stroke for stroke. (Cactus / Purple Palm)
