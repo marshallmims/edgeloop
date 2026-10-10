@@ -4,6 +4,13 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.17
+
+- **The top row is split in half.** On Player, the picture and the file panel each take half the width, and the two cards meet at the same height.
+- **Session setup is one short card.** Session Length, Play Style, and Session Endgame sit together. The long descriptions stay inside the list you open.
+- **Primary Ease runs the primary toy.** It eases off as your pulse climbs. It is the play style that used to be called Classic Tease.
+- **The ending is Climax, Soft Landing, or Strict Denial.** Tease is gone from Session Endgame. Survival keeps climbing until you press Stop. Edge Training still uses those three when the timer runs out.
+
 ## 1.1.4.16
 
 - **The controls stay in the left column.** Start, Stop, edges, pauses, Came Early, and Force Orgasm sit under the picture, the same width as that picture. Closing Player hides the picture and leaves that panel. Session Length, Play Style, and Session Endgame take the file panel’s place as one card. Theater, fullscreen, and the scrub bar come back with the picture.

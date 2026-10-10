@@ -2142,7 +2142,8 @@ setInterval(() => {
 
         // The endgame fires exactly once per session: the Orgasm endgame
         // arms Force Orgasm, which stays a toggle the wearer can cancel.
-        if (!state.endgameFired && state.chosenTargetSeconds > 0 && state.sessionSeconds >= state.chosenTargetSeconds) {
+        // Survival keeps climbing until Stop. A session length does not end it.
+        if (!state.endgameFired && state.activeMode !== 'survival' && state.chosenTargetSeconds > 0 && state.sessionSeconds >= state.chosenTargetSeconds) {
             const oracleResolving = state.activeMode === 'oracle'
                 && (state.oracleState === 'HOLD' || state.oracleState === 'CLIMAX' || state.orgasmMode);
             // Only an orgasm actually in progress defers the endgame. The
@@ -2234,7 +2235,10 @@ function updateTimerDisplay() {
     const aSecs = String(state.sessionSeconds % 60).padStart(2, '0');
     const activeStr = `${aMins}:${aSecs}`;
 
-    if (state.scriptVideoClock && state.chosenTargetSeconds > 0) {
+    if (state.activeMode === 'survival') {
+        timerEl.textContent = activeStr;
+        subLabelEl.textContent = 'Survival';
+    } else if (state.scriptVideoClock && state.chosenTargetSeconds > 0) {
         const rem = Math.max(0, state.chosenTargetSeconds - state.sessionSeconds);
         const rMins = String(Math.floor(rem / 60)).padStart(2, '0');
         const rSecs = String(rem % 60).padStart(2, '0');
@@ -2836,15 +2840,15 @@ const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain', 'nnn'];
 const modeCards = document.querySelectorAll('.mode-card');
 
 const MODE_DETAILS = {
-    classic: 'Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks the stroke back up. Crawl or Full Stop still decides the ceiling.',
+    classic: 'The primary toy follows your pulse and eases off as your heart rate climbs. The motion drifts so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks back up. Crawl or Full Stop still decides the ceiling.',
     finisher: 'Speed rises with your heart rate and stays at full speed on the mark, so it can carry you over. "At the ceiling" does not slow it down. Room noise does not speed it up either: the climb follows the pulse the sensor measured.',
-    shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Classic. The secondary channel stays low.',
+    shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Primary Ease. The secondary channel stays low.',
     headplay: 'Full strokes until your pulse is close to the heart rate you set, then the stroke climbs toward the head. Speed eases off with your pulse, and the stroke opens back up when your pulse drops.',
     ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Close to the heart rate you set, it runs a long fast stretch, stops for a beat, then climbs back up. The internal toy stays with you through the climb.',
     milker: 'The stroker eases off as you climb and the internal toy takes over. Close to the heart rate you set, the stroker runs a fast stretch, stops for a beat, and climbs back. The internal toy rests on its own timing.',
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
-    survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
+    survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. A session length does not end it either. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. Press Stop when you are done. The pattern is the play style you picked.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
     nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.',
@@ -2853,7 +2857,7 @@ const MODE_DETAILS = {
 };
 
 const MODE_NAMES = {
-    classic: 'Classic Tease',
+    classic: 'Primary Ease',
     finisher: 'Finisher',
     milker: 'Prostate Milker',
     shortener: 'Glans Protector',
@@ -2869,24 +2873,43 @@ const MODE_NAMES = {
     calibrate: 'Calibration'
 };
 
+const ENDING_NAMES = {
+    orgasm: 'Climax',
+    rampdown: 'Soft Landing',
+    denial: 'Strict Denial'
+};
+
+const ENDING_DETAILS = {
+    orgasm: 'When the timer runs out, the toys surge to 100%.',
+    rampdown: 'When the timer runs out, the toys ease down for 45 seconds.',
+    denial: 'When the timer runs out, everything stops.'
+};
+
 function renderModeDetail() {
     const style = state.teaseMode || 'classic';
-    const goal = state.gameMode || 'goal-off';
+    const goal = state.gameMode || '';
     const styleName = document.getElementById('playStyleName');
     const styleDetail = document.getElementById('playStyleDetail');
     const goalName = document.getElementById('endgameName');
     const goalDetail = document.getElementById('endgameDetail');
     if (styleName) styleName.textContent = MODE_NAMES[style] || style;
     if (styleDetail) styleDetail.textContent = MODE_DETAILS[style] || '';
-    if (goalName) goalName.textContent = MODE_NAMES[goal] || goal;
-    if (goalDetail) goalDetail.textContent = MODE_DETAILS[goal] || '';
+    if (!state.gameMode) {
+        const ending = state.endgameType || 'orgasm';
+        if (goalName) goalName.textContent = ENDING_NAMES[ending] || ENDING_NAMES.orgasm;
+        if (goalDetail) goalDetail.textContent = ENDING_DETAILS[ending] || '';
+    } else {
+        if (goalName) goalName.textContent = MODE_NAMES[goal] || goal;
+        if (goalDetail) goalDetail.textContent = MODE_DETAILS[goal] || '';
+    }
     document.getElementById('trainSettings')?.classList.toggle('hidden', state.gameMode !== 'edgetrain');
     document.getElementById('nnnSettings')?.classList.toggle('hidden', state.gameMode !== 'nnn');
     const choosingEnding = document.getElementById('endgameDrawer') && !document.getElementById('endgameDrawer').classList.contains('hidden');
-    // Tease, Survival, and Edge Training still end when the session timer
-    // runs out. The Oracle decides its own finish. NNN uses the denial
-    // percent on its own card.
-    const timerMatters = !state.gameMode || state.gameMode === 'survival' || state.gameMode === 'edgetrain';
+    // Climax, Soft Landing, and Strict Denial are the ending when no game is
+    // on. Edge Training still uses them when the timer runs out. Survival
+    // keeps going until Stop. The Oracle decides its own finish. NNN uses
+    // the denial percent on its own card.
+    const timerMatters = state.gameMode === 'edgetrain';
     document.getElementById('timerEnding')?.classList.toggle('hidden', choosingEnding || !timerMatters);
 }
 
@@ -2930,8 +2953,9 @@ function syncFollowScript() {
 function highlightModeCard() {
     modeCards.forEach(c => {
         const mode = c.getAttribute('data-mode');
+        const ending = c.getAttribute('data-endgame');
         const on = mode === 'goal-off'
-            ? !state.gameMode
+            ? !state.gameMode && ending === (state.endgameType || 'orgasm')
             : (mode === state.teaseMode || mode === state.gameMode);
         const check = c.querySelector('.mode-check');
         const title = c.querySelector('.font-bold');
@@ -3277,6 +3301,12 @@ modeCards.forEach(card => {
     card.addEventListener('click', () => {
         if (isRemoteViewer) return;
         const mode = card.getAttribute('data-mode');
+        const ending = card.getAttribute('data-endgame');
+        if (mode === 'goal-off' && ending) {
+            state.endgameType = ending;
+            highlightEndgameCard(state.endgameType);
+            persistSessionLimits(true);
+        }
         const enabled = GAME_CARD_MODES.includes(mode) ? true : true;
         applyModeSelection(mode, enabled);
         if (GAME_CARD_MODES.includes(mode) || mode === 'goal-off') setChoiceDrawer('endgameDrawer', 'endgameToggle', false);
@@ -3868,6 +3898,8 @@ function syncParamsUI() {
         // values were stored at all.
         state.endgameType = advancedSettings.endgameType;
         highlightEndgameCard(state.endgameType);
+        renderModeDetail();
+        highlightModeCard();
         state.durationMode = advancedSettings.durationMode;
     }
     setDurationMode(state.durationMode);
@@ -6070,6 +6102,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                     continueAfterVideo();
                     return;
                 }
+                if (state.activeMode === 'survival') return;
                 if (state.sessionStatus === 'RUNNING' && !state.endgameFired) {
                     state.scriptVideoClock = true;
                     state.chosenTargetSeconds = Math.max(1, state.sessionSeconds);

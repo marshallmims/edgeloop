@@ -472,7 +472,7 @@ describe('player markup', () => {
         const endgame = html.indexOf('id="endgamePanel"');
         assert.ok(dock < playBtn && playBtn < files);
         assert.ok(files < bundle && bundle < length && length < style && style < endgame);
-        assert.match(html, /grid-template-columns:\s*minmax\(0,\s*7fr\)\s*minmax\(0,\s*5fr\)/);
+        assert.match(html, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/);
         assert.match(html, /#playerBody\[data-player="off"\] #playerPicture/);
         assert.match(html, /id="playerBody" data-player="off"/);
         assert.doesNotMatch(html, /id="playerTheaterBtn" hidden/);

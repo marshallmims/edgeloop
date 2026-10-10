@@ -118,8 +118,24 @@
     }
     #sessionBundle #playStylePanel,
     #sessionBundle #endgamePanel {
-      padding-top: 0.85rem;
+      padding-top: 0.5rem;
       border-top: 1px solid rgb(30 41 59);
+    }
+    /* The closed card is the three choices, not the essays under them. */
+    #sessionBundle {
+      gap: 0.5rem;
+    }
+    #sessionBundle #playStyleDetail,
+    #sessionBundle #endgameDetail,
+    #sessionBundle #sessionLengthPanel > p {
+      display: none !important;
+    }
+    #sessionBundle #playStyleToggle,
+    #sessionBundle #endgameToggle {
+      padding: 0.4rem 0.65rem;
+    }
+    #playerBody[data-player="on"] #playerFiles {
+      flex: 1 1 auto;
     }
     #playerPicture {
       position: relative;
@@ -155,13 +171,22 @@
       max-width: none;
       white-space: nowrap;
     }
+    #playerBody[data-player="on"] #playerDock #sessionPlayPauseBtn {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 10rem;
+    }
+    #playerBody[data-player="on"] #playerDock #playPauseText {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     #sessionResetBtn,
     #pipBtn {
       display: none !important;
     }
     @media (min-width: 1024px) {
       #playerBody:not(:has(#playerStage[data-theater="on"])) {
-        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         align-items: stretch;
       }
       #playerBody[data-player="off"] {
@@ -681,22 +706,22 @@
             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Play Style</p>
             <button id="playStyleToggle" type="button" aria-expanded="false" aria-controls="playStyleDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
               <span id="playStylePrompt" class="hidden text-sm font-bold text-purple-200">Select your play style</span>
-              <span id="playStyleName" class="block text-sm font-bold text-purple-300">Classic Tease</span>
+              <span id="playStyleName" class="block text-sm font-bold text-purple-300">Primary Ease</span>
               <span id="playStyleHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
             </button>
-            <p id="playStyleDetail" class="text-[10px] text-slate-300 leading-snug">Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks the stroke back up.</p>
+            <p id="playStyleDetail" class="text-[10px] text-slate-300 leading-snug">The primary toy eases off as your pulse climbs. Close to the heart rate you set, it sometimes stops for a beat and then picks back up.</p>
           </div>
           <div id="playStyleDrawer" class="hidden space-y-1.5">
           <div id="bioProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <button type="button" data-mode="classic" class="mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
               <div class="font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1">
-                <span>Classic Tease</span>
+                <span>Primary Ease</span>
                 <span class="flex items-center gap-1">
                   <span class="mode-check text-purple-400">●</span>
                 </span>
               </div>
               <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
-                Full strokes. Speed eases off as your pulse climbs.
+                The primary toy eases off as your pulse climbs.
               </p>
             </button>
 
@@ -781,10 +806,10 @@
             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Session Endgame</p>
             <button id="endgameToggle" type="button" aria-expanded="false" aria-controls="endgameDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
               <span id="endgamePrompt" class="hidden text-sm font-bold text-purple-200">Select your ending</span>
-              <span id="endgameName" class="block text-sm font-bold text-purple-300">Tease</span>
+              <span id="endgameName" class="block text-sm font-bold text-purple-300">Climax</span>
               <span id="endgameHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
             </button>
-            <p id="endgameDetail" class="text-[10px] text-slate-300 leading-snug">No game. The stroke you picked runs on its own.</p>
+            <p id="endgameDetail" class="text-[10px] text-slate-300 leading-snug">When the timer runs out, the toys surge to 100%.</p>
             <div id="timerEnding" class="pt-1.5 border-t border-slate-800 space-y-1.5">
               <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">When the timer runs out</span>
               <div class="grid grid-cols-3 gap-1.5" id="paramEndgameContainer">
@@ -834,20 +859,37 @@
               <button id="nnnClearBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Clear</button>
             </div>
             </div>
-            <div id="endgameDrawer" class="hidden">
-          <div id="gameModesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            <button type="button" data-mode="goal-off" class="mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
+            <div id="endgameDrawer" class="hidden space-y-1.5">
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" data-mode="goal-off" data-endgame="orgasm" class="mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
               <div class="font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1">
-                <span>Tease</span>
+                <span>Climax</span>
                 <span class="flex items-center gap-1">
                   <span class="mode-check text-purple-400">●</span>
                 </span>
               </div>
-              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
-                No game. The stroke you picked runs on its own.
-              </p>
+              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">Surges to 100%.</p>
             </button>
-
+            <button type="button" data-mode="goal-off" data-endgame="rampdown" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
+                <span>Soft Landing</span>
+                <span class="flex items-center gap-1">
+                  <span class="mode-check hidden text-purple-400">●</span>
+                </span>
+              </div>
+              <p class="text-[9px] text-slate-400 mt-0.5 leading-snug">45s tease down.</p>
+            </button>
+            <button type="button" data-mode="goal-off" data-endgame="denial" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
+                <span>Strict Denial</span>
+                <span class="flex items-center gap-1">
+                  <span class="mode-check hidden text-purple-400">●</span>
+                </span>
+              </div>
+              <p class="text-[9px] text-slate-400 mt-0.5 leading-snug">Immediate stop.</p>
+            </button>
+          </div>
+          <div id="gameModesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <button type="button" data-mode="survival" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
               <div class="font-bold text-[11px] text-rose-300 flex justify-between items-center gap-1">
                 <span>Survival</span>
@@ -1071,7 +1113,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.16</span>
+        <span id="appVersion" class="font-mono">v1.1.4.17</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
