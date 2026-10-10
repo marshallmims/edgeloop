@@ -647,16 +647,10 @@ function paintPlayerChannels() {
 }
 
 function placeSessionSetup(inPlayer) {
-    const slot = document.getElementById('playerEdgeLoopSettings');
-    const home = document.getElementById('sessionSetupHome');
-    const play = document.getElementById('playStylePanel');
-    const end = document.getElementById('endgamePanel');
     document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', inPlayer);
-    const target = inPlayer && slot ? slot : home;
-    if (play && target && play.parentElement !== target) target.appendChild(play);
-    if (end && target && end.parentElement !== target) target.appendChild(end);
-    play?.classList.remove('hidden');
-    end?.classList.remove('hidden');
+    document.getElementById('playerFiles')?.classList.toggle('hidden', !inPlayer);
+    document.getElementById('playStylePanel')?.classList.remove('hidden');
+    document.getElementById('endgamePanel')?.classList.remove('hidden');
 }
 
 function layoutDeviceCards() {
@@ -6159,18 +6153,6 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         placeSessionSetup(open);
         if (!open) channelConfig = null;
         paintPlayerChannels();
-        placeSessionControls(open);
-    }
-    function placeSessionControls(inPlayer) {
-        const move = (id, slotId, homeId) => {
-            const node = document.getElementById(id);
-            const slot = document.getElementById(slotId);
-            const home = document.getElementById(homeId);
-            const target = inPlayer && slot ? slot : home;
-            if (node && target && node.parentElement !== target) target.appendChild(node);
-        };
-        move('sessionTransport', 'playerTransportSlot', 'sessionTransportHome');
-        move('sessionActions', 'playerActionsSlot', 'sessionActionsHome');
     }
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());

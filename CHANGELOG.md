@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.15
+
+- **The main page uses the Player layout.** Heart rate, both channels, and intensity stay wide. Start, Stop, edges, pauses, Came Early, and Force Orgasm sit in that same row on both screens. Player adds the picture above that menu, and the file panel takes Session Length’s place. Theater, fullscreen, and the scrub bar are put away.
+
 ## 1.1.4.14
 
 - **Warm-up sits with the heart rate.** The switch and the minutes are to the left of Resting, above the readout, on the main page and on the Player.

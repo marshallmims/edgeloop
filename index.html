@@ -54,27 +54,21 @@
       flex: 1 1 0;
       min-width: 7.5rem;
     }
-    /* On a wide window the picture panel is as tall as the file panel.
-       Play and Stop live on the bottom of that panel. A phone stacks the
-       file panel first. */
+    /* The picture is a band above the shared menu. Play, Stop, and the
+       edge buttons stay in that menu on both screens. */
     #playerBody {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 0.75rem;
-      align-items: start;
+      display: block;
     }
     #playerColumn {
-      display: flex;
-      flex-direction: column;
+      display: block;
       min-width: 0;
-      min-height: 0;
     }
     #playerStage {
       display: flex;
       flex-direction: column;
       width: 100%;
-      flex: 1 1 auto;
-      min-height: 16rem;
+      height: min(32vh, 18rem);
+      min-height: 12rem;
       aspect-ratio: auto;
     }
     #playerPicture {
@@ -115,17 +109,12 @@
     #pipBtn {
       display: none !important;
     }
-    body:has(#playerSection:not(.hidden)) #cockpit {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    body:has(#playerSection:not(.hidden)) #cockpitSide {
-      display: none;
+    #playerTheaterBtn,
+    #playerFullscreenBtn,
+    #playerScrub {
+      display: none !important;
     }
     @media (min-width: 1024px) {
-      #playerBody:not(:has(#playerStage[data-theater="on"])) {
-        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-        align-items: stretch;
-      }
       #deviceCardGrid > button {
         min-width: 0;
       }
@@ -324,7 +313,7 @@
         <div id="playerColumn" class="order-2 lg:order-1 min-w-0">
           <div id="playerStage" data-theater="off" data-immersive="off" data-empty="on" class="relative flex flex-col bg-black rounded-xl border border-slate-800 overflow-hidden min-h-0">
             <div id="playerPicture" class="relative flex-1 min-h-[8rem]">
-            <p id="playerStageEmpty" class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">Choose a video in the file panel.</p>
+            <p id="playerStageEmpty" class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">Choose a video in the file panel below.</p>
             <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
             <!-- The HUD: only in theater and fullscreen. The bottom bar hides
                  after 4 s and comes back on a tap or a mouse move. The top
@@ -372,10 +361,10 @@
               <span class="flex-1"></span>
               <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
               <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
-              <button id="playerTheaterBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
-              <button id="playerFullscreenBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
+              <button id="playerTheaterBtn" hidden type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
+              <button id="playerFullscreenBtn" hidden type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
             </div>
-            <div id="playerScrub" class="relative w-full h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
+            <div id="playerScrub" hidden class="relative w-full h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
               <canvas id="playerSeekHeat" width="640" height="44" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
               <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
             </div>
@@ -402,7 +391,245 @@
           </div>
         </div>
 
-        <div id="playerFiles" class="order-1 lg:order-2 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2 min-w-0">
+        
+      </div>
+    </section>
+
+    <div id="sessionDock" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 flex flex-col gap-2">
+      <div id="sessionTransportHome">
+        <div id="sessionTransport" class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
+          <div class="flex gap-2">
+            <button id="sessionPlayPauseBtn" disabled class="flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
+              <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span id="playPauseText">WAITING FOR HR SENSOR & TOY</span>
+            </button>
+
+            <button id="sessionStopBtn" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 font-bold py-3 px-3 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+              <span>STOP</span>
+            </button>
+
+            <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
+              Reset
+            </button>
+            <button id="pipBtn" type="button" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable.">
+              Pop out
+            </button>
+          </div>
+        </div>
+        </div>
+      <div id="sessionActionsHome">
+        <div id="sessionActions" class="grid grid-cols-4 gap-2 text-center text-xs">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
+            <div class="text-[9px] text-slate-500 uppercase font-semibold">Edges</div>
+            <div id="edgeCount" class="text-lg font-black text-amber-400 font-mono leading-none mt-1">0</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
+            <div class="text-[9px] text-slate-500 uppercase font-semibold">Pauses</div>
+            <div id="pauseCount" class="text-lg font-black text-sky-400 font-mono leading-none mt-1">0</div>
+          </div>
+          <button id="cameEarlyBtn" class="bg-amber-950/60 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer" title="Log accidental release so local learning engine tightens limits next time.">
+            <span id="cameEarlyKicker" class="text-[8px] text-amber-400 font-semibold uppercase">Accidental</span>
+            <span id="cameEarlyLabel" class="font-bold text-[10px] mt-0.5">Came Early</span>
+          </button>
+          <button id="orgasmBtn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer shadow-lg shadow-amber-950/30">
+            <span class="text-[8px] uppercase tracking-wider text-amber-200">Overdrive</span>
+            <span id="orgasmBtnText" class="font-bold text-[10px] mt-0.5">Force Orgasm</span>
+          </button>
+        </div>
+        </div>
+    </div>
+
+
+    <!-- Two-Column Responsive Cockpit Grid (Desktop & Landscape Tablet) -->
+    <div id="cockpit" class="space-y-3">
+
+      <!-- LEFT COLUMN -->
+      <div id="cockpitMain" class="space-y-3">
+
+        <!-- Real-Time Biofeedback Telemetry Hub -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2.5 text-xs flex-wrap">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-amber-300 font-semibold">Warm-up:</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
+                  <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
+                </label>
+                <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-14 min-w-[3.5rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-amber-500">
+                <span class="text-[10px] text-slate-500">min</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-slate-300 font-semibold">Resting:</span>
+                <input id="minHr" type="number" value="70" min="30" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
+                <input id="maxHr" type="number" value="140" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
+                <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
+              </div>
+              <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-3xl sm:text-4xl font-black text-rose-500 font-mono" id="hrDisplay">70</span>
+              <span class="text-xs text-slate-400 font-mono">BPM</span>
+              <span id="hrWarningTag" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-800 text-rose-300 ml-1">BLE REQUIRED</span>
+              <span id="simActiveTag" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1">SIMULATOR ACTIVE</span>
+              <span id="hrContactHint" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 ml-1" title="The sensor is transmitting but reports no pulse. Wet the electrodes or tighten the strap / watch band.">NO SKIN CONTACT</span>
+              <span id="hrHoldHint" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300 ml-1" title="No fresh reading yet; the last valid pulse is kept until the signal-loss timeout.">HOLDING LAST READING</span>
+              <span id="hrSignalBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 ml-1">SIGNAL RESTORED</span>
+              <span id="warmupBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-700 text-amber-300 ml-1">WARM-UP: <span id="warmupRemainingText">5:00</span></span>
+              <span id="dualStimBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1">DUAL MAX 125</span>
+              <span id="decayBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-700 text-sky-300 ml-1">DECAY: -<span id="decayAmountText">0</span> BPM</span>
+              <span id="learnBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 ml-1">LEARNED -<span id="learnAmountText">0</span> BPM</span>
+              <span id="effectiveCeilingBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-950/80 border border-rose-700 text-rose-300 ml-1" title="The climax ceiling the engine is using right now, after every offset"><span id="effectiveCeilingLabel">CEILING</span> <span id="effectiveCeilingText">140</span> BPM</span>
+              <span id="edgeHoldBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1" title="Pulse relative to this percent of Climax HR is the pullback trigger">HOLD TO <span id="edgeHoldText">140</span></span>
+              <span id="micActiveBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 ml-1">MIC LISTEN</span>
+              <button id="micReenableBtn" type="button" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 hover:bg-amber-900 ml-1 cursor-pointer" title="Browsers only grant the microphone after a tap">Tap to re-enable microphone</button>
+            </div>
+          </div>
+          <p id="calibrationHint" class="hidden text-[9px] text-slate-400 leading-snug"></p>
+
+          <!-- 60-Second Real-Time Canvas -->
+          <div class="relative">
+            <canvas id="hrChart" class="block w-full h-20 sm:h-24 bg-slate-950 rounded-xl border border-slate-800/80"></canvas>
+            <div id="staleAlert" class="absolute inset-0 bg-slate-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-center px-3 text-xs font-bold text-rose-400 hidden">
+              <span id="staleAlertText">WATCHDOG: NO HEART-RATE READING, MOTORS HALTED</span>
+            </div>
+          </div>
+
+          <!-- Voice / Mindgame Prompts -->
+          <div id="mindgameContainer" class="hidden bg-slate-950 p-2 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+              <span class="text-purple-400 text-xs shrink-0">💬</span>
+              <span id="mindgamePromptText" class="text-[11px] text-slate-300 font-medium truncate italic">"Calm and steady. Breathe."</span>
+            </div>
+            <span class="text-[9px] text-slate-500 font-mono shrink-0">Voice Active</span>
+          </div>
+        </div>
+
+        <!-- Output Channel Gauges -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="flex items-center gap-1.5 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                Primary Channel (Strokers / Machines)
+              </span>
+              <div class="flex items-center gap-1.5 font-mono">
+                <span id="strokeRangeBadge" class="text-[9px] text-teal-400 bg-teal-950/60 px-1.5 py-0.2 rounded border border-teal-800">Zone: 0-100%</span>
+                <span id="strokerVal" class="text-rose-400 font-bold">0%</span>
+              </div>
+            </div>
+            <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
+              <div id="strokerBar" class="bg-gradient-to-r from-teal-400 to-rose-500 h-full rounded-full transition-all duration-150" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="flex items-center gap-1.5 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                Secondary Channel (Prostate / Milker)
+              </span>
+              <span id="prostateVal" class="font-mono text-purple-400 text-xs font-bold">0%</span>
+            </div>
+            <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
+              <div id="prostateBar" class="bg-gradient-to-r from-purple-500 to-fuchsia-400 h-full rounded-full transition-all duration-150" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Filled by app.js with what the engine really sent each channel on
+               this tick (describeCutoffNotice); empty while there is nothing
+               true to say, so it can never claim a motor that is stopped. -->
+          <div id="cutoffNotice" class="hidden text-center text-[11px] font-bold text-rose-400 bg-rose-950/40 border border-rose-900/60 rounded-lg py-1"></div>
+          <!-- Filled by app.js with what the ACTIVE mode will really do when the
+               pause ends (describeStallPauseNotice): Ruin &amp; Leak's lockout and
+               Full Stop both hold the primary at 0%, so neither can promise a
+               crawl that resumes. -->
+          <div id="stallGuardNotice" class="hidden text-center text-[11px] font-bold text-amber-300 bg-amber-950/50 border border-amber-800/80 rounded-lg py-1 animate-pulse"></div>
+          <div id="gameNotice" class="hidden text-center text-[11px] font-bold text-purple-300 bg-purple-950/50 border border-purple-800/80 rounded-lg py-1 animate-pulse">
+            GAME MODE ACTIVE
+          </div>
+          <div id="rampdownNotice" class="hidden text-center text-[11px] font-bold text-sky-400 bg-sky-950/40 border border-sky-900/60 rounded-lg py-1 animate-pulse">
+            SOFT LANDING IN PROGRESS: DECELERATING TO 0%
+          </div>
+        </div>
+
+        <!-- Stimulation Intensity Multiplier -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-200 flex items-center gap-1.5">
+              <span class="text-amber-400">⚡</span> Stimulation Intensity
+            </span>
+            <span id="intensityValDisplay" class="font-mono font-bold text-amber-400">100% (Default Balanced)</span>
+          </div>
+          <input id="intensitySlider" type="range" min="0" max="100" value="50" class="w-full h-2 rounded-lg cursor-pointer appearance-none bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 accent-white">
+          <div class="flex justify-between text-[9px] text-slate-500 font-semibold px-0.5">
+            <span>50% Gentle</span>
+            <span>100% Balanced (Center)</span>
+            <span>150% Intense</span>
+          </div>
+          <p class="text-[9px] text-slate-400 leading-tight">
+            Real-time stimulation multiplier. Dial left for lighter tease or right for more aggressive power without changing your HR thresholds.
+          </p>
+          <div class="flex items-center justify-between gap-3 pt-1 text-[10px] text-slate-400">
+            <label class="flex items-center gap-1.5" for="speedSlowestInput">Slowest
+              <input id="speedSlowestInput" type="number" min="0" max="100" step="1" value="0" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 font-mono text-center text-slate-200 outline-none focus:border-emerald-500">
+            </label>
+            <label class="flex items-center gap-1.5" for="speedFastestInput">Fastest
+              <input id="speedFastestInput" type="number" min="0" max="100" step="1" value="100" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 font-mono text-center text-slate-200 outline-none focus:border-rose-500">
+            </label>
+          </div>
+          <p class="text-[9px] text-slate-500 leading-tight">Strokes stay between these. 0 and 100 leave the pattern alone. A stop is still a stop.</p>
+        </div>
+
+        
+
+        
+
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div id="cockpitSide" class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+
+        <div id="lengthSlot" class="min-w-0">
+<div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Length</span>
+              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
+                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
+                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
+                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
+              </div>
+            </div>
+            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Exact length:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
+            </div>
+            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Mystery window:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">to</span>
+                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
+            </div>
+            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Endless:</span>
+              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
+            </div>
+            <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
+        </div>
+<div id="playerFiles" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2 min-w-0">
           <div id="appSyncCard" class="hidden p-2.5 rounded-xl border border-sky-900 bg-slate-950 space-y-2">
             <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300">Player clock</p>
             <p id="appSyncHelp" class="text-[10px] text-slate-400 leading-snug">HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one. To test without a headset, choose VLC.</p>
@@ -558,235 +785,6 @@
           </div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- Two-Column Responsive Cockpit Grid (Desktop & Landscape Tablet) -->
-    <div id="cockpit" class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
-
-      <!-- LEFT COLUMN -->
-      <div class="lg:col-span-7 space-y-3">
-
-        <!-- Real-Time Biofeedback Telemetry Hub -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
-          <div class="flex flex-col gap-2">
-            <div class="flex items-center gap-2.5 text-xs flex-wrap">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[10px] text-amber-300 font-semibold">Warm-up:</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
-                  <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
-                </label>
-                <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-14 min-w-[3.5rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-amber-500">
-                <span class="text-[10px] text-slate-500">min</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-slate-300 font-semibold">Resting:</span>
-                <input id="minHr" type="number" value="70" min="30" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
-                <input id="maxHr" type="number" value="140" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
-                <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
-              </div>
-              <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
-            </div>
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-3xl sm:text-4xl font-black text-rose-500 font-mono" id="hrDisplay">70</span>
-              <span class="text-xs text-slate-400 font-mono">BPM</span>
-              <span id="hrWarningTag" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-800 text-rose-300 ml-1">BLE REQUIRED</span>
-              <span id="simActiveTag" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1">SIMULATOR ACTIVE</span>
-              <span id="hrContactHint" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 ml-1" title="The sensor is transmitting but reports no pulse. Wet the electrodes or tighten the strap / watch band.">NO SKIN CONTACT</span>
-              <span id="hrHoldHint" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300 ml-1" title="No fresh reading yet; the last valid pulse is kept until the signal-loss timeout.">HOLDING LAST READING</span>
-              <span id="hrSignalBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 ml-1">SIGNAL RESTORED</span>
-              <span id="warmupBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-700 text-amber-300 ml-1">WARM-UP: <span id="warmupRemainingText">5:00</span></span>
-              <span id="dualStimBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1">DUAL MAX 125</span>
-              <span id="decayBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-700 text-sky-300 ml-1">DECAY: -<span id="decayAmountText">0</span> BPM</span>
-              <span id="learnBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 ml-1">LEARNED -<span id="learnAmountText">0</span> BPM</span>
-              <span id="effectiveCeilingBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-950/80 border border-rose-700 text-rose-300 ml-1" title="The climax ceiling the engine is using right now, after every offset"><span id="effectiveCeilingLabel">CEILING</span> <span id="effectiveCeilingText">140</span> BPM</span>
-              <span id="edgeHoldBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1" title="Pulse relative to this percent of Climax HR is the pullback trigger">HOLD TO <span id="edgeHoldText">140</span></span>
-              <span id="micActiveBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 ml-1">MIC LISTEN</span>
-              <button id="micReenableBtn" type="button" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 hover:bg-amber-900 ml-1 cursor-pointer" title="Browsers only grant the microphone after a tap">Tap to re-enable microphone</button>
-            </div>
-          </div>
-          <p id="calibrationHint" class="hidden text-[9px] text-slate-400 leading-snug"></p>
-
-          <!-- 60-Second Real-Time Canvas -->
-          <div class="relative">
-            <canvas id="hrChart" class="block w-full h-20 sm:h-24 bg-slate-950 rounded-xl border border-slate-800/80"></canvas>
-            <div id="staleAlert" class="absolute inset-0 bg-slate-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-center px-3 text-xs font-bold text-rose-400 hidden">
-              <span id="staleAlertText">WATCHDOG: NO HEART-RATE READING, MOTORS HALTED</span>
-            </div>
-          </div>
-
-          <!-- Voice / Mindgame Prompts -->
-          <div id="mindgameContainer" class="hidden bg-slate-950 p-2 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0 flex-1">
-              <span class="text-purple-400 text-xs shrink-0">💬</span>
-              <span id="mindgamePromptText" class="text-[11px] text-slate-300 font-medium truncate italic">"Calm and steady. Breathe."</span>
-            </div>
-            <span class="text-[9px] text-slate-500 font-mono shrink-0">Voice Active</span>
-          </div>
-        </div>
-
-        <!-- Output Channel Gauges -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
-          <div class="space-y-1">
-            <div class="flex justify-between text-xs font-semibold">
-              <span class="flex items-center gap-1.5 text-slate-300">
-                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                Primary Channel (Strokers / Machines)
-              </span>
-              <div class="flex items-center gap-1.5 font-mono">
-                <span id="strokeRangeBadge" class="text-[9px] text-teal-400 bg-teal-950/60 px-1.5 py-0.2 rounded border border-teal-800">Zone: 0-100%</span>
-                <span id="strokerVal" class="text-rose-400 font-bold">0%</span>
-              </div>
-            </div>
-            <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
-              <div id="strokerBar" class="bg-gradient-to-r from-teal-400 to-rose-500 h-full rounded-full transition-all duration-150" style="width: 0%"></div>
-            </div>
-          </div>
-
-          <div class="space-y-1">
-            <div class="flex justify-between text-xs font-semibold">
-              <span class="flex items-center gap-1.5 text-slate-300">
-                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-                Secondary Channel (Prostate / Milker)
-              </span>
-              <span id="prostateVal" class="font-mono text-purple-400 text-xs font-bold">0%</span>
-            </div>
-            <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
-              <div id="prostateBar" class="bg-gradient-to-r from-purple-500 to-fuchsia-400 h-full rounded-full transition-all duration-150" style="width: 0%"></div>
-            </div>
-          </div>
-
-          <!-- Filled by app.js with what the engine really sent each channel on
-               this tick (describeCutoffNotice); empty while there is nothing
-               true to say, so it can never claim a motor that is stopped. -->
-          <div id="cutoffNotice" class="hidden text-center text-[11px] font-bold text-rose-400 bg-rose-950/40 border border-rose-900/60 rounded-lg py-1"></div>
-          <!-- Filled by app.js with what the ACTIVE mode will really do when the
-               pause ends (describeStallPauseNotice): Ruin &amp; Leak's lockout and
-               Full Stop both hold the primary at 0%, so neither can promise a
-               crawl that resumes. -->
-          <div id="stallGuardNotice" class="hidden text-center text-[11px] font-bold text-amber-300 bg-amber-950/50 border border-amber-800/80 rounded-lg py-1 animate-pulse"></div>
-          <div id="gameNotice" class="hidden text-center text-[11px] font-bold text-purple-300 bg-purple-950/50 border border-purple-800/80 rounded-lg py-1 animate-pulse">
-            GAME MODE ACTIVE
-          </div>
-          <div id="rampdownNotice" class="hidden text-center text-[11px] font-bold text-sky-400 bg-sky-950/40 border border-sky-900/60 rounded-lg py-1 animate-pulse">
-            SOFT LANDING IN PROGRESS: DECELERATING TO 0%
-          </div>
-        </div>
-
-        <!-- Stimulation Intensity Multiplier -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-1.5">
-          <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-slate-200 flex items-center gap-1.5">
-              <span class="text-amber-400">⚡</span> Stimulation Intensity
-            </span>
-            <span id="intensityValDisplay" class="font-mono font-bold text-amber-400">100% (Default Balanced)</span>
-          </div>
-          <input id="intensitySlider" type="range" min="0" max="100" value="50" class="w-full h-2 rounded-lg cursor-pointer appearance-none bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 accent-white">
-          <div class="flex justify-between text-[9px] text-slate-500 font-semibold px-0.5">
-            <span>50% Gentle</span>
-            <span>100% Balanced (Center)</span>
-            <span>150% Intense</span>
-          </div>
-          <p class="text-[9px] text-slate-400 leading-tight">
-            Real-time stimulation multiplier. Dial left for lighter tease or right for more aggressive power without changing your HR thresholds.
-          </p>
-          <div class="flex items-center justify-between gap-3 pt-1 text-[10px] text-slate-400">
-            <label class="flex items-center gap-1.5" for="speedSlowestInput">Slowest
-              <input id="speedSlowestInput" type="number" min="0" max="100" step="1" value="0" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 font-mono text-center text-slate-200 outline-none focus:border-emerald-500">
-            </label>
-            <label class="flex items-center gap-1.5" for="speedFastestInput">Fastest
-              <input id="speedFastestInput" type="number" min="0" max="100" step="1" value="100" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 font-mono text-center text-slate-200 outline-none focus:border-rose-500">
-            </label>
-          </div>
-          <p class="text-[9px] text-slate-500 leading-tight">Strokes stay between these. 0 and 100 leave the pattern alone. A stop is still a stop.</p>
-        </div>
-
-        <div id="sessionActionsHome">
-        <div id="sessionActions" class="grid grid-cols-4 gap-2 text-center text-xs">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">Edges</div>
-            <div id="edgeCount" class="text-lg font-black text-amber-400 font-mono leading-none mt-1">0</div>
-          </div>
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">Pauses</div>
-            <div id="pauseCount" class="text-lg font-black text-sky-400 font-mono leading-none mt-1">0</div>
-          </div>
-          <button id="cameEarlyBtn" class="bg-amber-950/60 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer" title="Log accidental release so local learning engine tightens limits next time.">
-            <span id="cameEarlyKicker" class="text-[8px] text-amber-400 font-semibold uppercase">Accidental</span>
-            <span id="cameEarlyLabel" class="font-bold text-[10px] mt-0.5">Came Early</span>
-          </button>
-          <button id="orgasmBtn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer shadow-lg shadow-amber-950/30">
-            <span class="text-[8px] uppercase tracking-wider text-amber-200">Overdrive</span>
-            <span id="orgasmBtnText" class="font-bold text-[10px] mt-0.5">Force Orgasm</span>
-          </button>
-        </div>
-        </div>
-
-        <div id="sessionTransportHome">
-        <div id="sessionTransport" class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
-          <div class="flex gap-2">
-            <button id="sessionPlayPauseBtn" disabled class="flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
-              <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              <span id="playPauseText">WAITING FOR HR SENSOR & TOY</span>
-            </button>
-
-            <button id="sessionStopBtn" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 font-bold py-3 px-3 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
-              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
-              <span>STOP</span>
-            </button>
-
-            <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
-              Reset
-            </button>
-            <button id="pipBtn" type="button" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable.">
-              Pop out
-            </button>
-          </div>
-        </div>
-        </div>
-
-      </div>
-
-      <!-- RIGHT COLUMN -->
-      <div id="cockpitSide" class="lg:col-span-5 space-y-3">
-
-        <div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Length</span>
-              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
-                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
-                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
-                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
-              </div>
-            </div>
-            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Exact length:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Mystery window:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">to</span>
-                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Endless:</span>
-              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
-            </div>
-            <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
         </div>
 
         <!-- Experience Profiles & Modes Grid -->
@@ -1028,7 +1026,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.14</span>
+        <span id="appVersion" class="font-mono">v1.1.4.15</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
