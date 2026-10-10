@@ -8,8 +8,9 @@
  */
 import { normalizeEnvelope } from './hardware/handy-protocol.js';
 import { teaseFrame, warmupShape, placeStroke, orgasmFrame } from './patterns.js';
+import { scriptAllowance, scriptSecondary, sanitizeScriptSettings, MAX_REJOIN_SECONDS } from './player/script-governor.js';
 
-export const TEASE_MODES = ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+export const TEASE_MODES = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
 export const GAME_MODES = ['oracle', 'survival', 'edgetrain', 'calibrate'];
 
 export function resolveTeaseMode(strokeMode, activeMode) {
@@ -20,6 +21,7 @@ export function resolveTeaseMode(strokeMode, activeMode) {
 
 export const ENGINE_MODES = [
     'classic',
+    'finisher',
     'milker',
     'shortener',
     'headplay',
@@ -28,7 +30,8 @@ export const ENGINE_MODES = [
     'oracle',
     'survival',
     'edgetrain',
-    'calibrate'
+    'calibrate',
+    'script'
 ];
 
 function isUncappedClimb(mode) {
@@ -116,6 +119,16 @@ export function resolveCeilingBehaviour(value) {
     return value === 'stop' ? 'stop' : 'crawl';
 }
 
+export function nextScriptRelease(releasedAt, { wasEdged = false, isEdged = false, seconds } = {}) {
+    if (!Number.isFinite(seconds)) return null;
+    let stamp = Number.isFinite(releasedAt) ? releasedAt : null;
+    if (wasEdged && !isEdged) stamp = seconds;
+    if (stamp === null) return null;
+    const since = seconds - stamp;
+    if (since < 0 || since >= MAX_REJOIN_SECONDS) return null;
+    return stamp;
+}
+
 export function resolveEngineMode(mode) {
     return ENGINE_MODES.includes(mode) ? mode : 'classic';
 }
@@ -132,7 +145,7 @@ export function resolveEngineMode(mode) {
 // which is a no-op at full depth.
 export function micBoostReachesMotors(activeMode, { edgeStrokeDepth = 100 } = {}) {
     const mode = resolveEngineMode(activeMode);
-    if (mode === 'oracle' || mode === 'edgetrain') return false;
+    if (mode === 'oracle' || mode === 'edgetrain' || mode === 'finisher') return false;
     if (isUncappedClimb(mode)) return clamp(finiteOr(Number(edgeStrokeDepth), 100), 0, 100) < 100;
     return true;
 }
@@ -255,7 +268,9 @@ export function calculateEngineOutputs({
     orgasmFromPrimary = null,
     orgasmFromSecondary = null,
     orgasmFromStrokeMin = null,
-    orgasmFromStrokeMax = null
+    orgasmFromStrokeMax = null,
+    scriptSettings = null,
+    scriptReleasedAt = null
 }) {
     const mode = resolveEngineMode(activeMode);
     const teaseMode = resolveTeaseMode(strokeMode, mode);
@@ -318,6 +333,52 @@ export function calculateEngineOutputs({
         }
     } else if (!orgasmMode && hasReleasedEdge(edgeSource, maxHr, maxHr)) {
         nextIsEdged = false;
+    }
+
+    // Script mode: the primary is how much of the loaded funscript the toy
+    // may play. The shaper turns that allowance into strokes. The tease
+    // curve does not run again, or the script would be scaled twice.
+    if (mode === 'script') {
+        const stamp = nextScriptRelease(scriptReleasedAt, {
+            wasEdged: Boolean(isEdged),
+            isEdged: nextIsEdged,
+            seconds
+        });
+        const governed = scriptAllowance({
+            hr,
+            triggerHr,
+            isEdged: nextIsEdged,
+            sessionStatus,
+            sessionSeconds: seconds,
+            // The file has its own timing. The session warm-up must not
+            // shrink the script, and the stroke mode's zone is not used:
+            // the range below is the whole travel envelope.
+            warmupMinutes: 0,
+            stallGuardEngaged: Boolean(stallGuardEngaged) && sessionStatus === 'RUNNING',
+            orgasmMode: Boolean(orgasmMode) && sessionStatus === 'RUNNING',
+            orgasmBoost,
+            orgasmFrom: {
+                primary: orgasmFromPrimary,
+                secondary: orgasmFromSecondary
+            },
+            rampdownSecondsLeft: rampLeft,
+            intensityValue: intensitySafe,
+            sinceReleaseSeconds: stamp === null ? null : seconds - stamp,
+            settings: sanitizeScriptSettings(scriptSettings)
+        });
+        const primary = clamp(finiteOr(governed.allowance, 0), 0, 100);
+        const script = sanitizeScriptSettings(scriptSettings);
+        return {
+            primaryPercent: primary,
+            secondaryPercent: clamp(finiteOr(scriptSecondary(primary, script.scriptSecondChannel), 0), 0, 100),
+            strokeMinPercent: env.min,
+            strokeMaxPercent: env.max,
+            isEdged: nextIsEdged,
+            newEdgeTriggered,
+            resolvedMode: 'script',
+            script: governed,
+            scriptReleasedAt: stamp
+        };
     }
 
     // The tease band runs from the resting rate to the pullback mark, so the
