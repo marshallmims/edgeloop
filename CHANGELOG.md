@@ -4,6 +4,13 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.02
+
+- **The video keeps its own shape.** On a desktop or in landscape the picture is 16:9. In portrait it can be taller. The controls beside it no longer stretch the black box. Session Endgame stays on the main screen, in its own card, and Play Style stays off the Player.
+- **When the timer runs out sits on Session Endgame.** Climax, Soft Landing, and Strict Denial moved out of Session Setup. The play style above them is still how the session runs until that timer.
+- **Edge Overlay only changes the picture.** Heart rate, edges, and both toys can stay on the picture while play and the bar hide. It does not change how the toys follow the file.
+- **The video link is put away.** Choose a file, or drop one. A pasted address is not on this build.
+
 ## 1.1.4.01
 
 The footer shows this build number. 1.1.4 is the dev release. The fourth number goes up with each build on dev, through 1.1.4.99.

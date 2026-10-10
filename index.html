@@ -42,10 +42,24 @@
       max-width: 100%;
       min-width: 0;
     }
+    /* The picture sizes itself. A tall column of controls beside it must not
+       stretch the black box. Portrait can be tall. Landscape and a desktop
+       window stay 16:9. */
+    #playerStage {
+      width: 100%;
+      flex: none;
+      aspect-ratio: 3 / 4;
+    }
+    @media (orientation: landscape), (min-width: 1024px) {
+      #playerStage {
+        aspect-ratio: 16 / 9;
+      }
+    }
     #playerStage[data-theater="on"] {
       position: relative;
       z-index: 5;
       flex: none;
+      aspect-ratio: auto;
       height: calc(100vh - 7rem);
       height: calc(100dvh - 7rem);
       border-radius: 0;
@@ -66,6 +80,7 @@
     #playerStage:-webkit-full-screen {
       width: 100%;
       height: 100%;
+      aspect-ratio: auto;
       max-height: none;
       border: 0;
       border-radius: 0;
@@ -159,9 +174,9 @@
         <span id="playerStripPhase" class="hidden shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-700 text-sky-300 font-mono"></span>
       </div>
 
-      <div id="playerBody" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-3">
+      <div id="playerBody" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
         <div class="lg:col-span-7 flex flex-col gap-1.5 min-w-0">
-          <div id="playerStage" data-theater="off" data-immersive="off" class="relative flex-1 min-h-[16rem] lg:min-h-0 bg-black rounded-xl border border-slate-800 overflow-hidden">
+          <div id="playerStage" data-theater="off" data-immersive="off" class="relative bg-black rounded-xl border border-slate-800 overflow-hidden">
             <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
             <!-- The HUD: only in theater and fullscreen. The bottom bar hides
                  after 4 s and comes back on a tap or a mouse move. The top
@@ -271,11 +286,10 @@
               <input id="playerSecondaryInput" type="file" accept=".funscript,application/json" class="hidden">
             </div>
             <p class="text-[9px] text-slate-500 leading-snug">The primary is the stroker (.funscript). The secondary is the other toy (.v0.funscript). Once a script is loaded, its button switches the heat map instead of asking for another file. Both draws them together. Clear scripts drops the scripts and keeps the video. Choosing a different video drops the scripts too.</p>
-            <div class="flex flex-wrap items-center gap-2 pt-1">
+            <div class="hidden">
               <input id="playerVideoUrl" type="url" inputmode="url" placeholder="https://…/video.mp4" aria-label="Direct video file address" class="flex-1 min-h-[2.75rem] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
               <button id="playerVideoUrlBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Use link</button>
             </div>
-            <p class="text-[9px] text-slate-500 leading-snug">A direct file address only. A page link from a video site cannot play here: those sites do not hand the file to another page. Download the video and choose the file, or paste an address ending in .mp4 or .webm.</p>
             <label id="playerFollowRow" class="hidden flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
               <span class="text-[10px] text-slate-300 leading-snug"><strong>Follow the script.</strong> On, the stroker plays the funscript and your pulse limits it. Off, the stroke you picked in the mode row runs instead.</span>
               <span class="relative inline-flex shrink-0">
@@ -284,7 +298,7 @@
               </span>
             </label>
             <label class="flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
-              <span class="text-[10px] text-slate-300 leading-snug"><strong>Show the numbers.</strong> On, heart rate, edges, and both toys stay on the picture. Play, pause, and the bar still hide. The toys follow the video clock either way: when a stroke comes back, it is the stroke at that moment in the file.</span>
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Edge Overlay.</strong> On, heart rate, edges, and both toys stay on the picture. Play, pause, and the bar still hide. This only changes what you see on the picture.</span>
               <span class="relative inline-flex shrink-0">
                 <input id="playerHudPin" type="checkbox" class="sr-only peer" checked>
                 <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
@@ -323,7 +337,6 @@
             <p id="beatSyncRoute" class="text-[10px] text-slate-400 leading-snug"></p>
           </div>
 
-          <div id="playerEndgameSlot" class="space-y-2"></div>
           <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Stroke model</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <button type="button" data-stroke-model="cactus" class="stroke-model-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
@@ -687,15 +700,34 @@
             </button>
           </div>
           </div>
+        </div>
 
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div id="endgameHome">
-          <div id="endgameBlock" class="space-y-1.5 pt-2 border-t border-slate-800">
+          <div id="endgameBlock" class="space-y-1.5">
             <div class="flex items-center justify-between gap-2">
               <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Session Endgame</p>
               <button id="endgameToggle" type="button" aria-expanded="false" aria-controls="endgameDrawer" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Change</button>
             </div>
             <p id="endgameName" class="text-sm font-bold text-purple-300">Tease</p>
             <p id="endgameDetail" class="text-[10px] text-slate-300 leading-snug">No game. The stroke you picked runs on its own.</p>
+            <div class="pt-1.5 border-t border-slate-800 space-y-1.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">When the timer runs out</span>
+              <div class="grid grid-cols-3 gap-1.5" id="paramEndgameContainer">
+                <button type="button" data-endgame="orgasm" class="param-endgame-card p-1.5 rounded-lg bg-purple-950/30 border border-purple-800 text-left transition cursor-pointer">
+                  <div class="font-bold text-[10px] text-purple-300">Climax</div>
+                  <div class="text-[8px] text-slate-400 leading-tight">Surges to 100%</div>
+                </button>
+                <button type="button" data-endgame="rampdown" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
+                  <div class="font-bold text-[10px] text-slate-300">Soft Landing</div>
+                  <div class="text-[8px] text-slate-400 leading-tight">45s tease down</div>
+                </button>
+                <button type="button" data-endgame="denial" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
+                  <div class="font-bold text-[10px] text-slate-300">Strict Denial</div>
+                  <div class="text-[8px] text-slate-400 leading-tight">Immediate stop</div>
+                </button>
+              </div>
+            </div>
             <div id="trainSettings" class="hidden">
             <div class="flex flex-wrap items-center gap-2 text-[9px] text-slate-400">
               <label class="flex items-center gap-1 font-mono">Hold
@@ -804,7 +836,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.01</span>
+        <span id="appVersion" class="font-mono">v1.1.4.02</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1226,23 +1258,6 @@
             </p>
           </div>
 
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">Endgame Trigger</span>
-            <div class="grid grid-cols-3 gap-1.5" id="paramEndgameContainer">
-              <button type="button" data-endgame="orgasm" class="param-endgame-card p-1.5 rounded-lg bg-purple-950/30 border border-purple-800 text-left transition cursor-pointer">
-                <div class="font-bold text-[10px] text-purple-300">Climax</div>
-                <div class="text-[8px] text-slate-400 leading-tight">Surges to 100%</div>
-              </button>
-              <button type="button" data-endgame="rampdown" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
-                <div class="font-bold text-[10px] text-slate-300">Soft Landing</div>
-                <div class="text-[8px] text-slate-400 leading-tight">45s tease down</div>
-              </button>
-              <button type="button" data-endgame="denial" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
-                <div class="font-bold text-[10px] text-slate-300">Strict Denial</div>
-                <div class="text-[8px] text-slate-400 leading-tight">Immediate stop</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         <!-- TAB 2: Guards -->

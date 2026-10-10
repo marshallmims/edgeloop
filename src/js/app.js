@@ -5996,15 +5996,6 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode: state.teaseMode, enabled: true });
         else syncTelemetry();
     });
-    function placeEndgame() {
-        const block = document.getElementById('endgameBlock');
-        const section = document.getElementById('playerSection');
-        const slot = document.getElementById('playerEndgameSlot');
-        const home = document.getElementById('endgameHome');
-        if (!block || !home) return;
-        const open = section && !section.classList.contains('hidden');
-        (open && slot ? slot : home).appendChild(block);
-    }
     function togglePlayer(force) {
         const section = document.getElementById('playerSection');
         const body = document.getElementById('playerBody');
@@ -6014,11 +6005,9 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         section.classList.toggle('hidden', !open);
         if (open) body?.classList.remove('hidden');
         header?.setAttribute('aria-expanded', open ? 'true' : 'false');
-        placeEndgame();
     }
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());
-    placeEndgame();
     const climaxSeconds = document.getElementById('scriptClimaxSeconds');
     if (climaxSeconds) {
         climaxSeconds.value = String(clampClimaxSeconds(advancedSettings.scriptClimaxSeconds));
