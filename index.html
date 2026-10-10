@@ -569,7 +569,31 @@
 
         <!-- Real-Time Biofeedback Telemetry Hub -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
-          <div class="flex flex-wrap justify-between items-baseline gap-2">
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2.5 text-xs flex-wrap">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-amber-300 font-semibold">Warm-up:</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
+                  <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
+                </label>
+                <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-14 min-w-[3.5rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-amber-500">
+                <span class="text-[10px] text-slate-500">min</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-slate-300 font-semibold">Resting:</span>
+                <input id="minHr" type="number" value="70" min="30" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
+                <input id="maxHr" type="number" value="140" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
+                <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
+              </div>
+              <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
+            </div>
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-3xl sm:text-4xl font-black text-rose-500 font-mono" id="hrDisplay">70</span>
               <span class="text-xs text-slate-400 font-mono">BPM</span>
@@ -586,23 +610,6 @@
               <span id="edgeHoldBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1" title="Pulse relative to this percent of Climax HR is the pullback trigger">HOLD TO <span id="edgeHoldText">140</span></span>
               <span id="micActiveBadge" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 ml-1">MIC LISTEN</span>
               <button id="micReenableBtn" type="button" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 hover:bg-amber-900 ml-1 cursor-pointer" title="Browsers only grant the microphone after a tap">Tap to re-enable microphone</button>
-            </div>
-
-            <!-- BPM Limits. Resting defaults to 70 and can be typed. -->
-            <div class="flex items-center gap-2.5 text-xs flex-wrap">
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-slate-300 font-semibold">Resting:</span>
-                <input id="minHr" type="number" value="70" min="30" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
-                <input id="maxHr" type="number" value="140" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
-                <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
-              </div>
-              <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
             </div>
           </div>
           <p id="calibrationHint" class="hidden text-[9px] text-slate-400 leading-snug"></p>
@@ -780,17 +787,6 @@
               <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
-            <div class="flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Warm-up:</span>
-              <div class="flex items-center gap-2 font-mono">
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
-                  <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
-                </label>
-                <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
         </div>
 
         <!-- Experience Profiles & Modes Grid -->
@@ -1032,7 +1028,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.13</span>
+        <span id="appVersion" class="font-mono">v1.1.4.14</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
