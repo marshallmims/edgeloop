@@ -11,7 +11,7 @@ export const MAX_EVENTS = 500;
 const SETTING_KEYS = Object.freeze([
     'minHr', 'maxHr', 'dualMaxHr',
     'durationMode', 'durationFixedMinutes', 'durationMinMinutes', 'durationMaxMinutes',
-    'endgameType', 'gammaCurve', 'warmupMinutes', 'orgasmSettleSeconds',
+    'endgameType', 'gammaCurve', 'warmupMinutes', 'warmupEnabled', 'orgasmSettleSeconds',
     'edgeStrokeDepth', 'cadenceBreathing', 'milkingWave',
     'handyHwMin', 'handyHwMax', 'handyEndMargin',
     'stallGuard', 'stallGuardSeconds', 'stallPauseSeconds', 'ceilingBehaviour', 'edgeHoldPercent',

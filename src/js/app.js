@@ -1098,7 +1098,7 @@ function updateEngine() {
         handyHwMin: advancedSettings.handyHwMin,
         handyHwMax: advancedSettings.handyHwMax,
         sessionSeconds: state.sessionSeconds,
-        warmupMinutes: advancedSettings.warmupMinutes,
+        warmupMinutes: effectiveWarmupMinutes(),
         warmupElapsedSeconds: Math.max(0, state.sessionSeconds - (state.warmupOriginSeconds || 0)),
         cadenceBreathing: advancedSettings.cadenceBreathing,
         milkingWave: advancedSettings.milkingWave,
@@ -1402,7 +1402,7 @@ function warmupElapsedSeconds() {
 function updateWarmupBadge() {
     const badge = document.getElementById('warmupBadge');
     const remainingEl = document.getElementById('warmupRemainingText');
-    const warmupSeconds = Math.max(0, advancedSettings.warmupMinutes || 0) * 60;
+    const warmupSeconds = effectiveWarmupMinutes() * 60;
     const elapsed = warmupElapsedSeconds();
     const scripting = state.activeMode === 'script' || state.teaseMode === 'script';
     const active = !scripting && state.sessionStatus === 'RUNNING' && warmupSeconds > 0 && elapsed < warmupSeconds;
@@ -1674,7 +1674,7 @@ function tickSessionGuardsAndGames() {
     if (guard.justResumed) cueVoice('stallResume');
     if (guard.justReleased) cueVoice('stallRecover');
 
-    const warmupSeconds = Math.max(0, advancedSettings.warmupMinutes || 0) * 60;
+    const warmupSeconds = effectiveWarmupMinutes() * 60;
     if (warmupSeconds > 0 && warmupElapsedSeconds() === warmupSeconds) {
         cueVoice('warmupDone');
     }
@@ -3642,7 +3642,6 @@ bleTabSimBtn?.addEventListener('click', () => {
 
 // Session Setup Sub-Tabs (4 Tabs: duration, guards, audio, backup)
 const paramsTabMap = {
-    duration: { btn: document.getElementById('paramsTabDurationBtn'), sec: document.getElementById('paramsDurationSection') },
     guards: { btn: document.getElementById('paramsTabGuardsBtn'), sec: document.getElementById('paramsGuardsSection') },
     audio: { btn: document.getElementById('paramsTabAudioBtn'), sec: document.getElementById('paramsAudioSection') },
     backup: { btn: document.getElementById('paramsTabBackupBtn'), sec: document.getElementById('paramsBackupSection') },
@@ -3662,7 +3661,6 @@ function setParamsTab(activeKey) {
     });
 }
 
-paramsTabMap.duration.btn?.addEventListener('click', () => setParamsTab('duration'));
 paramsTabMap.guards.btn?.addEventListener('click', () => setParamsTab('guards'));
 paramsTabMap.audio.btn?.addEventListener('click', () => setParamsTab('audio'));
 paramsTabMap.backup.btn?.addEventListener('click', () => setParamsTab('backup'));
@@ -3701,14 +3699,48 @@ durFixedBtn?.addEventListener('click', () => { setDurationMode('fixed'); persist
 durRangeBtn?.addEventListener('click', () => { setDurationMode('range'); persistSessionLimits(true); });
 durEndlessBtn?.addEventListener('click', () => { setDurationMode('endless'); persistSessionLimits(true); });
 
-// Warm-up Slider Listener
-const warmupInput = document.getElementById('warmupInput');
-const warmupDisplay = document.getElementById('warmupValDisplay');
-warmupInput?.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value, 10);
-    if (warmupDisplay) {
-        warmupDisplay.textContent = (val === 0) ? "0 min (Instant)" : `${val} Minutes`;
+function effectiveWarmupMinutes() {
+    if (advancedSettings.warmupEnabled === false) return 0;
+    const minutes = Number(advancedSettings.warmupMinutes);
+    return Number.isFinite(minutes) && minutes > 0 ? minutes : 0;
+}
+
+function paintWarmup() {
+    const minutes = Math.max(0, Math.min(10, Number(advancedSettings.warmupMinutes) || 0));
+    const enabled = advancedSettings.warmupEnabled !== false && minutes > 0;
+    const toggle = document.getElementById('warmupToggle');
+    const input = document.getElementById('warmupInput');
+    const disp = document.getElementById('warmupValDisplay');
+    if (toggle) toggle.checked = enabled;
+    if (input) {
+        input.value = String(minutes);
+        input.disabled = !enabled;
+        input.classList.toggle('opacity-40', !enabled);
     }
+    if (disp) disp.textContent = enabled ? `${minutes} min` : 'Off';
+}
+
+function commitWarmup() {
+    if (isRemotePage) return;
+    paintWarmup();
+    persistSettings();
+    updateEngine();
+    updateWarmupBadge();
+}
+
+document.getElementById('warmupToggle')?.addEventListener('change', (e) => {
+    if (isRemotePage) return;
+    const on = Boolean(e.target.checked);
+    advancedSettings.warmupEnabled = on;
+    if (on && !(Number(advancedSettings.warmupMinutes) > 0)) advancedSettings.warmupMinutes = 5;
+    commitWarmup();
+});
+document.getElementById('warmupInput')?.addEventListener('input', (e) => {
+    if (isRemotePage) return;
+    const minutes = Math.max(0, Math.min(10, parseInt(e.target.value, 10) || 0));
+    advancedSettings.warmupMinutes = minutes;
+    advancedSettings.warmupEnabled = minutes > 0;
+    commitWarmup();
 });
 
 function syncParamsUI() {
@@ -3752,9 +3784,6 @@ function syncParamsUI() {
     const decayCount = document.getElementById('decayEdgeCountInput');
     const decayBpm = document.getElementById('decayBpmInput');
     const decayFloor = document.getElementById('decayFloorInput');
-    const warmup = document.getElementById('warmupInput');
-    const warmupDisp = document.getElementById('warmupValDisplay');
-
     if (stallToggle) stallToggle.checked = Boolean(advancedSettings.stallGuard);
     if (stallSec) stallSec.value = clampStallGuardSeconds(advancedSettings.stallGuardSeconds);
     const stallPause = document.getElementById('stallPauseSecondsInput');
@@ -3791,8 +3820,7 @@ function syncParamsUI() {
     if (staleInput) staleInput.value = clampStaleSeconds(advancedSettings.hrStaleSeconds);
     if (autoResumeToggle) autoResumeToggle.checked = advancedSettings.hrAutoResume !== false;
 
-    if (warmup) warmup.value = advancedSettings.warmupMinutes ?? 5;
-    if (warmupDisp) warmupDisp.textContent = (advancedSettings.warmupMinutes === 0) ? "0 min (Instant)" : `${advancedSettings.warmupMinutes ?? 5} Minutes`;
+    paintWarmup();
 
     const voiceToggle = document.getElementById('paramVoiceToggle');
     const micToggle = document.getElementById('paramMicToggle');
@@ -4231,6 +4259,7 @@ document.getElementById('applyParamsBtn')?.addEventListener('click', async () =>
     syncWatchdogSettings();
     const warmupParsed = parseInt(document.getElementById('warmupInput')?.value, 10);
     advancedSettings.warmupMinutes = Number.isFinite(warmupParsed) ? warmupParsed : 5;
+    advancedSettings.warmupEnabled = document.getElementById('warmupToggle')?.checked === true && advancedSettings.warmupMinutes > 0;
     advancedSettings.voiceEnabled = document.getElementById('paramVoiceToggle')?.checked ?? false;
     advancedSettings.voiceURI = document.getElementById('paramVoiceSelect')?.value || '';
     const voiceForm = currentVoiceCues();

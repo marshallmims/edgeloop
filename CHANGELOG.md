@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.06
+
+- **Warm-up sits with Session Length.** The switch turns it off. On, the stroke stays in the lower half and opens over the minutes you set. Session Setup no longer has a Duration tab.
+
 ## 1.1.4.05
 
 - **The NNN dates are easier to hit.** The calendar mark is light and about 44 px, and the start, end, edges, denial, missed day, and clear controls match the other panels.

@@ -657,6 +657,20 @@
               <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
+            <div class="pt-1.5 border-t border-slate-800 space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[10px] font-bold text-slate-200">Warm-up</span>
+                <span class="flex items-center gap-2">
+                  <span id="warmupValDisplay" class="font-mono text-[10px] font-bold text-amber-400">5 min</span>
+                  <label class="relative inline-flex items-center min-h-[2.75rem] cursor-pointer">
+                    <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
+                    <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+                  </label>
+                </span>
+              </div>
+              <input id="warmupInput" type="range" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+              <p class="text-[9px] text-slate-400 leading-snug">Off, the stroke starts at full range. On, it stays in the lower half and opens over the minutes you set.</p>
+            </div>
         </div>
 
         <!-- Experience Profiles & Modes Grid -->
@@ -896,7 +910,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.05</span>
+        <span id="appVersion" class="font-mono">v1.1.4.06</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1254,8 +1268,7 @@
       <!-- 5. UNIFIED SESSION SETUP MODAL (4 Sub-Tabs: Duration, Guards, Audio & Mic, Backup) -->
       <div id="modalBodyParams" class="space-y-3 hidden">
         <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-bold">
-          <button id="paramsTabDurationBtn" class="flex-1 py-1.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Duration</button>
-          <button id="paramsTabGuardsBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Guards</button>
+          <button id="paramsTabGuardsBtn" class="flex-1 py-1.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Guards</button>
           <button id="paramsTabAudioBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Audio & Mic</button>
           <button id="paramsTabBackupBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Backup</button>
           <button id="paramsTabKeysBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Keys</button>
@@ -1266,25 +1279,7 @@
           <div id="keybindList" class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px] text-slate-400"></div>
         </div>
 
-        <!-- TAB 1: Duration (Includes Warm-Up, Target Mode & Endgame) -->
-        <div id="paramsDurationSection" class="space-y-2.5">
-
-          <!-- Warm-Up Ramp Duration (Moved here from former Motion tab) -->
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <div class="flex justify-between items-center">
-              <label class="text-xs font-bold text-slate-200">Warm-Up Ramp Duration</label>
-              <span id="warmupValDisplay" class="font-mono text-xs font-bold text-amber-400">5 Minutes</span>
-            </div>
-            <input id="warmupInput" type="range" min="0" max="10" step="1" value="5" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
-            <p class="text-[9px] text-slate-400 leading-snug">
-              Restricts strokes to lower half (0%–55%) while soft, expanding as erection builds.
-            </p>
-          </div>
-
-        </div>
-
-        <!-- TAB 2: Guards -->
-        <div id="paramsGuardsSection" class="space-y-2.5 hidden">
+        <div id="paramsGuardsSection" class="space-y-2.5">
           <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
             <div class="flex justify-between items-center gap-2">
               <label for="ceilingBehaviourSelect" class="text-xs font-bold text-slate-200">At the ceiling</label>

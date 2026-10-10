@@ -175,6 +175,7 @@ export const advancedSettings = {
     endgameType: 'orgasm',
     gammaCurve: 2.0,
     warmupMinutes: 5,
+    warmupEnabled: true,
     orgasmSettleSeconds: 45,
     edgeStrokeDepth: 100,
     cadenceBreathing: true,

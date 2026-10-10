@@ -184,6 +184,7 @@ export const SETTING_SANITIZERS = {
     edgeStrokeDepth: fixedAtFactory('edgeStrokeDepth'),
 
     warmupMinutes: wholeNumber('warmupMinutes', 0, 10),
+    warmupEnabled: boolean('warmupEnabled'),
     orgasmSettleSeconds: (value) => clampOrgasmSettleSeconds(value),
     cadenceBreathing: boolean('cadenceBreathing'),
     milkingWave: boolean('milkingWave'),
