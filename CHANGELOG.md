@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.10
+
+- **The picture matches the file panel.** On a wide window the video window is as tall as the files and Funscript morphing. Theater still widens it in the page. Fullscreen still fills the screen.
+- **Start and Stop sit on the video.** Edges, pauses, Came Early, and Force Orgasm sit with those controls while the Player is open. They go back under the heart rate when the Player closes.
+- **A marked climax has three times.** Pre-Climax Ramp Up is the climb before the mark. Climax Duration is how long it stays. Post Climax Ramp Down is the ease back into the script.
+
 ## 1.1.4.09
 
 - **The Player opens as two columns.** The picture is on the left and stays a short placeholder until a video is loaded. The files and Funscript morphing are on the right. On a phone the files come first.

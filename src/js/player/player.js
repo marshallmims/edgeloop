@@ -740,7 +740,7 @@ export function createPlayer({
                         : 'Primary script.';
             const color = (script || secondary) ? ' Green is a pause, red is fast.' : '';
             const saved = script && climaxMarks.length ? ` ${climaxMarks.length} climax${climaxMarks.length === 1 ? '' : 'es'} saved on this device for this script.` : '';
-            els.heatmapHint.textContent = `${lead}${color} A marked climax climbs into the dot, holds, then eases back into the script.${saved}`;
+            els.heatmapHint.textContent = `${lead}${color} A marked climax uses Pre-Climax Ramp Up, then Climax Duration, then Post Climax Ramp Down.${saved}`;
         }
     }
 

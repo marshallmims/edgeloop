@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createPlayer } from './player.js';
 import { createScriptFeed } from './script-feed.js';
 import { VIDEO_STALL_PAUSE_MS } from './player-rules.js';
@@ -432,5 +433,35 @@ describe('player: offset and theater', () => {
         assert.equal(s.els.hud.classList.contains('hidden'), false);
         s.player.setTheater(false);
         assert.equal(s.els.hud.classList.contains('hidden'), true);
+    });
+});
+
+describe('player markup', () => {
+    const html = readFileSync(new URL('../../../index.html', import.meta.url), 'utf8');
+
+    it('names the three climax times and keeps their inputs', () => {
+        assert.match(html, /Pre-Climax Ramp Up/);
+        assert.match(html, /Climax Duration/);
+        assert.match(html, /Post Climax Ramp Down/);
+        assert.match(html, /id="scriptClimaxRampSeconds"/);
+        assert.match(html, /id="scriptClimaxSeconds"/);
+        assert.match(html, /id="scriptClimaxEaseSeconds"/);
+        assert.doesNotMatch(html, />Ramp</);
+        assert.doesNotMatch(html, />Hold</);
+        assert.doesNotMatch(html, />Ease</);
+    });
+
+    it('gives the empty picture the file panel’s row, and parks session controls in slots', () => {
+        assert.match(html, /grid-template-rows:\s*subgrid/);
+        assert.match(html, /id="playerTransportSlot"/);
+        assert.match(html, /id="playerActionsSlot"/);
+        assert.match(html, /id="sessionTransport"/);
+        assert.match(html, /id="sessionActions"/);
+        assert.doesNotMatch(html, /#playerStage\[data-empty="on"\]\s*\{[^}]*height:\s*7rem/);
+        const transport = html.indexOf('id="playerTransportSlot"');
+        const scrub = html.indexOf('id="playerScrub"');
+        const actions = html.indexOf('id="playerActionsSlot"');
+        const ramp = html.indexOf('Pre-Climax Ramp Up');
+        assert.ok(transport < scrub && scrub < actions && actions < ramp);
     });
 });

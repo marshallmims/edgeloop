@@ -6088,6 +6088,18 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         document.getElementById('playStylePanel')?.classList.toggle('hidden', open);
         document.getElementById('endgamePanel')?.classList.toggle('hidden', open);
         document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', open);
+        placeSessionControls(open);
+    }
+    function placeSessionControls(inPlayer) {
+        const move = (id, slotId, homeId) => {
+            const node = document.getElementById(id);
+            const slot = document.getElementById(slotId);
+            const home = document.getElementById(homeId);
+            const target = inPlayer && slot ? slot : home;
+            if (node && target && node.parentElement !== target) target.appendChild(node);
+        };
+        move('sessionTransport', 'playerTransportSlot', 'sessionTransportHome');
+        move('sessionActions', 'playerActionsSlot', 'sessionActionsHome');
     }
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());

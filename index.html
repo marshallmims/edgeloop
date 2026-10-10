@@ -26,10 +26,9 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
-    /* Theater stays in the page. The stage fills the window that is left
-       under the header, and the video grows inside it until it hits the
-       width or the height. The controls that sit beside the picture move
-       underneath, so they cannot paint on the letterbox. */
+    /* Theater stays in the page. The stage fills the window under the
+       header. The file panel and the controls move underneath, so they
+       cannot paint on the letterbox. */
     body:has(#playerStage[data-theater="on"]) {
       overflow-x: clip;
     }
@@ -42,24 +41,72 @@
       max-width: 100%;
       min-width: 0;
     }
-    /* The picture sizes itself. A tall column of controls beside it must not
-       stretch the black box. Portrait can be tall. Landscape and a desktop
-       window stay 16:9. */
+    /* On a wide window the picture is exactly as tall as the file panel.
+       The controls sit under the picture, so they do not shrink it.
+       A phone stacks the file panel first and gives the picture a floor. */
+    #playerBody {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
+      align-items: start;
+    }
+    #playerColumn {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 0;
+    }
     #playerStage {
       width: 100%;
       flex: none;
-      aspect-ratio: 3 / 4;
-    }
-    #playerStage[data-empty="on"] {
+      min-height: 14rem;
       aspect-ratio: auto;
-      height: 7rem;
     }
     #playerStage[data-empty="on"] #playerVideo {
       display: none;
     }
-    @media (orientation: landscape), (min-width: 1024px) {
-      #playerStage {
-        aspect-ratio: 16 / 9;
+    #sessionActionsHome:empty,
+    #sessionTransportHome:empty,
+    #playerTransportSlot:empty,
+    #playerActionsSlot:empty {
+      display: none;
+    }
+    /* Inside the picture's controls the session buttons are the transport,
+       not a second card. On the dashboard they keep their own frame. */
+    #playerTransportSlot #sessionTransport {
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+    @media (min-width: 1024px) {
+      #playerBody:not(:has(#playerStage[data-theater="on"])) {
+        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+        grid-template-rows: auto auto;
+        align-items: stretch;
+      }
+      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerColumn {
+        display: grid;
+        grid-template-rows: subgrid;
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        row-gap: 0.75rem;
+        align-self: stretch;
+      }
+      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerStage {
+        grid-column: 1;
+        grid-row: 1;
+        height: auto;
+        align-self: stretch;
+      }
+      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerChrome {
+        grid-column: 1;
+        grid-row: 2;
+        align-self: start;
+      }
+      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerFiles {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: start;
       }
     }
     #playerStage[data-theater="on"] {
@@ -197,10 +244,10 @@
         <span id="playerStripPhase" class="hidden shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-700 text-sky-300 font-mono"></span>
       </div>
 
-      <div id="playerBody" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-        <div class="order-2 lg:order-1 lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-2.5 sm:p-3 flex flex-col gap-1.5 min-w-0">
+      <div id="playerBody" class="hidden">
+        <div id="playerColumn" class="order-2 lg:order-1 min-w-0">
           <div id="playerStage" data-theater="off" data-immersive="off" data-empty="on" class="relative bg-black rounded-xl border border-slate-800 overflow-hidden">
-            <p id="playerStageEmpty" class="absolute inset-0 flex items-center justify-center px-4 text-center text-[11px] text-slate-400">Choose a video on the right. The picture stays this size until one is loaded.</p>
+            <p id="playerStageEmpty" class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">Choose a video in the file panel.</p>
             <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
             <!-- The HUD: only in theater and fullscreen. The bottom bar hides
                  after 4 s and comes back on a tap or a mouse move. The top
@@ -240,48 +287,72 @@
               </div>
             </div>
           </div>
-          <!-- One bar: the heat map is the track, and the dot rides on it. -->
-          <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
-            <button id="playerPlayBtn" type="button" class="min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
-            <div id="playerScrub" class="relative flex-1 min-w-[8rem] h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
-              <canvas id="playerSeekHeat" width="640" height="44" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
-              <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
+          <div id="playerChrome" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 sm:p-3 flex flex-col gap-2 min-w-0">
+            <div id="playerTransportSlot"></div>
+            <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+              <button id="playerPlayBtn" type="button" class="hidden min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
+              <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
+              <div id="playerScrub" class="relative flex-1 min-w-[8rem] h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
+                <canvas id="playerSeekHeat" width="640" height="44" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
+                <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
+              </div>
+              <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
+              <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
+              <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
+              <button id="playerTheaterBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
+              <button id="playerFullscreenBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
             </div>
-            <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
-            <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
-            <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
+            <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
+            <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
+            <div id="playerActionsSlot"></div>
+            <div class="rounded-xl border border-slate-800 bg-slate-950 p-2.5 space-y-2.5">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Marked climax</p>
+                <p class="text-[10px] text-slate-400 leading-snug mt-0.5">A gold mark on the bar is a climax in the file. The toys climb before it, stay there, then ease back into the script.</p>
+              </div>
+              <label class="block">
+                <span class="flex items-center justify-between gap-3">
+                  <span class="text-[11px] font-semibold text-slate-100">Pre-Climax Ramp Up</span>
+                  <span class="flex items-center gap-1.5 shrink-0">
+                    <input id="scriptClimaxRampSeconds" type="number" min="0" max="180" step="1" value="45" aria-label="Pre-Climax Ramp Up, seconds the toys climb before a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                    <span class="text-[10px] text-slate-400 w-6">sec</span>
+                  </span>
+                </span>
+                <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys spend climbing before the mark.</span>
+              </label>
+              <label class="block">
+                <span class="flex items-center justify-between gap-3">
+                  <span class="text-[11px] font-semibold text-slate-100">Climax Duration</span>
+                  <span class="flex items-center gap-1.5 shrink-0">
+                    <input id="scriptClimaxSeconds" type="number" min="5" max="180" step="1" value="20" aria-label="Climax Duration, seconds a marked climax stays at full" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                    <span class="text-[10px] text-slate-400 w-6">sec</span>
+                  </span>
+                </span>
+                <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys stay at that climax.</span>
+              </label>
+              <label class="block">
+                <span class="flex items-center justify-between gap-3">
+                  <span class="text-[11px] font-semibold text-slate-100">Post Climax Ramp Down</span>
+                  <span class="flex items-center gap-1.5 shrink-0">
+                    <input id="scriptClimaxEaseSeconds" type="number" min="0" max="180" step="1" value="15" aria-label="Post Climax Ramp Down, seconds to ease back into the script after a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                    <span class="text-[10px] text-slate-400 w-6">sec</span>
+                  </span>
+                </span>
+                <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys ease back into the script.</span>
+              </label>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-[11px] font-semibold text-slate-100">Offset</span>
+              <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
+              <span id="playerOffsetValue" class="font-mono text-sky-300 font-bold w-16 text-center text-[10px]">0 ms</span>
+              <button id="playerOffsetPlus" type="button" aria-label="Strokes 50 ms later" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">+50</button>
+              <span class="text-[10px] text-slate-500 leading-snug">Each tap moves the strokes 50 ms earlier or later than the picture.</span>
+            </div>
+            <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Green is a pause, red is fast. A marked climax uses Pre-Climax Ramp Up, then Climax Duration, then Post Climax Ramp Down. Marks for this script stay on this device.</p>
           </div>
-          <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
-          <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
-          <div class="flex flex-wrap items-center gap-2">
-            <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
-            <label class="flex items-center gap-1.5 text-[10px] text-slate-300">
-              <span>Ramp</span>
-              <input id="scriptClimaxRampSeconds" type="number" min="0" max="180" step="1" value="45" aria-label="Seconds to climb into a marked climax" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
-              <span>s</span>
-            </label>
-            <label class="flex items-center gap-1.5 text-[10px] text-slate-300">
-              <span>Hold</span>
-              <input id="scriptClimaxSeconds" type="number" min="5" max="180" step="1" value="20" aria-label="Seconds a marked climax stays at full" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
-              <span>s</span>
-            </label>
-            <label class="flex items-center gap-1.5 text-[10px] text-slate-300">
-              <span>Ease</span>
-              <input id="scriptClimaxEaseSeconds" type="number" min="0" max="180" step="1" value="15" aria-label="Seconds to ease back into the script after a marked climax" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
-              <span>s</span>
-            </label>
-            <span class="text-slate-400 font-semibold text-[10px]">Offset</span>
-            <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
-            <span id="playerOffsetValue" class="font-mono text-sky-300 font-bold w-16 text-center text-[10px]">0 ms</span>
-            <button id="playerOffsetPlus" type="button" aria-label="Strokes 50 ms later" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">+50</button>
-            <span class="flex-1"></span>
-            <button id="playerTheaterBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
-            <button id="playerFullscreenBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
-          </div>
-          <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">A marked climax climbs into the dot, holds at full, then eases back into the script. Ramp, hold, and ease are the three times beside the bar. Marks for this script stay on this device.</p>
         </div>
 
-        <div class="order-1 lg:order-2 lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2 min-w-0">
+        <div id="playerFiles" class="order-1 lg:order-2 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2 min-w-0">
           <div id="appSyncCard" class="hidden p-2.5 rounded-xl border border-sky-900 bg-slate-950 space-y-2">
             <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300">Player clock</p>
             <p id="appSyncHelp" class="text-[10px] text-slate-400 leading-snug">HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one. To test without a headset, choose VLC.</p>
@@ -534,8 +605,8 @@
           <p class="text-[9px] text-slate-500 leading-tight">Strokes stay between these. 0 and 100 leave the pattern alone. A stop is still a stop.</p>
         </div>
 
-        <!-- Action Bar: Edges, Pauses, Came Early, Force Orgasm -->
-        <div class="grid grid-cols-4 gap-2 text-center text-xs">
+        <div id="sessionActionsHome">
+        <div id="sessionActions" class="grid grid-cols-4 gap-2 text-center text-xs">
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
             <div class="text-[9px] text-slate-500 uppercase font-semibold">Edges</div>
             <div id="edgeCount" class="text-lg font-black text-amber-400 font-mono leading-none mt-1">0</div>
@@ -553,9 +624,10 @@
             <span id="orgasmBtnText" class="font-bold text-[10px] mt-0.5">Force Orgasm</span>
           </button>
         </div>
+        </div>
 
-        <!-- Primary Transport Controls -->
-        <div class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
+        <div id="sessionTransportHome">
+        <div id="sessionTransport" class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
           <div class="flex gap-2">
             <button id="sessionPlayPauseBtn" disabled class="flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
               <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -574,6 +646,7 @@
               Pop out
             </button>
           </div>
+        </div>
         </div>
 
       </div>
@@ -916,7 +989,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.09</span>
+        <span id="appVersion" class="font-mono">v1.1.4.10</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

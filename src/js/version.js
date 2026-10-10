@@ -2,7 +2,7 @@
 // as it stood when numbers started appearing there. A new feature release
 // bumps the middle number. A bug fix bumps the last number. While a release
 // is still on dev, the fourth number is the build: 1.1.4.01, then 1.1.4.02.
-export const APP_VERSION = '1.1.4.09';
+export const APP_VERSION = '1.1.4.10';
 
 export const GITHUB_CHANGELOG_URL = 'https://github.com/marshallmims/edgeloop/blob/main/CHANGELOG.md';
 export const GITHUB_RELEASES_URL = 'https://github.com/marshallmims/edgeloop/releases';
