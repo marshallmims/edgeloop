@@ -2840,9 +2840,9 @@ const GAME_CARD_MODES = ['oracle', 'survival', 'edgetrain', 'nnn'];
 const modeCards = document.querySelectorAll('.mode-card');
 
 const MODE_DETAILS = {
-    classic: 'The primary toy follows your pulse and eases off as your heart rate climbs. The motion drifts so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks back up. Crawl or Full Stop still decides the ceiling.',
+    classic: 'Speed starts high and ramps down as your pulse climbs toward the heart rate you set. Strokes stay the full length. Close to that heart rate, it sometimes stops for a beat and then picks back up. Crawl or Full Stop still decides the ceiling.',
     finisher: 'Speed rises with your heart rate and stays at full speed on the mark, so it can carry you over. "At the ceiling" does not slow it down. Room noise does not speed it up either: the climb follows the pulse the sensor measured.',
-    shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Primary Ease. The secondary channel stays low.',
+    shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Simple Ramp. The secondary channel stays low.',
     headplay: 'Full strokes until your pulse is close to the heart rate you set, then the stroke climbs toward the head. Speed eases off with your pulse, and the stroke opens back up when your pulse drops.',
     ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Close to the heart rate you set, it runs a long fast stretch, stops for a beat, then climbs back up. The internal toy stays with you through the climb.',
     milker: 'The stroker eases off as you climb and the internal toy takes over. Close to the heart rate you set, the stroker runs a fast stretch, stops for a beat, and climbs back. The internal toy rests on its own timing.',
@@ -2857,7 +2857,7 @@ const MODE_DETAILS = {
 };
 
 const MODE_NAMES = {
-    classic: 'Primary Ease',
+    classic: 'Simple Ramp',
     finisher: 'Finisher',
     milker: 'Prostate Milker',
     shortener: 'Glans Protector',
@@ -2959,13 +2959,12 @@ function highlightModeCard() {
             : (mode === state.teaseMode || mode === state.gameMode);
         const check = c.querySelector('.mode-check');
         const title = c.querySelector('.font-bold');
-        const wide = mode === 'nnn' || mode === 'script' ? ' sm:col-span-2' : '';
         if (on) {
-            c.className = `mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between${wide}`;
+            c.className = 'mode-card h-full text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between';
             if (title) title.className = "font-bold text-[11px] text-purple-300 flex justify-between items-center";
             check?.classList.remove('hidden');
         } else {
-            c.className = `mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between${wide}`;
+            c.className = 'mode-card h-full text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between';
             if (title) title.className = "font-bold text-[11px] text-slate-200 flex justify-between items-center";
             check?.classList.add('hidden');
         }
@@ -4146,11 +4145,11 @@ function highlightEndgameCard(type) {
     paramEndgameCards.forEach(c => {
         const bold = c.querySelector('.font-bold');
         if (c.getAttribute('data-endgame') === type) {
-            c.className = "param-endgame-card p-1.5 rounded-lg bg-purple-950/30 border border-purple-800 text-left transition cursor-pointer";
-            if (bold) bold.className = "font-bold text-[10px] text-purple-300";
+            c.className = "param-endgame-card h-full text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between";
+            if (bold) bold.className = "font-bold text-[11px] text-purple-300";
         } else {
-            c.className = "param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer";
-            if (bold) bold.className = "font-bold text-[10px] text-slate-300";
+            c.className = "param-endgame-card h-full text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between";
+            if (bold) bold.className = "font-bold text-[11px] text-slate-200";
         }
     });
 }

@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.19
+
+- **Simple Ramp is the plain stroke.** Speed starts high and ramps down as your pulse climbs, and the strokes stay the full length you set. It is the play style that was called Primary Ease.
+- **Session Endgame uses the same cards as Play Style.** Climax, Soft Landing, Strict Denial, and the games sit in one two-column list, the same size on each row. That list is the same on the main page and on the Player.
+
 ## 1.1.4.18
 
 - **Session Length sits under Start and Stop.** Closing Player leaves that panel in the left column, under the controls. Play Style and Session Endgame stay together on the right.
