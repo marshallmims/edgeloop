@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.11
+
+- **Devices are one row.** Heart rate, The Handy, Intiface, VacuGlide, and T-Code sit across the top, on the main page and on the Player.
+- **Play and Stop are on the picture.** The left button starts and pauses the session. Stop ends it. Reset and Pop out are put away. Edges, pauses, Came Early, and Force Orgasm sit on that same bar.
+- **A marked climax sits with Funscript morphing.** Pre-Climax Ramp Up, Climax Duration, and Post Climax Ramp Down are on that panel. Heart rate and the two channel meters stay on the page. The overlay still shows them on the picture.
+
 ## 1.1.4.10
 
 - **The picture matches the file panel.** On a wide window the video window is as tall as the files and Funscript morphing. Theater still widens it in the page. Fullscreen still fills the screen.

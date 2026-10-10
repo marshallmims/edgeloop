@@ -451,17 +451,19 @@ describe('player markup', () => {
         assert.doesNotMatch(html, />Ease</);
     });
 
-    it('gives the empty picture the file panel’s row, and parks session controls in slots', () => {
-        assert.match(html, /grid-template-rows:\s*subgrid/);
-        assert.match(html, /id="playerTransportSlot"/);
-        assert.match(html, /id="playerActionsSlot"/);
-        assert.match(html, /id="sessionTransport"/);
-        assert.match(html, /id="sessionActions"/);
-        assert.doesNotMatch(html, /#playerStage\[data-empty="on"\]\s*\{[^}]*height:\s*7rem/);
+    it('puts devices in one row, play and stop on the picture, and the climax times with morphing', () => {
+        assert.match(html, /#deviceCardGrid\s*\{[^}]*display:\s*flex/);
+        assert.match(html, /#deviceCardGrid\s*\{[^}]*flex-wrap:\s*nowrap/);
+        assert.match(html, /#sessionResetBtn,\s*\n\s*#pipBtn\s*\{[^}]*display:\s*none\s*!important/);
+        const device = html.indexOf('id="deviceBar"');
+        const player = html.indexOf('id="playerSection"');
+        const stage = html.indexOf('id="playerStage"');
+        const dock = html.indexOf('id="playerDock"');
         const transport = html.indexOf('id="playerTransportSlot"');
-        const scrub = html.indexOf('id="playerScrub"');
-        const actions = html.indexOf('id="playerActionsSlot"');
-        const ramp = html.indexOf('Pre-Climax Ramp Up');
-        assert.ok(transport < scrub && scrub < actions && actions < ramp);
+        const files = html.indexOf('id="playerFiles"');
+        const morph = html.indexOf('>Funscript morphing<');
+        const ramp = html.indexOf('id="scriptClimaxRampSeconds"');
+        assert.ok(device > 0 && device < player && player < stage);
+        assert.ok(stage < dock && dock < transport && transport < files && files < morph && morph < ramp);
     });
 });

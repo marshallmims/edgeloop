@@ -335,7 +335,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (!/START SESSION/i.test(await playText())) throw new Error('expected START SESSION after STOP, got: ' + await playText());
     const motion = handyCalls.filter(c => /^\/hamp\/(start|stop|velocity)$/.test(c.path));
     if (!motion.length || motion[motion.length - 1].path !== '/hamp/stop') throw new Error('the last motion command after STOP must be PUT /hamp/stop: ' + JSON.stringify(motion));
-    await page.locator('#sessionResetBtn').click(); await sleep(300);
+    await page.locator('#sessionResetBtn').click({ force: true }); await sleep(300);
     const edges = (await page.locator('#edgeCount').textContent() || '').trim();
     const timer = (await page.locator('#sessionTimer').textContent() || '').trim();
     if (edges !== '0' || !/^00:00$/.test(timer)) throw new Error('Reset did not zero the counters: edges=' + edges + ' timer=' + timer);

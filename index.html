@@ -41,9 +41,22 @@
       max-width: 100%;
       min-width: 0;
     }
-    /* On a wide window the picture is exactly as tall as the file panel.
-       The controls sit under the picture, so they do not shrink it.
-       A phone stacks the file panel first and gives the picture a floor. */
+    /* Devices are one row across the page, on the main screen and on the
+       Player. On a narrow window the row scrolls instead of wrapping. */
+    #deviceCardGrid {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 0.375rem;
+      width: 100%;
+      overflow-x: auto;
+    }
+    #deviceCardGrid > button {
+      flex: 1 1 0;
+      min-width: 7.5rem;
+    }
+    /* On a wide window the picture panel is as tall as the file panel.
+       Play and Stop live on the bottom of that panel. A phone stacks the
+       file panel first. */
     #playerBody {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -53,16 +66,31 @@
     #playerColumn {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
       min-width: 0;
+      min-height: 0;
     }
     #playerStage {
+      display: flex;
+      flex-direction: column;
       width: 100%;
-      flex: none;
-      min-height: 14rem;
+      flex: 1 1 auto;
+      min-height: 16rem;
       aspect-ratio: auto;
     }
+    #playerPicture {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 8rem;
+    }
     #playerStage[data-empty="on"] #playerVideo {
+      display: none;
+    }
+    #playerDock {
+      flex: none;
+    }
+    #playerStage[data-theater="on"] #playerDock,
+    #playerStage:fullscreen #playerDock,
+    #playerStage:-webkit-full-screen #playerDock {
       display: none;
     }
     #sessionActionsHome:empty,
@@ -71,42 +99,35 @@
     #playerActionsSlot:empty {
       display: none;
     }
-    /* Inside the picture's controls the session buttons are the transport,
-       not a second card. On the dashboard they keep their own frame. */
-    #playerTransportSlot #sessionTransport {
+    #playerDock #sessionTransport,
+    #playerDock #sessionTransport > div {
       background: transparent;
       border: 0;
       padding: 0;
+      width: auto;
+    }
+    #playerDock #sessionPlayPauseBtn {
+      flex: 0 0 auto;
+      max-width: none;
+      white-space: nowrap;
+    }
+    #sessionResetBtn,
+    #pipBtn {
+      display: none !important;
+    }
+    body:has(#playerSection:not(.hidden)) #cockpit {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    body:has(#playerSection:not(.hidden)) #cockpitSide {
+      display: none;
     }
     @media (min-width: 1024px) {
       #playerBody:not(:has(#playerStage[data-theater="on"])) {
         grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-        grid-template-rows: auto auto;
         align-items: stretch;
       }
-      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerColumn {
-        display: grid;
-        grid-template-rows: subgrid;
-        grid-column: 1;
-        grid-row: 1 / span 2;
-        row-gap: 0.75rem;
-        align-self: stretch;
-      }
-      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerStage {
-        grid-column: 1;
-        grid-row: 1;
-        height: auto;
-        align-self: stretch;
-      }
-      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerChrome {
-        grid-column: 1;
-        grid-row: 2;
-        align-self: start;
-      }
-      #playerBody:not(:has(#playerStage[data-theater="on"])) #playerFiles {
-        grid-column: 2;
-        grid-row: 1;
-        align-self: start;
+      #deviceCardGrid > button {
+        min-width: 0;
       }
     }
     #playerStage[data-theater="on"] {
@@ -235,6 +256,61 @@
       </div>
     </header>
 
+    <div id="deviceBar" class="space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <p id="deviceNeedHint" class="text-[10px] text-slate-400 leading-snug">Connect a heart-rate monitor and one toy.</p>
+            <button id="deviceMoreBtn" type="button" class="hidden shrink-0 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Add a device</button>
+          </div>
+          <div id="deviceCardGrid">
+          <button id="cardBle" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotBle" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">HR Monitor</span>
+              <span id="badgeBleText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeBleBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+          <button id="cardHandy" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotHandy" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">The Handy</span>
+              <span id="badgeHandyText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeHandyBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+          <button id="cardIntiface" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotIntiface" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">Intiface Toys</span>
+              <span id="badgeIntifaceText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeIntifaceBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+
+          <button id="cardVacuglide" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotVacuglide" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">VacuGlide 2</span>
+              <span id="badgeVacuglideText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeVacuglideBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+          <button id="cardTCode" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotTCode" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">TCode Serial</span>
+              <span id="badgeTCodeText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeTCodeBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+          </div>
+        </div>
+
+
 <section id="playerSection" aria-label="Player" class="hidden space-y-3">
       <div class="hidden">
         <button id="playerToggleBtn" type="button" aria-controls="playerBody" aria-expanded="false" class="flex items-center gap-1.5 min-w-0 text-left cursor-pointer min-h-[44px]">
@@ -246,7 +322,8 @@
 
       <div id="playerBody" class="hidden">
         <div id="playerColumn" class="order-2 lg:order-1 min-w-0">
-          <div id="playerStage" data-theater="off" data-immersive="off" data-empty="on" class="relative bg-black rounded-xl border border-slate-800 overflow-hidden">
+          <div id="playerStage" data-theater="off" data-immersive="off" data-empty="on" class="relative flex flex-col bg-black rounded-xl border border-slate-800 overflow-hidden min-h-0">
+            <div id="playerPicture" class="relative flex-1 min-h-[8rem]">
             <p id="playerStageEmpty" class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">Choose a video in the file panel.</p>
             <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
             <!-- The HUD: only in theater and fullscreen. The bottom bar hides
@@ -286,61 +363,26 @@
                 </div>
               </div>
             </div>
-          </div>
-          <div id="playerChrome" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 sm:p-3 flex flex-col gap-2 min-w-0">
-            <div id="playerTransportSlot"></div>
-            <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+            </div>
+          <div id="playerDock" class="shrink-0 border-t border-slate-800 bg-slate-950 px-2 py-2 flex flex-col gap-1.5">
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+            <div id="playerTransportSlot" class="shrink-0"></div>
               <button id="playerPlayBtn" type="button" class="hidden min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
               <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
-              <div id="playerScrub" class="relative flex-1 min-w-[8rem] h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
-                <canvas id="playerSeekHeat" width="640" height="44" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
-                <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
-              </div>
-              <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
+              <span class="flex-1"></span>
               <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
               <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
               <button id="playerTheaterBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
               <button id="playerFullscreenBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
             </div>
+            <div id="playerScrub" class="relative w-full h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
+              <canvas id="playerSeekHeat" width="640" height="44" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
+              <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
+            </div>
+            <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
             <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
             <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
             <div id="playerActionsSlot"></div>
-            <div class="rounded-xl border border-slate-800 bg-slate-950 p-2.5 space-y-2.5">
-              <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Marked climax</p>
-                <p class="text-[10px] text-slate-400 leading-snug mt-0.5">A gold mark on the bar is a climax in the file. The toys climb before it, stay there, then ease back into the script.</p>
-              </div>
-              <label class="block">
-                <span class="flex items-center justify-between gap-3">
-                  <span class="text-[11px] font-semibold text-slate-100">Pre-Climax Ramp Up</span>
-                  <span class="flex items-center gap-1.5 shrink-0">
-                    <input id="scriptClimaxRampSeconds" type="number" min="0" max="180" step="1" value="45" aria-label="Pre-Climax Ramp Up, seconds the toys climb before a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
-                    <span class="text-[10px] text-slate-400 w-6">sec</span>
-                  </span>
-                </span>
-                <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys spend climbing before the mark.</span>
-              </label>
-              <label class="block">
-                <span class="flex items-center justify-between gap-3">
-                  <span class="text-[11px] font-semibold text-slate-100">Climax Duration</span>
-                  <span class="flex items-center gap-1.5 shrink-0">
-                    <input id="scriptClimaxSeconds" type="number" min="5" max="180" step="1" value="20" aria-label="Climax Duration, seconds a marked climax stays at full" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
-                    <span class="text-[10px] text-slate-400 w-6">sec</span>
-                  </span>
-                </span>
-                <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys stay at that climax.</span>
-              </label>
-              <label class="block">
-                <span class="flex items-center justify-between gap-3">
-                  <span class="text-[11px] font-semibold text-slate-100">Post Climax Ramp Down</span>
-                  <span class="flex items-center gap-1.5 shrink-0">
-                    <input id="scriptClimaxEaseSeconds" type="number" min="0" max="180" step="1" value="15" aria-label="Post Climax Ramp Down, seconds to ease back into the script after a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
-                    <span class="text-[10px] text-slate-400 w-6">sec</span>
-                  </span>
-                </span>
-                <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys ease back into the script.</span>
-              </label>
-            </div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="text-[11px] font-semibold text-slate-100">Offset</span>
               <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
@@ -349,6 +391,7 @@
               <span class="text-[10px] text-slate-500 leading-snug">Each tap moves the strokes 50 ms earlier or later than the picture.</span>
             </div>
             <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Green is a pause, red is fast. A marked climax uses Pre-Climax Ramp Up, then Climax Duration, then Post Climax Ramp Down. Marks for this script stay on this device.</p>
+          </div>
           </div>
         </div>
 
@@ -461,12 +504,48 @@
             </button>
           </div>
           <p id="strokeModelDetail" class="text-[10px] text-slate-300 leading-snug">Strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going.</p>
+          <div class="rounded-xl border border-slate-800 bg-slate-950 p-2.5 space-y-2.5">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Marked climax</p>
+              <p class="text-[10px] text-slate-400 leading-snug mt-0.5">A gold mark on the bar is a climax in the file. The toys climb before it, stay there, then ease back into the script.</p>
+            </div>
+            <label class="block">
+              <span class="flex items-center justify-between gap-3">
+                <span class="text-[11px] font-semibold text-slate-100">Pre-Climax Ramp Up</span>
+                <span class="flex items-center gap-1.5 shrink-0">
+                  <input id="scriptClimaxRampSeconds" type="number" min="0" max="180" step="1" value="45" aria-label="Pre-Climax Ramp Up, seconds the toys climb before a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                  <span class="text-[10px] text-slate-400 w-6">sec</span>
+                </span>
+              </span>
+              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys spend climbing before the mark.</span>
+            </label>
+            <label class="block">
+              <span class="flex items-center justify-between gap-3">
+                <span class="text-[11px] font-semibold text-slate-100">Climax Duration</span>
+                <span class="flex items-center gap-1.5 shrink-0">
+                  <input id="scriptClimaxSeconds" type="number" min="5" max="180" step="1" value="20" aria-label="Climax Duration, seconds a marked climax stays at full" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                  <span class="text-[10px] text-slate-400 w-6">sec</span>
+                </span>
+              </span>
+              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys stay at that climax.</span>
+            </label>
+            <label class="block">
+              <span class="flex items-center justify-between gap-3">
+                <span class="text-[11px] font-semibold text-slate-100">Post Climax Ramp Down</span>
+                <span class="flex items-center gap-1.5 shrink-0">
+                  <input id="scriptClimaxEaseSeconds" type="number" min="0" max="180" step="1" value="15" aria-label="Post Climax Ramp Down, seconds to ease back into the script after a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                  <span class="text-[10px] text-slate-400 w-6">sec</span>
+                </span>
+              </span>
+              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys ease back into the script.</span>
+            </label>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- Two-Column Responsive Cockpit Grid (Desktop & Landscape Tablet) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+    <div id="cockpit" class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
 
       <!-- LEFT COLUMN -->
       <div class="lg:col-span-7 space-y-3">
@@ -639,7 +718,7 @@
               <span>STOP</span>
             </button>
 
-            <button id="sessionResetBtn" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
+            <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
               Reset
             </button>
             <button id="pipBtn" type="button" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable.">
@@ -652,62 +731,7 @@
       </div>
 
       <!-- RIGHT COLUMN -->
-      <div class="lg:col-span-5 space-y-3">
-
-        <!-- Hardware Status Badges -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between gap-2">
-            <p id="deviceNeedHint" class="text-[10px] text-slate-400 leading-snug">Connect a heart-rate monitor and one toy.</p>
-            <button id="deviceMoreBtn" type="button" class="hidden shrink-0 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Add a device</button>
-          </div>
-          <div id="deviceCardGrid" class="grid grid-cols-2 gap-1.5">
-          <button id="cardBle" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotBle" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">HR Monitor</span>
-              <span id="badgeBleText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeBleBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
-            </div>
-          </button>
-
-          <button id="cardHandy" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotHandy" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">The Handy</span>
-              <span id="badgeHandyText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeHandyBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
-            </div>
-          </button>
-
-          <button id="cardIntiface" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotIntiface" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">Intiface Toys</span>
-              <span id="badgeIntifaceText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeIntifaceBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
-            </div>
-          </button>
-
-
-          <button id="cardVacuglide" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotVacuglide" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">VacuGlide 2</span>
-              <span id="badgeVacuglideText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeVacuglideBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
-            </div>
-          </button>
-
-          <button id="cardTCode" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotTCode" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">TCode Serial</span>
-              <span id="badgeTCodeText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeTCodeBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
-            </div>
-          </button>
-          </div>
-        </div>
+      <div id="cockpitSide" class="lg:col-span-5 space-y-3">
 
         <div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
             <div class="flex justify-between items-center">
@@ -989,7 +1013,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.10</span>
+        <span id="appVersion" class="font-mono">v1.1.4.11</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

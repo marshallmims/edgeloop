@@ -1,6 +1,6 @@
 {
   "name": "edgeloop",
-  "version": "1.1.4.10",
+  "version": "1.1.4.11",
   "description": "Autonomous biofeedback edging system: links a Bluetooth heart-rate monitor to The Handy, Intiface/Buttplug.io toys and TCode strokers.",
   "private": true,
   "type": "module",

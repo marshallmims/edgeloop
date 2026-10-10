@@ -3118,7 +3118,6 @@ function pollGamepads() {
 }
 
 const pipBtn = document.getElementById('pipBtn');
-if (pipBtn && window.documentPictureInPicture) pipBtn.classList.remove('hidden');
 pipBtn?.addEventListener('click', async () => {
     try {
         await openDocumentPip();
