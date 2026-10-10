@@ -7,7 +7,9 @@ export const KEYBIND_ACTIONS = Object.freeze([
     'cameEarly',
     'forceOrgasm',
     'valvePlus',
-    'valveMinus'
+    'valveMinus',
+    'offsetEarlier',
+    'offsetLater'
 ]);
 
 export const KEYBIND_LABELS = Object.freeze({
@@ -16,7 +18,9 @@ export const KEYBIND_LABELS = Object.freeze({
     cameEarly: 'Came Early',
     forceOrgasm: 'Force Orgasm',
     valvePlus: 'VacuGlide valve +',
-    valveMinus: 'VacuGlide valve −'
+    valveMinus: 'VacuGlide valve −',
+    offsetEarlier: 'Strokes earlier',
+    offsetLater: 'Strokes later'
 });
 
 const KEY_NAMES = Object.freeze({
@@ -25,7 +29,9 @@ const KEY_NAMES = Object.freeze({
     ArrowLeft: 'Left',
     ArrowRight: 'Right',
     ArrowUp: 'Up',
-    ArrowDown: 'Down'
+    ArrowDown: 'Down',
+    BracketLeft: '[',
+    BracketRight: ']'
 });
 
 export function defaultKeybinds() {
@@ -35,7 +41,9 @@ export function defaultKeybinds() {
         cameEarly: { kind: 'key', code: 'ArrowLeft' },
         forceOrgasm: { kind: 'key', code: 'ArrowRight' },
         valvePlus: { kind: 'key', code: 'ArrowUp' },
-        valveMinus: { kind: 'key', code: 'ArrowDown' }
+        valveMinus: { kind: 'key', code: 'ArrowDown' },
+        offsetEarlier: { kind: 'key', code: 'BracketLeft' },
+        offsetLater: { kind: 'key', code: 'BracketRight' }
     };
 }
 

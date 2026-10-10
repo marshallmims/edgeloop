@@ -18,6 +18,10 @@ describe('keybinds', () => {
         assert.equal(actionForKey(binds, 'ArrowRight'), 'forceOrgasm');
         assert.equal(actionForKey(binds, 'ArrowUp'), 'valvePlus');
         assert.equal(actionForKey(binds, 'ArrowDown'), 'valveMinus');
+        assert.equal(actionForKey(binds, 'BracketLeft'), 'offsetEarlier');
+        assert.equal(actionForKey(binds, 'BracketRight'), 'offsetLater');
+        assert.equal(describeBind(binds.offsetEarlier), '[');
+        assert.equal(describeBind(binds.offsetLater), ']');
     });
 
     it('keeps a controller button and drops a broken map', () => {

@@ -232,9 +232,19 @@
           <div class="flex flex-wrap items-center gap-2">
             <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
             <label class="flex items-center gap-1.5 text-[10px] text-slate-300">
-              <span>Climax lasts</span>
-              <input id="scriptClimaxSeconds" type="number" min="5" max="180" step="1" value="20" aria-label="How many seconds a climax lasts" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
-              <span>seconds</span>
+              <span>Ramp</span>
+              <input id="scriptClimaxRampSeconds" type="number" min="0" max="180" step="1" value="45" aria-label="Seconds to climb into a marked climax" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+              <span>s</span>
+            </label>
+            <label class="flex items-center gap-1.5 text-[10px] text-slate-300">
+              <span>Hold</span>
+              <input id="scriptClimaxSeconds" type="number" min="5" max="180" step="1" value="20" aria-label="Seconds a marked climax stays at full" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+              <span>s</span>
+            </label>
+            <label class="flex items-center gap-1.5 text-[10px] text-slate-300">
+              <span>Ease</span>
+              <input id="scriptClimaxEaseSeconds" type="number" min="0" max="180" step="1" value="15" aria-label="Seconds to ease back into the script after a marked climax" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+              <span>s</span>
             </label>
             <span class="text-slate-400 font-semibold text-[10px]">Offset</span>
             <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
@@ -244,7 +254,7 @@
             <button id="playerTheaterBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
             <button id="playerFullscreenBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
           </div>
-          <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Climax here drives the toys up to a climax at the dot. They stay there for the seconds you set, then ease back into the script. Marks for this script stay on this device.</p>
+          <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">A marked climax climbs into the dot, holds at full, then eases back into the script. Ramp, hold, and ease are the three times beside the bar. Marks for this script stay on this device.</p>
         </div>
 
         <div class="lg:col-span-5 space-y-2 min-w-0">
@@ -601,8 +611,40 @@
           </div>
         </div>
 
+        <div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Length</span>
+              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
+                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
+                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
+                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
+              </div>
+            </div>
+            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Exact length:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
+            </div>
+            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Mystery window:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">to</span>
+                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
+            </div>
+            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Endless:</span>
+              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
+            </div>
+            <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
+        </div>
+
         <!-- Experience Profiles & Modes Grid -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+        <div id="playStylePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div id="customCardsContainer" class="space-y-1.5 hidden"></div>
 
           <div class="space-y-1.5">
@@ -703,7 +745,7 @@
           </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+        <div id="endgamePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div id="endgameHome">
           <div id="endgameBlock" class="space-y-1.5">
             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Session Endgame</p>
@@ -838,7 +880,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.03</span>
+        <span id="appVersion" class="font-mono">v1.1.4.04</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1204,7 +1246,7 @@
         </div>
 
         <div id="paramsKeysSection" class="hidden space-y-2">
-          <p class="text-[10px] text-slate-400 leading-snug">Click a key name, then press a key or a controller button. Up and down move the VacuGlide valves when that toy is connected.</p>
+          <p class="text-[10px] text-slate-400 leading-snug">Click a key name, then press a key or a controller button. Up and down move the VacuGlide valves. [ and ] move a loaded script earlier or later.</p>
           <div id="keybindList" class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px] text-slate-400"></div>
         </div>
 
@@ -1220,43 +1262,6 @@
             <input id="warmupInput" type="range" min="0" max="10" step="1" value="5" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
             <p class="text-[9px] text-slate-400 leading-snug">
               Restricts strokes to lower half (0%–55%) while soft, expanding as erection builds.
-            </p>
-          </div>
-
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Target Mode</span>
-              <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
-                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
-                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
-                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
-              </div>
-            </div>
-
-            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Exact Session Length:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-900 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-
-            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Mystery Window:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-900 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">to</span>
-                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-900 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-
-            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Endless Mode:</span>
-              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs indefinitely until manually stopped</span>
-            </div>
-            <p class="text-[9px] text-slate-400 leading-snug pt-1">
-              With <strong>The Oracle</strong>, climax and denial stay locked until the Mystery minimum you typed - always, including on the roll that lands on it. A <strong>Fixed</strong> length has no window of its own, so there they unlock halfway through instead. Endless has no minimum.
             </p>
           </div>
 

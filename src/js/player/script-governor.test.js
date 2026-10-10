@@ -139,6 +139,8 @@ describe('a script session and a secondary with no script of its own', () => {
 describe('climax marks', () => {
     it('ramps the allowance up to a mark, holds, then lets the pulse lead again', () => {
         const mark = 120000;
+        assert.equal(climaxApproach(mark - 1, [mark], { rampMs: 0 }), 0, 'a zero ramp does not climb early');
+        assert.equal(climaxApproach(mark, [mark], { rampMs: 0, peakMs: 1000 }), 1);
         assert.equal(climaxApproach(mark - CLIMAX_RAMP_MS - 1, [mark]), 0);
         assert.equal(climaxApproach(mark - CLIMAX_RAMP_MS, [mark]), 0);
         assert.ok(Math.abs(climaxApproach(mark - CLIMAX_RAMP_MS / 2, [mark]) - 0.5) < 1e-9);

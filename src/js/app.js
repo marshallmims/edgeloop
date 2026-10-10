@@ -181,8 +181,8 @@ import {
 } from './voice-cues.js';
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
-import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, clampClimaxSeconds } from './player/script-governor.js';
-import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, describePlayerHardwareWait, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
+import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, clampClimaxSeconds, clampClimaxPhaseSeconds, DEFAULT_CLIMAX_RAMP_SECONDS, DEFAULT_CLIMAX_EASE_SECONDS } from './player/script-governor.js';
+import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, describePlayerHardwareWait, OFFSET_NUDGE_MS, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
 import { posAt } from './player/script-track.js';
 import { effectiveInvert } from './player/script-shaper.js';
@@ -1133,7 +1133,9 @@ function updateEngine() {
     if (climaxLive && state.activeMode === 'script' && scriptFeed?.hasTrack() && loadedClimaxMarks.length > 0) {
         const t = scriptFeed.scriptNow();
         const peakMs = clampClimaxSeconds(advancedSettings.scriptClimaxSeconds) * 1000;
-        sentPrimary = boostedAllowance(sentPrimary, climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks, { peakMs }));
+        const rampMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxRampSeconds, DEFAULT_CLIMAX_RAMP_SECONDS) * 1000;
+        const easeMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxEaseSeconds, DEFAULT_CLIMAX_EASE_SECONDS) * 1000;
+        sentPrimary = boostedAllowance(sentPrimary, climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks, { rampMs, peakMs, easeMs }));
     }
     if (scriptFeed) scriptFeed.setAllowance(state.activeMode === 'script' ? sentPrimary : 0);
     if (player && state.activeMode === 'script') {
@@ -2996,6 +2998,8 @@ function runKeyAction(action) {
     else if (action === 'stop') document.getElementById('sessionStopBtn')?.click();
     else if (action === 'cameEarly') document.getElementById('cameEarlyBtn')?.click();
     else if (action === 'forceOrgasm') document.getElementById('orgasmBtn')?.click();
+    else if (action === 'offsetEarlier') player?.nudgeOffset(-OFFSET_NUDGE_MS);
+    else if (action === 'offsetLater') player?.nudgeOffset(OFFSET_NUDGE_MS);
 }
 
 function paintKeybinds() {
@@ -6019,18 +6023,36 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         section.classList.toggle('hidden', !open);
         if (open) body?.classList.remove('hidden');
         header?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        document.getElementById('playStylePanel')?.classList.toggle('hidden', open);
+        document.getElementById('endgamePanel')?.classList.toggle('hidden', open);
     }
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());
-    const climaxSeconds = document.getElementById('scriptClimaxSeconds');
-    if (climaxSeconds) {
-        climaxSeconds.value = String(clampClimaxSeconds(advancedSettings.scriptClimaxSeconds));
-        climaxSeconds.addEventListener('change', () => {
-            advancedSettings.scriptClimaxSeconds = clampClimaxSeconds(climaxSeconds.value);
-            climaxSeconds.value = String(advancedSettings.scriptClimaxSeconds);
+    function bindClimaxSeconds(id, read, write) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.value = String(read());
+        input.addEventListener('change', () => {
+            const next = write(input.value);
+            input.value = String(next);
             persistSettings();
         });
     }
+    bindClimaxSeconds(
+        'scriptClimaxRampSeconds',
+        () => clampClimaxPhaseSeconds(advancedSettings.scriptClimaxRampSeconds, DEFAULT_CLIMAX_RAMP_SECONDS),
+        (value) => { advancedSettings.scriptClimaxRampSeconds = clampClimaxPhaseSeconds(value, DEFAULT_CLIMAX_RAMP_SECONDS); return advancedSettings.scriptClimaxRampSeconds; }
+    );
+    bindClimaxSeconds(
+        'scriptClimaxSeconds',
+        () => clampClimaxSeconds(advancedSettings.scriptClimaxSeconds),
+        (value) => { advancedSettings.scriptClimaxSeconds = clampClimaxSeconds(value); return advancedSettings.scriptClimaxSeconds; }
+    );
+    bindClimaxSeconds(
+        'scriptClimaxEaseSeconds',
+        () => clampClimaxPhaseSeconds(advancedSettings.scriptClimaxEaseSeconds, DEFAULT_CLIMAX_EASE_SECONDS),
+        (value) => { advancedSettings.scriptClimaxEaseSeconds = clampClimaxPhaseSeconds(value, DEFAULT_CLIMAX_EASE_SECONDS); return advancedSettings.scriptClimaxEaseSeconds; }
+    );
     const hudPin = document.getElementById('playerHudPin');
     if (hudPin) {
         hudPin.checked = advancedSettings.playerHudPin !== false;

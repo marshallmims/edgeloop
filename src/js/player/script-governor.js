@@ -250,23 +250,35 @@ export function clampClimaxSeconds(value, fallback = DEFAULT_CLIMAX_SECONDS) {
     return Math.max(MIN_CLIMAX_SECONDS, Math.min(MAX_CLIMAX_SECONDS, Math.round(n)));
 }
 
+export const DEFAULT_CLIMAX_RAMP_SECONDS = 45;
+export const DEFAULT_CLIMAX_EASE_SECONDS = 15;
+
+// The climb before a mark, and the ease after the hold. Zero is a real
+// choice: no climb, or a drop straight back into the script.
+export function clampClimaxPhaseSeconds(value, fallback) {
+    const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(MAX_CLIMAX_SECONDS, Math.round(n)));
+}
+
 // How far a climax mark has taken over, 0–1. The toys climb over `rampMs`
 // up to the mark, hold at full for `peakMs`, then ease back over `easeMs`.
 // Several marks: the strongest one wins. A mark does not end the session.
 export function climaxApproach(scriptMs, marks, { rampMs = CLIMAX_RAMP_MS, peakMs = CLIMAX_PEAK_MS, easeMs = CLIMAX_EASE_MS } = {}) {
     const t = Number(scriptMs);
     if (!Number.isFinite(t) || !Array.isArray(marks) || marks.length === 0) return 0;
-    const ramp = Number(rampMs) > 0 ? Number(rampMs) : CLIMAX_RAMP_MS;
-    const peak = Number(peakMs) > 0 ? Number(peakMs) : 0;
-    const ease = Number(easeMs) > 0 ? Number(easeMs) : 0;
+    const ramp = Number.isFinite(Number(rampMs)) && Number(rampMs) >= 0 ? Number(rampMs) : CLIMAX_RAMP_MS;
+    const peak = Number.isFinite(Number(peakMs)) && Number(peakMs) >= 0 ? Number(peakMs) : 0;
+    const ease = Number.isFinite(Number(easeMs)) && Number(easeMs) >= 0 ? Number(easeMs) : 0;
     let best = 0;
     for (const raw of marks) {
         const mark = Number(raw);
         if (!Number.isFinite(mark)) continue;
         const dist = mark - t;
-        if (dist > ramp) continue;
-        if (dist >= 0) best = Math.max(best, 1 - dist / ramp);
-        else if (-dist <= peak) best = 1;
+        if (dist > 0) {
+            if (!(ramp > 0) || dist > ramp) continue;
+            best = Math.max(best, 1 - dist / ramp);
+        } else if (-dist <= peak) best = 1;
         else if (ease > 0 && -dist <= peak + ease) best = Math.max(best, 1 - ((-dist - peak) / ease));
     }
     return Math.max(0, Math.min(1, best));

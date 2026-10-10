@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.04
+
+- **Session Length is on the dashboard.** Fixed, Mystery, and Endless sit in their own panel. Session Setup keeps the warm-up.
+- **The Player hides Play Style and Session Endgame.** Those stay on the normal page. A marked climax on the video climbs into the dot, holds at full, then eases back into the script. Ramp, hold, and ease are the three times beside the bar.
+- **[ and ] are in Keys.** Strokes earlier and Strokes later move a loaded script. The same 50 ms step as the offset buttons.
+
 ## 1.1.4.03
 
 - **Select your play style, and select your ending.** Each one is a button. It shows the choice that is on, and says to tap it to change. Tap it and it asks you to pick. Tap the one you want and the list closes.
