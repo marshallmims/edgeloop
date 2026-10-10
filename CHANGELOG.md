@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.09
+
+- **The Player opens as two columns.** The picture is on the left and stays a short placeholder until a video is loaded. The files and Funscript morphing are on the right. On a phone the files come first.
+- **A mild funscript opens up.** Shorten and skip makes the file's own strokes longer while your pulse is below the edge, and still shortens them as you get close. A climax mark asks for that opening, and a pulse that is already too high still pulls the file back. Keep the script still only turns the file down.
+- **The session log shows the script clock.** Each second now has the script time, the offset, how far the file was opened, how far a climax mark had taken over, the heart-rate ceiling, and whether a primary toy was connected.
+
 ## 1.1.4.08
 
 - **The picture is its own panel.** Choosing the video and the funscripts, and Funscript morphing, sit in the panel under it. Session Length, Play Style, and Session Endgame stay on the normal page. The video and the file set the length.

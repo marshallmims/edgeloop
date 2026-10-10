@@ -294,6 +294,27 @@ export function boostedAllowance(pulseAllowance, approach) {
     return roundSpeed(a + (100 - a) * k);
 }
 
+// How far a Shorten-and-skip file is opened past its own strokes. 1 plays
+// the file. Above 1 the same ups and downs get longer, still on the file's
+// clock, so a mild script can climb toward the edge. Keep the script stays
+// at 1. A pullback (allowance under 100) wins, including through a climax
+// mark: the mark asks for the opening only while the pulse still has room.
+export const MORPH_EXPAND_MAX = 1.65;
+
+export function scriptExpand({ hr, minHr, maxHr, strokeModel, allowance = 100, climax = 0 } = {}) {
+    if (resolveStrokeModel(strokeModel) === 'keep') return 1;
+    if (clampPercent(allowance) < 100) return 1;
+    const lo = Number(minHr);
+    const hi = Number(maxHr);
+    const pulse = Number(hr);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo || !Number.isFinite(pulse)) return 1;
+    const progress = Math.max(0, Math.min(1, (pulse - lo) / (hi - lo)));
+    const base = 1 + (MORPH_EXPAND_MAX - 1) * (1 - progress);
+    const k = Math.max(0, Math.min(1, Number(climax) || 0));
+    const gain = base + (MORPH_EXPAND_MAX - base) * k;
+    return Math.round(gain * 100) / 100;
+}
+
 // Default: the session is the video. Continue-after keeps the timer the
 // wearer already set, and the video ending does not end the session.
 export function sessionTargetForVideo({ continueAfter = false, videoSeconds = 0, configuredSeconds = 0 } = {}) {

@@ -3,7 +3,7 @@
 // token, a video address, or a script file name cannot ride along, even
 // when a caller hands one in.
 
-export const TELEMETRY_VERSION = 1;
+export const TELEMETRY_VERSION = 2;
 export const SERIES_INTERVAL_MS = 1000;
 export const MAX_SERIES = 4 * 60 * 60;
 export const MAX_EVENTS = 500;
@@ -90,7 +90,13 @@ function cleanPoint(point) {
         mode: shortText(src.mode, 24),
         game: shortText(src.game, 24),
         status: shortText(src.status, 16),
-        hrSignal: shortText(src.hrSignal, 16)
+        hrSignal: shortText(src.hrSignal, 16),
+        scriptMs: Math.round(num(src.scriptMs, 0)),
+        offsetMs: Math.round(num(src.offsetMs, 0)),
+        expand: Math.max(0, Math.min(250, Math.round(num(src.expand, 100)))),
+        climax: pct(src.climax),
+        ceiling: Math.round(num(src.ceiling, 0)),
+        primaryOn: flag(src.primaryOn)
     };
 }
 
@@ -313,7 +319,7 @@ export function buildSessionExport(input = {}) {
     return {
         telemetryVersion: TELEMETRY_VERSION,
         appVersion: shortText(input.appVersion, 16),
-        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the settings, and the make and model of the toys. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
+        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the script clock, how far a funscript was opened, and the make and model of the toys. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
         session: cleanSession(input.session),
         summary: summarize(series),
         settings: pickSettings(input.settings),

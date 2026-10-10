@@ -27,6 +27,7 @@ import {
     secondaryFromScript,
     climaxApproach,
     boostedAllowance,
+    scriptExpand,
     CLIMAX_RAMP_MS,
     CLIMAX_PEAK_MS,
     CLIMAX_EASE_MS
@@ -159,6 +160,10 @@ describe('climax marks', () => {
         assert.equal(boostedAllowance(40, 0.5), 70);
         assert.equal(boostedAllowance(40, 1), 100);
         assert.equal(boostedAllowance(0, 0), 0);
+        assert.equal(scriptExpand({ hr: 100, minHr: 70, maxHr: 145, strokeModel: 'cactus', allowance: 100 }), 1.39);
+        assert.equal(scriptExpand({ hr: 100, minHr: 70, maxHr: 145, strokeModel: 'keep', allowance: 100 }), 1);
+        assert.equal(scriptExpand({ hr: 140, minHr: 70, maxHr: 145, strokeModel: 'cactus', allowance: 40 }), 1, 'a pullback is not opened further');
+        assert.equal(scriptExpand({ hr: 100, minHr: 70, maxHr: 145, strokeModel: 'cactus', allowance: 100, climax: 1 }), 1.65);
         assert.equal(boostedAllowance(0, 1), 100, 'the climax itself is full even if the limiter had stopped');
         assert.equal(boostedAllowance(80, climaxApproach(0, [0])), 100);
     });

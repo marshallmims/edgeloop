@@ -181,7 +181,7 @@ import {
 } from './voice-cues.js';
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
-import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, clampClimaxSeconds, clampClimaxPhaseSeconds, DEFAULT_CLIMAX_RAMP_SECONDS, DEFAULT_CLIMAX_EASE_SECONDS } from './player/script-governor.js';
+import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, scriptExpand, clampClimaxSeconds, clampClimaxPhaseSeconds, DEFAULT_CLIMAX_RAMP_SECONDS, DEFAULT_CLIMAX_EASE_SECONDS } from './player/script-governor.js';
 import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, describePlayerHardwareWait, OFFSET_NUDGE_MS, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
 import { posAt } from './player/script-track.js';
@@ -1129,15 +1129,32 @@ function updateEngine() {
         scriptFeed.setActive(state.activeMode === 'script');
     }
     let sentPrimary = result.primaryPercent;
+    let climaxK = 0;
     const climaxLive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
     if (climaxLive && state.activeMode === 'script' && scriptFeed?.hasTrack() && loadedClimaxMarks.length > 0) {
         const t = scriptFeed.scriptNow();
         const peakMs = clampClimaxSeconds(advancedSettings.scriptClimaxSeconds) * 1000;
         const rampMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxRampSeconds, DEFAULT_CLIMAX_RAMP_SECONDS) * 1000;
         const easeMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxEaseSeconds, DEFAULT_CLIMAX_EASE_SECONDS) * 1000;
-        sentPrimary = boostedAllowance(sentPrimary, climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks, { rampMs, peakMs, easeMs }));
+        climaxK = climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks, { rampMs, peakMs, easeMs });
+        sentPrimary = boostedAllowance(sentPrimary, climaxK);
     }
-    if (scriptFeed) scriptFeed.setAllowance(state.activeMode === 'script' ? sentPrimary : 0);
+    const expand = state.activeMode === 'script'
+        ? scriptExpand({
+            hr: state.sensorHr,
+            minHr: state.effectiveMinHr,
+            maxHr: state.effectiveMaxHr,
+            strokeModel: advancedSettings.scriptStrokeModel,
+            allowance: sentPrimary,
+            climax: climaxK
+        })
+        : 1;
+    state.scriptExpand = expand;
+    state.scriptClimax = climaxK;
+    if (scriptFeed) {
+        scriptFeed.setExpand(state.activeMode === 'script' ? expand : 1);
+        scriptFeed.setAllowance(state.activeMode === 'script' ? sentPrimary : 0);
+    }
     if (player && state.activeMode === 'script') {
         const pauseVideo = advancedSettings.scriptStrokeModel !== 'keep' && edgeActionPausesVideo(advancedSettings.scriptEdgeAction);
         if (pauseVideo && result.isEdged) player.holdForEdge();
@@ -1222,6 +1239,7 @@ function updateEngine() {
             });
             secondary = complementSecondary(sentPrimary, scriptMotion(rhythm.meanSpeed));
         }
+        if (state.scriptExpand > 1) secondary = Math.min(100, Math.round(secondary * state.scriptExpand));
     }
     state.strokerSpeed = sentPrimary;
     state.prostateSpeed = secondary;
@@ -1816,6 +1834,16 @@ function tickSessionGuardsAndGames() {
     }
 }
 
+function primaryStrokeLive() {
+    if (handyConnected && state.handyRole === 'primary') return 1;
+    if (isIntifaceConnected() && Array.from(intifaceDevices.values()).some((dev) => (dev.axes || []).some((axis) => axis.role === 'primary' && !axis.inert))) return 1;
+    if (isTCodeConnected()) {
+        const dev = getTCodeDevice();
+        if (dev && Array.isArray(dev.axes) && dev.axes.some((axis) => axis.role === 'primary')) return 1;
+    }
+    return 0;
+}
+
 // 250ms Live Funscript Sampling Loop (4Hz). Records what was really sent to
 // the toys (speed plus the physical stroke zone); the buffer is capped at
 // four hours, oldest dropped first.
@@ -1854,7 +1882,13 @@ setInterval(() => {
                 mode: state.teaseMode,
                 game: state.gameMode || '',
                 status: state.sessionStatus,
-                hrSignal: state.hrSignalState
+                hrSignal: state.hrSignalState,
+                scriptMs: scriptFeed && state.activeMode === 'script' ? scriptFeed.scriptNow() : 0,
+                offsetMs: scriptFeed ? scriptFeed.offset() : 0,
+                expand: Math.round((Number(state.scriptExpand) || 1) * 100),
+                climax: Math.round((Number(state.scriptClimax) || 0) * 100),
+                ceiling: state.effectiveMaxHr,
+                primaryOn: primaryStrokeLive()
             });
         }
     }
@@ -5864,6 +5898,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         els: {
             video: byId('playerVideo'),
             stage: byId('playerStage'),
+            stageEmpty: byId('playerStageEmpty'),
             hud: byId('playerHud'),
             hudHr: byId('hudHr'),
             hudMark: byId('hudMark'),

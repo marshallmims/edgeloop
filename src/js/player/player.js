@@ -420,6 +420,7 @@ export function createPlayer({
         }
         call(handlers, 'onVideo', { hasVideo: Boolean(videoFile) });
         readinessChanged();
+        paintStageEmpty();
     }
 
     function setVideoAddress(href) {
@@ -449,7 +450,14 @@ export function createPlayer({
         setError('');
         call(handlers, 'onVideo', { hasVideo: true });
         readinessChanged();
+        paintStageEmpty();
         return true;
+    }
+
+    function paintStageEmpty() {
+        const empty = !videoFile;
+        if (els.stage) els.stage.dataset.empty = empty ? 'on' : 'off';
+        if (els.stageEmpty) els.stageEmpty.classList.toggle('hidden', !empty);
     }
 
     function useVideoLink(raw) {
