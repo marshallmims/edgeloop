@@ -274,9 +274,13 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   await step('mode cards click', async () => {
     if (await page.locator('#expTabGameBtn').count()) throw new Error('modes/games tabs should be gone');
+    if (!(await page.locator('#playStyleName').isVisible())) throw new Error('play style missing');
+    await page.locator('#playStyleToggle').click(); await sleep(150);
     if (!(await page.locator('#bioProfilesGrid').isVisible())) throw new Error('stroke row hidden');
+    await page.locator('#endgameToggle').click(); await sleep(150);
     if (!(await page.locator('#gameModesGrid').isVisible())) throw new Error('goal row hidden');
     await page.getByText(/prostate milker/i).first().click().catch(() => {}); await sleep(200);
+    await page.locator('#playStyleToggle').click(); await sleep(150);
     await page.getByText(/classic tease/i).first().click().catch(() => {}); await sleep(200);
     if (!(await page.locator('[data-mode="goal-off"]').count())) throw new Error('tease goal missing');
     if (!(await page.locator('[data-mode="edgetrain"]').count())) throw new Error('edge training game missing');

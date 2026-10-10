@@ -4,6 +4,16 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.01
+
+The footer shows this build number. 1.1.4 is the dev release. The fourth number goes up with each build on dev, through 1.1.4.99.
+
+- **Play Style and Session Endgame.** The dashboard shows the one that is on, and what it does. Change opens the list. Edge Training and NNN practice keep their settings, including Add a missed day and Clear, with the endgame that is on. Session Setup stays in the header. Keys moved into Session Setup.
+- **Devices tuck away.** Connect a heart-rate monitor and one toy. Once those are on, the unused device cards hide. Add a device brings them back.
+- **Ultimate Milker holds the fast part longer.** Close to the heart rate you set, the stroker runs a long fast stretch, stops for a beat, then climbs back up. Prostate Milker does the same with a shorter fast stretch, and the internal toy rests on its own timing.
+- **Pulsed is the vibrate default.** A vibrate axis ramps up and down, then rests. The 0.8, 1.6, and 2.4 second choices still only change how often the rest arrives. Constant is still there for a toy that should hold one level.
+- **The Player opens from the header.** The banner is gone. Play Style stays off that screen, because the funscript is the stroke. Session Endgame and Stroke model stay. Show the numbers keeps heart rate, edges, and both toys on the picture. The toys follow the video clock either way. Offset, Theater, and Fullscreen sit on the climax row. Continue after the video is put away for now.
+
 ## 1.1.4
 
 The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release on edgeloop.app.

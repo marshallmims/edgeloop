@@ -709,7 +709,7 @@ function applyScalar(dev, axis, speed, now) {
         axis.pulse = { startedAt: now, timer: null };
         fresh = true;
     }
-    sendScalar(dev, axis, pulseLevel(level, pulsePhase(axis.pulse.startedAt, now, axis.pulsePeriodMs).on));
+    sendScalar(dev, axis, pulseLevel(level, pulsePhase(axis.pulse.startedAt, now, axis.pulsePeriodMs).gain));
     if (fresh) armPulse(dev, axis, now);
 }
 

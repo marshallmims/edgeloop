@@ -403,6 +403,7 @@ describe('dispatch', () => {
     it('applies the cap to scalars and honours linear invert', async () => {
         const ws = connectWith([EDGE, OSR2]);
         setAxisMaxCap(0, 1, 50);
+        setAxisVibeMode(0, 1, { mode: 'constant' });
         setAxisInvert(1, 0, true);
         dispatchIntiface(100, 100, 20, 80);
         const scalars = ws.messages('ScalarCmd').filter((m) => m.Scalars[0].Index === 1);
@@ -493,12 +494,21 @@ describe('pulsed vibration', () => {
         // The first positive level is the peak, at once. It does not tick off
         // at half a period.
         dispatchIntiface(0, 50, 0, 100);
-        assert.deepEqual(levels(ws, 0), [0, 0.5]);
+        assert.ok(levels(ws, 0).at(-1) > 0 && levels(ws, 0).at(-1) < 0.5, 'a ramp starts below the peak');
         const startedAt = intifaceDevices.get(0).axes[0].pulse.startedAt;
         await sleep(400);
-        assert.deepEqual(levels(ws, 0), [0, 0.5], 'a half period is not a tick');
-        const restAt = pulsePhase(startedAt, startedAt, 800).changeAt;
-        await sleep(Math.max(1, restAt - Date.now() + 40));
+        assert.ok(levels(ws, 0).at(-1) > 0, 'the first beat of a ramp is not a rest');
+        let cursor = startedAt;
+        let restStart = startedAt;
+        for (let step = 0; step < 40; step += 1) {
+            const phase = pulsePhase(startedAt, cursor, 800);
+            if (phase.gain === 0) {
+                restStart = cursor;
+                break;
+            }
+            cursor = phase.changeAt;
+        }
+        await sleep(Math.max(1, restStart - Date.now() + 40));
         assert.equal(levels(ws, 0).at(-1), 0, 'the rest is sent when the phrase says');
         const beforeStop = levels(ws, 0).length;
         dispatchIntiface(0, 0, 0, 100, 0, 100, true);
@@ -512,14 +522,14 @@ describe('pulsed vibration', () => {
         setAxisVibeMode(0, 1, { mode: 'pulsed', periodMs: 2400 });
         const stored = JSON.parse(memory.get(INTIFACE_STORAGE_KEY));
         const axes = stored['Lovense Edge|S:Vibrate,Vibrate|L:|R:'].axes;
-        assert.equal(axes['scalar:0'].vibeMode, 'constant');
+        assert.equal(axes['scalar:0'].vibeMode, 'pulsed');
         assert.equal(axes['scalar:0'].pulsePeriodMs, 1600);
         assert.equal(axes['scalar:1'].vibeMode, 'pulsed');
         assert.equal(axes['scalar:1'].pulsePeriodMs, 2400);
         disconnectIntiface();
         connectWith([{ ...EDGE, DeviceIndex: 4 }]);
         const edge = intifaceDevices.get(4);
-        assert.equal(edge.axes[0].vibeMode, 'constant');
+        assert.equal(edge.axes[0].vibeMode, 'pulsed');
         assert.equal(edge.axes[1].vibeMode, 'pulsed');
         assert.equal(edge.axes[1].pulsePeriodMs, 2400);
     });

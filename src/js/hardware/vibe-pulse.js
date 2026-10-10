@@ -2,59 +2,52 @@
 // timers, no sockets; intiface.js keeps the clock and asks this module what
 // the axis should be at a given moment.
 //
-// Forum user Umbra250 (3 Oct): constant vibration numbs - the receptors
-// adapt to a steady level and both feel and report less of it. A vibrate
-// axis set to Pulsed does not tick on and off like a clock. It holds the
-// engine's level for a run (a few beats), drops to 0 for a short rest, then
-// comes back. The run and the rest change length, so the gap is a breath
-// and not a metronome. The three spacings only change how often those rests
-// arrive. The engine's level, under the axis's Max Power Cap, is the peak.
-// The axis is never above it. A changed level still reaches the axis at once
-// while it is on (the engine ticks once a second).
+// A vibrate axis set to Pulsed does not hold one level and it does not tick.
+// It ramps up, ramps down, ramps again, then rests for a beat, and the
+// lengths change so the rests do not land on one clock. The three spacings
+// only change how often that rest arrives. The engine's level, under the
+// axis's Max Power Cap, is the peak. The axis is never above it.
 
 export const VIBE_MODES = Object.freeze(['constant', 'pulsed']);
-export const DEFAULT_VIBE_MODE = 'constant';
+export const DEFAULT_VIBE_MODE = 'pulsed';
 export const PULSE_PERIODS_MS = Object.freeze([800, 1600, 2400]);
 export const DEFAULT_PULSE_PERIOD_MS = 1600;
+const STEP_MS = 200;
 
-// Run lengths and rests, in fifths of the chosen spacing. The runs are
-// several times the rests, and neighbouring phrases are different lengths,
-// so the axis is on most of the time and the gaps do not land on one beat.
-const RUN_FIFTHS = Object.freeze([12, 16, 21, 14, 25, 18]);
-const REST_FIFTHS = Object.freeze([2, 4, 2, 5, 3, 2]);
-
-// A stored or imported mode, or null when it is not one this build knows
-// (the caller then keeps its own default: Constant, today's behaviour).
-export function readVibeMode(value) {
-    return VIBE_MODES.includes(value) ? value : null;
-}
-
-// A stored or imported period: one of PULSE_PERIODS_MS exactly, or null.
-// Nothing in between is invented - a spacing is a choice of three, not a
-// number to clamp.
-export function readPulsePeriod(value) {
-    const n = typeof value === 'number' ? value : (typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN);
-    return PULSE_PERIODS_MS.includes(n) ? n : null;
-}
+// Each row is one phrase, in fifths of the chosen spacing: rise, fall,
+// rise, fall, rest. Neighbouring phrases are different lengths.
+const SHAPES = Object.freeze([
+    Object.freeze([4, 3, 5, 3, 2]),
+    Object.freeze([6, 4, 3, 5, 3]),
+    Object.freeze([3, 5, 6, 2, 2]),
+    Object.freeze([5, 2, 4, 6, 4])
+]);
+const KINDS = Object.freeze(['rise', 'fall', 'rise', 'fall', 'rest']);
 
 function fifthsMs(period, fifths) {
-    return Math.round(period * fifths / 5);
+    return Math.max(STEP_MS, Math.round(period * fifths / 5));
 }
 
-// Phrase `index` of a train whose spacing is `period`: how long it holds the
-// peak, then how long it rests.
+// Phrase `index`: the ramps, then the rest.
 export function pulsePhrase(index, periodMs = DEFAULT_PULSE_PERIOD_MS) {
     const period = readPulsePeriod(periodMs) || DEFAULT_PULSE_PERIOD_MS;
-    const i = Math.max(0, Math.floor(Number(index) || 0));
-    return {
-        runMs: fifthsMs(period, RUN_FIFTHS[i % RUN_FIFTHS.length]),
-        restMs: fifthsMs(period, REST_FIFTHS[i % REST_FIFTHS.length])
-    };
+    const shape = SHAPES[Math.max(0, Math.floor(Number(index) || 0)) % SHAPES.length];
+    const segments = shape.map((fifths, i) => ({ kind: KINDS[i], ms: fifthsMs(period, fifths) }));
+    const rest = segments[segments.length - 1];
+    return { segments, restMs: rest.ms, runMs: segments.reduce((sum, seg) => sum + seg.ms, 0) - rest.ms };
 }
 
-// Where a train started at `startedAt` stands at `now`: on (at the peak) or
-// off (at 0), and when that next changes. A clock that went backwards counts
-// as the start of the train, so it is on, never stuck.
+function gainAt(kind, along) {
+    const t = Math.max(0, Math.min(1, along));
+    if (kind === 'rest') return 0;
+    if (kind === 'fall') return 0.12 + 0.88 * (1 - t);
+    return 0.12 + 0.88 * t;
+}
+
+// Where a train started at `startedAt` stands at `now`. `gain` is 0 on a
+// rest and otherwise a fraction of the peak. `changeAt` is the next step a
+// ramp should be sent, or the end of a rest. A clock that went backwards
+// counts as the start of the train.
 export function pulsePhase(startedAt, now, periodMs = DEFAULT_PULSE_PERIOD_MS) {
     const period = readPulsePeriod(periodMs) || DEFAULT_PULSE_PERIOD_MS;
     const start = Number(startedAt) || 0;
@@ -62,18 +55,36 @@ export function pulsePhase(startedAt, now, periodMs = DEFAULT_PULSE_PERIOD_MS) {
     let cursor = 0;
     for (let index = 0; index < 100000; index += 1) {
         const phrase = pulsePhrase(index, period);
-        const runEnd = cursor + phrase.runMs;
-        if (elapsed < runEnd) return { on: true, changeAt: start + runEnd };
-        const restEnd = runEnd + phrase.restMs;
-        if (elapsed < restEnd) return { on: false, changeAt: start + restEnd };
-        cursor = restEnd;
+        for (const segment of phrase.segments) {
+            const end = cursor + segment.ms;
+            if (elapsed < end) {
+                const along = segment.ms <= 0 ? 1 : (elapsed - cursor) / segment.ms;
+                const gain = gainAt(segment.kind, along);
+                const changeAt = segment.kind === 'rest'
+                    ? start + end
+                    : start + Math.min(end, cursor + Math.floor((elapsed - cursor) / STEP_MS) * STEP_MS + STEP_MS);
+                return { gain, on: gain > 0.04, changeAt };
+            }
+            cursor = end;
+        }
     }
-    return { on: true, changeAt: start + elapsed + period };
+    return { gain: 1, on: true, changeAt: start + elapsed + period };
 }
 
-// What a pulsed axis is sent at a moment: the peak while on, 0 while off,
-// and 0 whatever the phase when there is no peak (the engine stopped it).
-export function pulseLevel(peak, on) {
+// What a pulsed axis is sent: the peak times the ramp, and 0 on a rest or
+// when the engine has stopped the axis.
+export function pulseLevel(peak, gain) {
     const p = Number(peak);
-    return on && Number.isFinite(p) && p > 0 ? p : 0;
+    const g = Number(gain);
+    if (!Number.isFinite(p) || p <= 0 || !Number.isFinite(g) || g <= 0) return 0;
+    return Math.round(p * Math.min(1, g) * 1000) / 1000;
+}
+
+export function readVibeMode(value) {
+    return VIBE_MODES.includes(value) ? value : null;
+}
+
+export function readPulsePeriod(value) {
+    const n = typeof value === 'number' ? value : (typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : NaN);
+    return PULSE_PERIODS_MS.includes(n) ? n : null;
 }

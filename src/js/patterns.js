@@ -48,6 +48,49 @@ function phraseRest(seconds, salt, close) {
     return a < 0.2 && b < 0.3;
 }
 
+// The last stretch, close to the mark. A long fast run, a beat of rest, then
+// a climb back up. The lengths repeat, so the fast part is long enough to
+// feel and the stop is still only a beat or two. `shift` seconds lets the
+// other toy rest on a different beat.
+const EDGE_BOOKS = Object.freeze({
+    ultimate: Object.freeze([
+        Object.freeze({ kind: 'fast', len: 8 }),
+        Object.freeze({ kind: 'rest', len: 2 }),
+        Object.freeze({ kind: 'climb', len: 5 }),
+        Object.freeze({ kind: 'fast', len: 7 }),
+        Object.freeze({ kind: 'rest', len: 2 }),
+        Object.freeze({ kind: 'climb', len: 4 })
+    ]),
+    milker: Object.freeze([
+        Object.freeze({ kind: 'fast', len: 6 }),
+        Object.freeze({ kind: 'rest', len: 2 }),
+        Object.freeze({ kind: 'climb', len: 4 }),
+        Object.freeze({ kind: 'fast', len: 5 }),
+        Object.freeze({ kind: 'rest', len: 1 }),
+        Object.freeze({ kind: 'climb', len: 3 })
+    ])
+});
+
+function edgePhrase(seconds, book, shift = 0) {
+    const cycle = book.reduce((sum, phrase) => sum + phrase.len, 0);
+    let t = Math.floor((Number(seconds) || 0) + shift);
+    t = ((t % cycle) + cycle) % cycle;
+    for (const phrase of book) {
+        if (t < phrase.len) {
+            const along = phrase.len <= 1 ? 1 : t / (phrase.len - 1);
+            return { kind: phrase.kind, along };
+        }
+        t -= phrase.len;
+    }
+    return { kind: 'fast', along: 1 };
+}
+
+function phraseSpeed(phrase, beat, fastFloor) {
+    if (phrase.kind === 'rest') return 0;
+    if (phrase.kind === 'climb') return roundPct(32 + 48 * phrase.along);
+    return roundPct(fastFloor + (96 - fastFloor) * beat.speed);
+}
+
 export function motion(seconds, salt = 0, nearness = 0) {
     const a = wobble(seconds, 5.3, salt);
     const b = wobble(seconds, 8.7, salt + 2.2);
@@ -204,22 +247,21 @@ export function teaseFrame({
         // for a beat. The internal toy rests on a different phrase, so one of
         // them is usually still moving, and neither ticks like a clock.
         const milking = sensor >= CLOSE_START;
-        const close = edgeClose(sensor);
         const beat = motion(seconds, milking ? 9.2 : 2.4, sensor);
-        const strokerRest = milking && !atPeak && phraseRest(seconds, 8.2, close);
-        const vibeRest = milking && !atPeak && phraseRest(seconds, 2.6, close);
+        const stroker = milking && !atPeak ? edgePhrase(seconds, EDGE_BOOKS.milker) : null;
+        const vibe = milking && !atPeak ? edgePhrase(seconds, EDGE_BOOKS.milker, 8) : null;
         const basePrimary = (1 - shaped) * 100;
         const baseSecondary = 20 + climb * 80;
-        // The falling curve is nearly stopped by the time the bursts open.
-        // A burst here is a few real strokes, then the beat of rest, not
-        // another shade of that fade.
-        const burst = roundPct(52 + 28 * beat.speed);
         const primary = atPeak
             ? atCeiling(crawlPercent)
-            : (strokerRest ? 0 : roundPct(milking ? burst : basePrimary * beat.speed));
+            : (stroker ? phraseSpeed(stroker, beat, 70) : roundPct(basePrimary * beat.speed));
         const secondaryGain = milking ? beat.secondary : (0.35 + 0.65 * beat.secondary);
-        const secondary = vibeRest ? 0 : roundPct((atPeak ? 100 : baseSecondary) * secondaryGain);
-        const depth = milking && !atPeak ? Math.min(beat.depth, strokerRest ? 0.5 : 0.45) : beat.depth;
+        const secondary = vibe && vibe.kind === 'rest'
+            ? 0
+            : roundPct((atPeak ? 100 : baseSecondary) * secondaryGain);
+        const depth = stroker
+            ? Math.min(beat.depth, stroker.kind === 'fast' ? 0.4 : 0.55)
+            : beat.depth;
         const stroke = placeStroke(0, 100, depth, 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }
@@ -228,28 +270,24 @@ export function teaseFrame({
         // Stop-go is the last chapter, right against the pullback mark.
         // Opening it at 0.72 put a 70/140 session into stops around 120 BPM,
         // and the toy would hold the pulse there instead of at the max.
-        // In that last chapter the stroker runs a few short strokes, stops
-        // for a beat, and starts again. The internal toy takes the same
-        // breath, a little softer, so the pause is shared.
+        // In that last chapter the stroker holds a long fast run, stops for
+        // a beat, then climbs back up. The internal toy stays up through
+        // the climb and only eases on the stop.
         const chapter = sensor < 0.45 ? 0 : sensor < CLOSE_START ? 1 : 2;
-        const close = edgeClose(sensor);
         const beat = motion(seconds, 4 + chapter * 3.7, sensor);
-        const resting = chapter === 2 && !atPeak && phraseRest(seconds, 4.4, close);
-        const bursting = chapter === 2 && !atPeak && !resting;
+        const stroker = chapter === 2 && !atPeak ? edgePhrase(seconds, EDGE_BOOKS.ultimate) : null;
         const basePrimary = (1 - shaped) * 100;
         const baseSecondary = 20 + climb * 70;
-        // Same as the milker: the last chapter is a few real strokes and a
-        // beat of rest. The fade has already done its job by then.
-        const burst = roundPct(64 + 26 * beat.speed);
         const primary = atPeak
             ? atCeiling(crawlPercent)
-            : (resting ? 0 : roundPct(bursting ? burst : basePrimary * beat.speed));
+            : (stroker ? phraseSpeed(stroker, beat, 78) : roundPct(basePrimary * beat.speed));
         let secondary = roundPct((atPeak ? 100 : baseSecondary) * beat.secondary);
-        if (resting) secondary = roundPct(secondary * 0.3);
+        if (stroker && stroker.kind === 'rest') secondary = roundPct(Math.max(24, secondary * 0.45));
         let depth = beat.depth;
         if (chapter === 0) depth = Math.max(depth, 0.82);
-        else if (bursting) depth = Math.min(depth, 0.42);
-        else if (resting) depth = Math.min(depth, 0.45);
+        else if (stroker && stroker.kind === 'fast') depth = Math.min(depth, 0.38);
+        else if (stroker && stroker.kind === 'climb') depth = Math.min(1, 0.45 + 0.4 * stroker.along);
+        else if (stroker) depth = Math.min(depth, 0.45);
         const stroke = placeStroke(0, 100, depth, 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }

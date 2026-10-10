@@ -582,6 +582,7 @@ function setBadgeState(type, status, nameLabel, batteryLabel = null) {
         }
     }
 
+    if (card) card.dataset.link = status;
     if (card && dot) {
         if (status === 'connected') {
             card.className = "text-left p-2 rounded-xl bg-emerald-950/20 border border-emerald-800/80 hover:border-emerald-600 transition flex items-start gap-2 cursor-pointer min-w-0";
@@ -597,8 +598,36 @@ function setBadgeState(type, status, nameLabel, batteryLabel = null) {
             dot.className = "h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1";
         }
     }
+    layoutDeviceCards();
     checkReadiness();
 }
+
+let deviceCardsExpanded = false;
+const DEVICE_CARD_TYPES = ['Ble', 'Handy', 'Intiface', 'Vacuglide', 'TCode'];
+
+function layoutDeviceCards() {
+    const ready = hardwareReadiness();
+    const paired = ready.hrReady && ready.toyReady;
+    const hint = document.getElementById('deviceNeedHint');
+    const more = document.getElementById('deviceMoreBtn');
+    if (hint) hint.classList.toggle('hidden', paired);
+    if (more) {
+        more.classList.toggle('hidden', !paired);
+        more.textContent = deviceCardsExpanded ? 'Hide unused' : 'Add a device';
+    }
+    const hideIdle = paired && !deviceCardsExpanded;
+    for (const type of DEVICE_CARD_TYPES) {
+        const card = document.getElementById(`card${type}`);
+        if (!card) continue;
+        const live = card.dataset.link === 'connected' || card.dataset.link === 'connecting' || card.dataset.link === 'warning';
+        card.classList.toggle('hidden', hideIdle && !live);
+    }
+}
+
+document.getElementById('deviceMoreBtn')?.addEventListener('click', () => {
+    deviceCardsExpanded = !deviceCardsExpanded;
+    layoutDeviceCards();
+});
 
 // Whether the host has a pulse source and a toy to drive. Sent to the remote
 // controller so its transport can mirror the host's readiness.
@@ -2711,27 +2740,70 @@ const modeCards = document.querySelectorAll('.mode-card');
 const MODE_DETAILS = {
     classic: 'Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks the stroke back up. Crawl or Full Stop still decides the ceiling.',
     finisher: 'Speed rises with your heart rate and stays at full speed on the mark, so it can carry you over. "At the ceiling" does not slow it down. Room noise does not speed it up either: the climb follows the pulse the sensor measured.',
-    milker: 'The stroker eases off as you climb and the internal toy takes over. Close to the heart rate you set, the stroker does a few short strokes and stops for a beat. The internal toy rests on its own timing, so the two do not tick together.',
     shortener: 'Full strokes until your pulse is close to the heart rate you set, then the stroke shortens to the base. It stays quicker than Classic. The secondary channel stays low.',
     headplay: 'Full strokes until your pulse is close to the heart rate you set, then the stroke climbs toward the head. Speed eases off with your pulse, and the stroke opens back up when your pulse drops.',
-    ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Close to the heart rate you set, the stroker runs a few short strokes, stops for a beat, and starts again. The internal toy takes that same breath.',
+    ultimate: 'The pattern changes with your pulse: long and steady, then long-slow against short-fast. Close to the heart rate you set, it runs a long fast stretch, stops for a beat, then climbs back up. The internal toy stays with you through the climb.',
+    milker: 'The stroker eases off as you climb and the internal toy takes over. Close to the heart rate you set, the stroker runs a fast stretch, stops for a beat, and climbs back. The internal toy rests on its own timing.',
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. The session timer keeps going. The stroke range is the tease mode you selected.',
     calibrate: 'A climb of its own, separate from Survival. The first run is your primary stimulation device alone, and The app / Finished me saves that heart rate as the primary max. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
     nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.',
-    script: 'Your video and its funscript. The session warm-up does not apply, so the file plays at once. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. The primary meter is how much of the file is allowed, and 100% is the whole file inside your travel range.'
+    script: 'Your video and its funscript. The session warm-up does not apply, so the file plays at once. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. The primary meter is how much of the file is allowed, and 100% is the whole file inside your travel range.',
+    'goal-off': 'No game. The play style you picked runs on its own.'
 };
 
-// The paragraph above the cards follows the goal when one is on, including
-// Calibration, and the stroke otherwise.
+const MODE_NAMES = {
+    classic: 'Classic Tease',
+    finisher: 'Finisher',
+    milker: 'Prostate Milker',
+    shortener: 'Glans Protector',
+    headplay: 'Head Play',
+    ultimate: 'Ultimate Milker',
+    ruin: 'Ruin & Leak',
+    script: 'Funscript',
+    'goal-off': 'Tease',
+    survival: 'Survival',
+    edgetrain: 'Edge Training',
+    oracle: 'The Oracle',
+    nnn: 'NNN practice',
+    calibrate: 'Calibration'
+};
+
 function renderModeDetail() {
-    const el = document.getElementById('modeDetail');
-    if (!el) return;
-    const mode = state.gameMode || state.teaseMode;
-    el.textContent = MODE_DETAILS[mode] || '';
+    const style = state.teaseMode || 'classic';
+    const goal = state.gameMode || 'goal-off';
+    const styleName = document.getElementById('playStyleName');
+    const styleDetail = document.getElementById('playStyleDetail');
+    const goalName = document.getElementById('endgameName');
+    const goalDetail = document.getElementById('endgameDetail');
+    if (styleName) styleName.textContent = MODE_NAMES[style] || style;
+    if (styleDetail) styleDetail.textContent = MODE_DETAILS[style] || '';
+    if (goalName) goalName.textContent = MODE_NAMES[goal] || goal;
+    if (goalDetail) goalDetail.textContent = MODE_DETAILS[goal] || '';
+    document.getElementById('trainSettings')?.classList.toggle('hidden', state.gameMode !== 'edgetrain');
+    document.getElementById('nnnSettings')?.classList.toggle('hidden', state.gameMode !== 'nnn');
 }
+
+function setChoiceDrawer(drawerId, buttonId, open) {
+    const drawer = document.getElementById(drawerId);
+    const button = document.getElementById(buttonId);
+    if (drawer) drawer.classList.toggle('hidden', !open);
+    if (button) {
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        button.textContent = open ? 'Close' : 'Change';
+    }
+}
+
+document.getElementById('playStyleToggle')?.addEventListener('click', () => {
+    const drawer = document.getElementById('playStyleDrawer');
+    setChoiceDrawer('playStyleDrawer', 'playStyleToggle', Boolean(drawer && drawer.classList.contains('hidden')));
+});
+document.getElementById('endgameToggle')?.addEventListener('click', () => {
+    const drawer = document.getElementById('endgameDrawer');
+    setChoiceDrawer('endgameDrawer', 'endgameToggle', Boolean(drawer && drawer.classList.contains('hidden')));
+});
 
 let strokeBeforeScript = 'classic';
 
@@ -3083,11 +3155,19 @@ document.getElementById('calibrateBtn')?.addEventListener('click', () => {
 });
 
 modeCards.forEach(card => {
+    if (!card.querySelector('.use-style')) {
+        const use = document.createElement('span');
+        use.className = 'use-style mt-1 text-[9px] font-bold uppercase tracking-wider text-purple-300';
+        use.textContent = 'Use this';
+        card.appendChild(use);
+    }
     card.addEventListener('click', () => {
         if (isRemoteViewer) return;
         const mode = card.getAttribute('data-mode');
-        const enabled = GAME_CARD_MODES.includes(mode) ? state.gameMode !== mode : true;
+        const enabled = GAME_CARD_MODES.includes(mode) ? true : true;
         applyModeSelection(mode, enabled);
+        if (GAME_CARD_MODES.includes(mode) || mode === 'goal-off') setChoiceDrawer('endgameDrawer', 'endgameToggle', false);
+        else setChoiceDrawer('playStyleDrawer', 'playStyleToggle', false);
         if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled });
         else syncTelemetry();
     });
@@ -3547,7 +3627,8 @@ const paramsTabMap = {
     duration: { btn: document.getElementById('paramsTabDurationBtn'), sec: document.getElementById('paramsDurationSection') },
     guards: { btn: document.getElementById('paramsTabGuardsBtn'), sec: document.getElementById('paramsGuardsSection') },
     audio: { btn: document.getElementById('paramsTabAudioBtn'), sec: document.getElementById('paramsAudioSection') },
-    backup: { btn: document.getElementById('paramsTabBackupBtn'), sec: document.getElementById('paramsBackupSection') }
+    backup: { btn: document.getElementById('paramsTabBackupBtn'), sec: document.getElementById('paramsBackupSection') },
+    keys: { btn: document.getElementById('paramsTabKeysBtn'), sec: document.getElementById('paramsKeysSection') }
 };
 
 function setParamsTab(activeKey) {
@@ -3567,6 +3648,7 @@ paramsTabMap.duration.btn?.addEventListener('click', () => setParamsTab('duratio
 paramsTabMap.guards.btn?.addEventListener('click', () => setParamsTab('guards'));
 paramsTabMap.audio.btn?.addEventListener('click', () => setParamsTab('audio'));
 paramsTabMap.backup.btn?.addEventListener('click', () => setParamsTab('backup'));
+paramsTabMap.keys.btn?.addEventListener('click', () => setParamsTab('keys'));
 
 // Duration Mode Switcher
 const durFixedBtn = document.getElementById('durFixedBtn');
@@ -4896,7 +4978,7 @@ function renderIntifaceDevices() {
             <button onclick="setDeviceVibeMode(${devIdx}, ${aIdx}, 'pulsed')" class="flex-1 py-0.5 rounded ${pulsed ? 'bg-slate-700 text-amber-300 font-bold' : 'bg-slate-800 text-slate-400'} cursor-pointer">Pulsed</button>
             <select aria-label="Pulse period" onchange="setDevicePulsePeriod(${devIdx}, ${aIdx}, this.value)" ${pulsed ? '' : 'disabled'} class="bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-[9px] text-slate-200 ${pulsed ? 'cursor-pointer' : 'opacity-40'}">${periods}</select>
             </div>
-            ${pulsed ? '<p class="text-[9px] text-slate-500 leading-snug">Holds the level for a few beats, then rests for a beat. The lengths change, so it does not tick. Shorter spacing rests more often. The intensity sets the peak, and it stays under the cap.</p>' : ''}
+            ${pulsed ? '<p class="text-[9px] text-slate-500 leading-snug">Ramps up and down a few times, then rests for a beat. The lengths change. Shorter spacing rests more often. The intensity sets the peak, and it stays under the cap.</p>' : ''}
             </div>`;
             })() : ''}
             ${invertRow}
@@ -5914,12 +5996,29 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode: state.teaseMode, enabled: true });
         else syncTelemetry();
     });
-    document.getElementById('playerHeaderBtn')?.addEventListener('click', () => {
-        document.getElementById('playerBody')?.classList.toggle('hidden');
-    });
-    document.getElementById('playerToggleBtn')?.addEventListener('click', () => {
-        document.getElementById('playerBody')?.classList.toggle('hidden');
-    });
+    function placeEndgame() {
+        const block = document.getElementById('endgameBlock');
+        const section = document.getElementById('playerSection');
+        const slot = document.getElementById('playerEndgameSlot');
+        const home = document.getElementById('endgameHome');
+        if (!block || !home) return;
+        const open = section && !section.classList.contains('hidden');
+        (open && slot ? slot : home).appendChild(block);
+    }
+    function togglePlayer(force) {
+        const section = document.getElementById('playerSection');
+        const body = document.getElementById('playerBody');
+        const header = document.getElementById('playerHeaderBtn');
+        if (!section) return;
+        const open = typeof force === 'boolean' ? force : section.classList.contains('hidden');
+        section.classList.toggle('hidden', !open);
+        if (open) body?.classList.remove('hidden');
+        header?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        placeEndgame();
+    }
+    document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
+    document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());
+    placeEndgame();
     const climaxSeconds = document.getElementById('scriptClimaxSeconds');
     if (climaxSeconds) {
         climaxSeconds.value = String(clampClimaxSeconds(advancedSettings.scriptClimaxSeconds));
