@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.08
+
+- **The picture is its own panel.** Choosing the video and the funscripts, and Funscript morphing, sit in the panel under it. Session Length, Play Style, and Session Endgame stay on the normal page. The video and the file set the length.
+
 ## 1.1.4.07
 
 - **Warm-up is a number of minutes.** It sits on one line with Session Length. The switch still turns it off. The slider is gone.

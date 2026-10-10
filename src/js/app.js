@@ -6052,6 +6052,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         header?.setAttribute('aria-expanded', open ? 'true' : 'false');
         document.getElementById('playStylePanel')?.classList.toggle('hidden', open);
         document.getElementById('endgamePanel')?.classList.toggle('hidden', open);
+        document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', open);
     }
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());
