@@ -255,9 +255,9 @@ export function scriptWaitingReason({ activeMode, hasTrack = false, hasVideo = f
     return null;
 }
 
-// Whether the video follows the session transport: Script mode is
-// selected and a script is loaded. Otherwise it is a plain player.
-export function videoCoupled({ activeMode, hasTrack = false } = {}) {
+// A loaded video follows the session. A script session still needs its track.
+export function videoCoupled({ activeMode, hasTrack = false, hasVideo = false } = {}) {
+    if (hasVideo) return true;
     return activeMode === 'script' && Boolean(hasTrack);
 }
 

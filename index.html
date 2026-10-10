@@ -383,7 +383,14 @@
             <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
             <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
             <div id="playerActionsSlot"></div>
-            <div class="flex flex-wrap items-center gap-2">
+            <label class="flex items-center justify-between gap-3 min-h-[2.75rem] cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Stats Overlay.</strong> Heart rate, edges, and both toys stay on the picture.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="playerHudPin" type="checkbox" class="sr-only peer" checked>
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+            <div id="playerOffsetRow" class="hidden flex flex-wrap items-center gap-2">
               <span class="text-[11px] font-semibold text-slate-100">Offset</span>
               <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
               <span id="playerOffsetValue" class="font-mono text-sky-300 font-bold w-16 text-center text-[10px]">0 ms</span>
@@ -426,14 +433,37 @@
               <input id="playerFileInput" type="file" multiple accept=".funscript,.mp4,.m4v,.webm,.mkv,.mov,.ogv,video/mp4,video/webm,video/quicktime,video/ogg" class="hidden">
             </div>
             <p id="playerFormatHint" class="text-[9px] text-slate-400 leading-snug">MP4, M4V, WEBM, MKV, MOV, OGV, plus a .funscript for the stroker and a .v0.funscript for the other toy. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them.</p>
-            <div class="flex gap-2">
-              <button id="playerPrimaryBtn" type="button" aria-pressed="false" class="flex-1 basis-0 min-w-0 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Primary script</button>
-              <button id="playerSecondaryBtn" type="button" aria-pressed="false" class="flex-1 basis-0 min-w-0 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Secondary script</button>
-              <button id="playerClearScriptsBtn" type="button" class="flex-1 basis-0 min-w-0 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Clear scripts</button>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="playerPrimaryConfigBtn" type="button" class="min-h-[2.75rem] px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-left cursor-pointer">
+                <span class="block text-[9px] font-bold uppercase tracking-wider text-rose-300">Primary</span>
+                <span id="playerPrimaryConfigName" class="block text-[11px] font-semibold text-slate-100 truncate">EdgeLoop</span>
+                <span id="playerPrimaryConfigHint" class="block text-[9px] text-slate-400">Tap to configure</span>
+              </button>
+              <button id="playerSecondaryConfigBtn" type="button" class="min-h-[2.75rem] px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-left cursor-pointer">
+                <span class="block text-[9px] font-bold uppercase tracking-wider text-purple-300">Secondary</span>
+                <span id="playerSecondaryConfigName" class="block text-[11px] font-semibold text-slate-100 truncate">EdgeLoop</span>
+                <span id="playerSecondaryConfigHint" class="block text-[9px] text-slate-400">Tap to configure</span>
+              </button>
+            </div>
+            <div id="playerPrimaryConfig" class="hidden space-y-1.5 rounded-xl border border-slate-800 bg-slate-950 p-2">
+              <p class="text-[10px] text-slate-400 leading-snug">Primary is the stroker. EdgeLoop runs the stroke. A funscript replaces it.</p>
+              <div class="flex gap-2">
+                <button id="playerPrimaryEdgeBtn" type="button" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-sky-800 text-slate-100 text-[10px] font-semibold cursor-pointer">EdgeLoop</button>
+                <button id="playerPrimaryBtn" type="button" aria-pressed="false" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Choose a funscript</button>
+              </div>
+              <button id="playerClearPrimaryBtn" type="button" class="hidden w-full min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer">Clear funscript</button>
               <input id="playerPrimaryInput" type="file" accept=".funscript,application/json" class="hidden">
+            </div>
+            <div id="playerSecondaryConfig" class="hidden space-y-1.5 rounded-xl border border-slate-800 bg-slate-950 p-2">
+              <p class="text-[10px] text-slate-400 leading-snug">Secondary is the other toy. EdgeLoop follows the play style. A funscript replaces it.</p>
+              <div class="flex gap-2">
+                <button id="playerSecondaryEdgeBtn" type="button" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-sky-800 text-slate-100 text-[10px] font-semibold cursor-pointer">EdgeLoop</button>
+                <button id="playerSecondaryBtn" type="button" aria-pressed="false" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Choose a funscript</button>
+              </div>
+              <button id="playerClearSecondaryBtn" type="button" class="hidden w-full min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer">Clear funscript</button>
               <input id="playerSecondaryInput" type="file" accept=".funscript,application/json" class="hidden">
             </div>
-            <p class="text-[9px] text-slate-500 leading-snug">The primary is the stroker (.funscript). The secondary is the other toy (.v0.funscript). Once a script is loaded, its button switches the heat map instead of asking for another file. Both draws them together. Clear scripts drops the scripts and keeps the video. Choosing a different video drops the scripts too.</p>
+            <button id="playerClearScriptsBtn" type="button" class="hidden">Clear scripts</button>
             <div class="hidden">
               <input id="playerVideoUrl" type="url" inputmode="url" placeholder="https://…/video.mp4" aria-label="Direct video file address" class="flex-1 min-h-[2.75rem] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
               <button id="playerVideoUrlBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Use link</button>
@@ -442,13 +472,6 @@
               <span class="text-[10px] text-slate-300 leading-snug"><strong>Follow the script.</strong> On, the stroker plays the funscript and your pulse limits it. Off, the stroke you picked in the mode row runs instead.</span>
               <span class="relative inline-flex shrink-0">
                 <input id="playerFollowScript" type="checkbox" class="sr-only peer">
-                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
-              </span>
-            </label>
-            <label class="flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
-              <span class="text-[10px] text-slate-300 leading-snug"><strong>Edge Overlay.</strong> On, heart rate, edges, and both toys stay on the picture. Play, pause, and the bar still hide. This only changes what you see on the picture.</span>
-              <span class="relative inline-flex shrink-0">
-                <input id="playerHudPin" type="checkbox" class="sr-only peer" checked>
                 <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
               </span>
             </label>
@@ -485,6 +508,8 @@
             <p id="beatSyncRoute" class="text-[10px] text-slate-400 leading-snug"></p>
           </div>
 
+          <div id="playerEdgeLoopSettings" class="hidden space-y-2"></div>
+          <div id="playerMorph" class="hidden space-y-2">
           <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Funscript morphing</p>
           <p class="text-[9px] text-slate-400 leading-snug">Shorten and skip opens a mild file when your pulse is low, and shortens it as you reach the edge. Keep the script leaves the file's strokes alone and only turns them down.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -537,8 +562,9 @@
                   <span class="text-[10px] text-slate-400 w-6">sec</span>
                 </span>
               </span>
-              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys ease back into the script.</span>
+              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys ease back into the script. With no funscript, a gold mark aims EdgeLoop at that time.</span>
             </label>
+          </div>
           </div>
         </div>
       </div>
@@ -777,6 +803,7 @@
         </div>
 
         <!-- Experience Profiles & Modes Grid -->
+        <div id="sessionSetupHome" class="space-y-3">
         <div id="playStylePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div id="customCardsContainer" class="space-y-1.5 hidden"></div>
 
@@ -1003,6 +1030,7 @@
           </div>
           </div>
         </div>
+        </div>
 
       </div>
 
@@ -1013,7 +1041,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.11</span>
+        <span id="appVersion" class="font-mono">v1.1.4.12</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

@@ -465,5 +465,7 @@ describe('player markup', () => {
         const ramp = html.indexOf('id="scriptClimaxRampSeconds"');
         assert.ok(device > 0 && device < player && player < stage);
         assert.ok(stage < dock && dock < transport && transport < files && files < morph && morph < ramp);
+        assert.match(html, /Tap to configure/);
+        assert.match(html, /Stats Overlay/);
     });
 });

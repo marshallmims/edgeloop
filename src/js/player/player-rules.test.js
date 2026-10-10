@@ -211,10 +211,11 @@ describe('scriptWaitingReason: START needs a valid script and a ready video', ()
 });
 
 describe('videoCoupled', () => {
-    it('couples the video to the transport only in Script mode with a script', () => {
+    it('couples a loaded video, and a script session that has its track', () => {
         assert.equal(videoCoupled({ activeMode: 'script', hasTrack: true }), true);
         assert.equal(videoCoupled({ activeMode: 'script', hasTrack: false }), false);
-        assert.equal(videoCoupled({ activeMode: 'classic', hasTrack: true }), false);
+        assert.equal(videoCoupled({ activeMode: 'classic', hasTrack: false }), false);
+        assert.equal(videoCoupled({ activeMode: 'classic', hasVideo: true }), true);
     });
 });
 

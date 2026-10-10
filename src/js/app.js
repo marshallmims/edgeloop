@@ -182,7 +182,7 @@ import {
 import { createScriptFeed } from './player/script-feed.js';
 import { createPlayer } from './player/player.js';
 import { sanitizeScriptSettings, describeScriptPhase, edgeActionPausesVideo, sessionTargetForVideo, complementSecondary, scriptMotion, secondaryFromScript, climaxApproach, boostedAllowance, scriptExpand, clampClimaxSeconds, clampClimaxPhaseSeconds, DEFAULT_CLIMAX_RAMP_SECONDS, DEFAULT_CLIMAX_EASE_SECONDS } from './player/script-governor.js';
-import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, describePlayerHardwareWait, OFFSET_NUDGE_MS, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
+import { offsetFor, rememberOffset, readOffsets, climaxMarksFor, rememberClimaxMarks, readClimaxMarks, describeVideoStall, describePlayerHardwareWait, videoCoupled, OFFSET_NUDGE_MS, SCRIPT_OFFSETS_STORAGE_KEY, SCRIPT_CLIMAX_STORAGE_KEY, BEAT_SYNC_CONSENT_KEY, BEAT_SYNC_STORAGE_KEY, BEAT_SYNC_CONSENT_TEXT } from './player/player-rules.js';
 import { rhythmAt, hampTarget } from './player/script-rhythm.js';
 import { posAt } from './player/script-track.js';
 import { effectiveInvert } from './player/script-shaper.js';
@@ -518,6 +518,7 @@ function renderTransport(status) {
         if (playPauseIcon) playPauseIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
         playPauseBtn.className = "flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 shadow-lg shadow-emerald-950/40 cursor-pointer";
     }
+    paintPlayerChannels();
 }
 
 // Grey out the transport with a reason while the hardware is not ready.
@@ -526,6 +527,7 @@ function renderTransportWaiting(reason) {
     playPauseBtn.disabled = true;
     if (playPauseText) playPauseText.textContent = reason;
     playPauseBtn.className = "flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed";
+    paintPlayerChannels();
 }
 
 // Flag a numeric input as invalid (red border) or restore its normal border.
@@ -605,22 +607,67 @@ function setBadgeState(type, status, nameLabel, batteryLabel = null) {
 let deviceCardsExpanded = false;
 const DEVICE_CARD_TYPES = ['Ble', 'Handy', 'Intiface', 'Vacuglide', 'TCode'];
 
+let channelConfig = null;
+
+function sessionIsLive() {
+    return state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN';
+}
+
+function paintPlayerChannels() {
+    if (!document.getElementById('playerPrimaryConfigBtn')) return;
+    const live = sessionIsLive();
+    const open = live ? null : channelConfig;
+    const primaryScript = player && typeof player.script === 'function' ? player.script() : null;
+    const secondaryScript = player && typeof player.secondary === 'function' ? player.secondary() : null;
+    const label = (script) => script ? (script.name || 'Funscript') : 'EdgeLoop';
+    const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    setText('playerPrimaryConfigName', label(primaryScript));
+    setText('playerSecondaryConfigName', label(secondaryScript));
+    setText('playerPrimaryConfigHint', open === 'primary' ? 'Tap to close' : 'Tap to configure');
+    setText('playerSecondaryConfigHint', open === 'secondary' ? 'Tap to close' : 'Tap to configure');
+    document.getElementById('playerPrimaryConfig')?.classList.toggle('hidden', open !== 'primary');
+    document.getElementById('playerSecondaryConfig')?.classList.toggle('hidden', open !== 'secondary');
+    document.getElementById('playerClearPrimaryBtn')?.classList.toggle('hidden', !primaryScript);
+    document.getElementById('playerClearSecondaryBtn')?.classList.toggle('hidden', !secondaryScript);
+    document.getElementById('playerMorph')?.classList.toggle('hidden', !(open && (primaryScript || secondaryScript)));
+    const edgeOpen = (open === 'primary' && !primaryScript) || (open === 'secondary' && !secondaryScript);
+    document.getElementById('playerEdgeLoopSettings')?.classList.toggle('hidden', !edgeOpen);
+    document.getElementById('playerOffsetRow')?.classList.toggle('hidden', !primaryScript);
+    const mark = (id, on) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('bg-sky-800', on);
+        el.classList.toggle('bg-slate-800', !on);
+    };
+    mark('playerPrimaryEdgeBtn', !primaryScript);
+    mark('playerSecondaryEdgeBtn', !secondaryScript);
+}
+
+function placeSessionSetup(inPlayer) {
+    const slot = document.getElementById('playerEdgeLoopSettings');
+    const home = document.getElementById('sessionSetupHome');
+    const play = document.getElementById('playStylePanel');
+    const end = document.getElementById('endgamePanel');
+    document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', inPlayer);
+    const target = inPlayer && slot ? slot : home;
+    if (play && target && play.parentElement !== target) target.appendChild(play);
+    if (end && target && end.parentElement !== target) target.appendChild(end);
+    play?.classList.remove('hidden');
+    end?.classList.remove('hidden');
+}
+
 function layoutDeviceCards() {
     const ready = hardwareReadiness();
     const paired = ready.hrReady && ready.toyReady;
     const hint = document.getElementById('deviceNeedHint');
     const more = document.getElementById('deviceMoreBtn');
     if (hint) hint.classList.toggle('hidden', paired);
-    if (more) {
-        more.classList.toggle('hidden', !paired);
-        more.textContent = deviceCardsExpanded ? 'Hide unused' : 'Add a device';
-    }
-    const hideIdle = paired && !deviceCardsExpanded;
+    if (more) more.classList.add('hidden');
     for (const type of DEVICE_CARD_TYPES) {
-        const card = document.getElementById(`card${type}`);
-        if (!card) continue;
-        const live = card.dataset.link === 'connected' || card.dataset.link === 'connecting' || card.dataset.link === 'warning';
-        card.classList.toggle('hidden', hideIdle && !live);
+        document.getElementById(`card${type}`)?.classList.remove('hidden');
     }
 }
 
@@ -1131,13 +1178,26 @@ function updateEngine() {
     let sentPrimary = result.primaryPercent;
     let climaxK = 0;
     const climaxLive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
-    if (climaxLive && state.activeMode === 'script' && scriptFeed?.hasTrack() && loadedClimaxMarks.length > 0) {
-        const t = scriptFeed.scriptNow();
+    const climaxMarks = typeof player?.climaxMarks === 'function' ? player.climaxMarks() : loadedClimaxMarks;
+    if (climaxLive && climaxMarks.length > 0) {
         const peakMs = clampClimaxSeconds(advancedSettings.scriptClimaxSeconds) * 1000;
         const rampMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxRampSeconds, DEFAULT_CLIMAX_RAMP_SECONDS) * 1000;
         const easeMs = clampClimaxPhaseSeconds(advancedSettings.scriptClimaxEaseSeconds, DEFAULT_CLIMAX_EASE_SECONDS) * 1000;
-        climaxK = climaxApproach(Number.isFinite(t) ? t : NaN, loadedClimaxMarks, { rampMs, peakMs, easeMs });
-        sentPrimary = boostedAllowance(sentPrimary, climaxK);
+        const t = state.activeMode === 'script' && scriptFeed?.hasTrack()
+            ? scriptFeed.scriptNow()
+            : (typeof player?.nowMs === 'function' ? player.nowMs() : NaN);
+        climaxK = climaxApproach(Number.isFinite(t) ? t : NaN, climaxMarks, { rampMs, peakMs, easeMs });
+        if (state.activeMode === 'script' && scriptFeed?.hasTrack()) {
+            sentPrimary = boostedAllowance(sentPrimary, climaxK);
+        } else if (state.activeMode !== 'script' && climaxK > 0) {
+            const lift = (percent) => {
+                const base = Number(percent) || 0;
+                return Math.round(base + (100 - base) * Math.max(0, Math.min(1, climaxK)));
+            };
+            result.primaryPercent = lift(result.primaryPercent);
+            result.secondaryPercent = lift(result.secondaryPercent);
+            sentPrimary = result.primaryPercent;
+        }
     }
     const expand = state.activeMode === 'script'
         ? scriptExpand({
@@ -2228,10 +2288,9 @@ function videoDurationSeconds() {
 }
 
 function applyVideoSessionLength() {
-    const scriptOn = state.activeMode === 'script' || state.teaseMode === 'script';
     const picked = sessionTargetForVideo({
         continueAfter: Boolean(advancedSettings.scriptContinueAfterVideo),
-        videoSeconds: scriptOn ? videoDurationSeconds() : 0,
+        videoSeconds: player && player.hasVideo() ? videoDurationSeconds() : 0,
         configuredSeconds: state.configuredTargetSeconds
     });
     state.scriptVideoClock = picked.fromVideo;
@@ -5949,7 +6008,14 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             videoUrlBtn: byId('playerVideoUrlBtn')
         },
         handlers: {
-            transport: () => ({ coupled: state.activeMode === 'script', sessionStatus: state.sessionStatus }),
+            transport: () => ({
+                coupled: videoCoupled({
+                    activeMode: state.activeMode,
+                    hasTrack: Boolean(scriptFeed?.hasTrack()),
+                    hasVideo: Boolean(player?.hasVideo())
+                }),
+                sessionStatus: state.sessionStatus
+            }),
             canChangeFiles: () => (state.activeMode === 'script' && (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN')
                 ? 'Press STOP before changing the files.'
                 : null),
@@ -5961,13 +6027,18 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 player?.setClimaxMarks(loadedClimaxMarks);
                 if (state.teaseMode !== 'script') strokeBeforeScript = state.teaseMode || 'classic';
                 applyModeSelection('script');
+                channelConfig = 'primary';
+                paintPlayerChannels();
                 checkReadiness();
             },
             onSecondary: (script) => {
                 secondaryTrack = script.track || null;
+                channelConfig = 'secondary';
+                paintPlayerChannels();
             },
             onSecondaryCleared: () => {
                 secondaryTrack = null;
+                paintPlayerChannels();
             },
             onClimax: (marks) => {
                 loadedClimaxMarks = Array.isArray(marks) ? marks.slice() : [];
@@ -5982,6 +6053,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 if (state.teaseMode === 'script') {
                     applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic');
                 } else syncFollowScript();
+                paintPlayerChannels();
                 checkReadiness();
             },
             onPlayRequest: () => playPauseBtn?.click(),
@@ -6084,9 +6156,9 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         section.classList.toggle('hidden', !open);
         if (open) body?.classList.remove('hidden');
         header?.setAttribute('aria-expanded', open ? 'true' : 'false');
-        document.getElementById('playStylePanel')?.classList.toggle('hidden', open);
-        document.getElementById('endgamePanel')?.classList.toggle('hidden', open);
-        document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', open);
+        placeSessionSetup(open);
+        if (!open) channelConfig = null;
+        paintPlayerChannels();
         placeSessionControls(open);
     }
     function placeSessionControls(inPlayer) {
@@ -6102,6 +6174,24 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
     }
     document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());
+    document.getElementById('playerPrimaryConfigBtn')?.addEventListener('click', () => {
+        channelConfig = channelConfig === 'primary' ? null : 'primary';
+        paintPlayerChannels();
+    });
+    document.getElementById('playerSecondaryConfigBtn')?.addEventListener('click', () => {
+        channelConfig = channelConfig === 'secondary' ? null : 'secondary';
+        paintPlayerChannels();
+    });
+    document.getElementById('playerPrimaryEdgeBtn')?.addEventListener('click', () => {
+        if (player?.script()) player.clearPrimary();
+        else paintPlayerChannels();
+    });
+    document.getElementById('playerSecondaryEdgeBtn')?.addEventListener('click', () => {
+        if (player?.secondary()) player.clearSecondaryScript();
+        else paintPlayerChannels();
+    });
+    document.getElementById('playerClearPrimaryBtn')?.addEventListener('click', () => player?.clearPrimary());
+    document.getElementById('playerClearSecondaryBtn')?.addEventListener('click', () => player?.clearSecondaryScript());
     function bindClimaxSeconds(id, read, write) {
         const input = document.getElementById(id);
         if (!input) return;

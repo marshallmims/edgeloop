@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.12
+
+- **Each channel starts on EdgeLoop.** Primary and Secondary say Tap to configure. Inside, choose EdgeLoop or a funscript. Clear sits with the funscript you loaded.
+- **Funscript morphing stays folded.** It opens after a funscript is loaded, and closes again while a session is running. With no funscript, Tap to configure opens Play Style and Session Endgame.
+- **Stats Overlay sits on the video.** It is on, and it shows heart rate, edges, and both toys. A gold mark on a video with no funscript aims EdgeLoop at that time. The device row keeps every device showing.
+
 ## 1.1.4.11
 
 - **Devices are one row.** Heart rate, The Handy, Intiface, VacuGlide, and T-Code sit across the top, on the main page and on the Player.

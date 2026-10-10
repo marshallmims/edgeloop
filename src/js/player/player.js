@@ -723,8 +723,8 @@ export function createPlayer({
             btn.classList?.toggle('border-sky-400', on);
             btn.setAttribute?.('aria-pressed', on ? 'true' : 'false');
         };
-        if (els.primaryBtn) els.primaryBtn.textContent = hasPrimary ? 'Primary' : 'Primary script';
-        if (els.secondaryBtn) els.secondaryBtn.textContent = hasSecondary ? 'Secondary' : 'Secondary script';
+        if (els.primaryBtn) els.primaryBtn.textContent = hasPrimary && scriptFile ? scriptFile.name : 'Choose a funscript';
+        if (els.secondaryBtn) els.secondaryBtn.textContent = hasSecondary && secondaryFile ? secondaryFile.name : 'Choose a funscript';
         press(els.primaryBtn, hasPrimary && (heatmapView === 'primary' || heatmapView === 'both'));
         press(els.secondaryBtn, hasSecondary && (heatmapView === 'secondary' || heatmapView === 'both'));
         press(els.bothBtn, heatmapView === 'both');
@@ -1426,7 +1426,36 @@ export function createPlayer({
             return isAudible({ paused: video.paused, muted: video.muted, volume: Number(video.volume), hasAudio: hasAudio() });
         },
         script() {
-            return script ? { ...script } : null;
+            return script ? { ...script, name: scriptFile ? scriptFile.name : '' } : null;
+        },
+        nowMs() {
+            return mediaNowMs();
+        },
+        clearPrimary() {
+            const block = call(handlers, 'canChangeFiles');
+            if (typeof block === 'string' && block) {
+                setError(block);
+                return false;
+            }
+            clearScript('');
+            setError('');
+            renderPairing(pairFiles(picked));
+            renderPanel();
+            drawHeatmap();
+            return true;
+        },
+        clearSecondaryScript() {
+            const block = call(handlers, 'canChangeFiles');
+            if (typeof block === 'string' && block) {
+                setError(block);
+                return false;
+            }
+            clearSecondary('');
+            setError('');
+            renderPairing(pairFiles(picked));
+            renderPanel();
+            drawHeatmap();
+            return true;
         },
         secondary() {
             return secondary ? { ...secondary, name: secondaryFile ? secondaryFile.name : '' } : null;
