@@ -33,17 +33,17 @@
   {
     "id": "desktop",
     "label": "Desktop",
-    "kicker": "Later",
-    "version": "Soon",
+    "kicker": "Alpha",
+    "version": "2.0",
     "app": "",
     "appLabel": "",
-    "footer": "The desktop wiki is not written yet. Main is the live app. Dev is the player.",
+    "footer": "Desktop 2.0 is an experimental local app. It is not the live site.",
     "ready": false,
     "overrides": {
       "": {
-        "title": "Desktop",
-        "nav": "Desktop",
-        "description": "The desktop wiki is not written yet. Main and Dev are the pages that can be read today."
+        "title": "Desktop 2.0",
+        "nav": "Start here",
+        "description": "The experimental local app. It runs on this computer and follows a headset or VLC. It is not the live site."
       }
     }
   }

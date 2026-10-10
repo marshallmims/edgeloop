@@ -64,6 +64,22 @@
     "description": "An empty Bluetooth chooser, no skin contact, a held reading, a paused session, and a toy that will not move."
   },
   {
+    "slug": "run",
+    "file": "run.html",
+    "title": "Run the local app",
+    "nav": "Run the local app",
+    "section": "Desktop",
+    "description": "How to start the experimental Desktop 2.0 app on this computer, and how to stop it."
+  },
+  {
+    "slug": "clock",
+    "file": "clock.html",
+    "title": "Headset and VLC",
+    "nav": "Headset and VLC",
+    "section": "Desktop",
+    "description": "How Desktop 2.0 follows a HereSphere, DeoVR, or VLC clock, and how a folder of scripts is matched."
+  },
+  {
     "slug": "missing",
     "file": "404.html",
     "out": "404.html",

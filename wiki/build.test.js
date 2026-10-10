@@ -84,6 +84,13 @@ describe('wiki build', () => {
             assert.match(session, /is still <strong>1\.1\.3<\/strong>/);
             assert.match(mainSession, /stroke is the top row/);
             assert.match(mainSession, /href="\/dev\/session\/"/);
+            const desktop = readFileSync(join(outDir, 'desktop', 'index.html'), 'utf8');
+            const desktopRun = readFileSync(join(outDir, 'desktop', 'run', 'index.html'), 'utf8');
+            assert.match(desktop, /Desktop 2\.0/);
+            assert.match(desktop, /experimental/);
+            assert.match(desktopRun, /127\.0\.0\.1:8787/);
+            assert.match(desktopRun, /Node\.js 22/);
+            assert.equal(/download the installer|available on flathub/i.test(desktop + desktopRun), false);
             for (const html of [heart, bluetooth, control]) {
                 assert.equal(html.includes('±'), false, stripTags(html).slice(0, 80));
                 assert.equal(/percent accurate|clinically accurate/i.test(html), false);
