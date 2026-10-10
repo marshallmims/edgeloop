@@ -2784,16 +2784,30 @@ function renderModeDetail() {
     if (goalDetail) goalDetail.textContent = MODE_DETAILS[goal] || '';
     document.getElementById('trainSettings')?.classList.toggle('hidden', state.gameMode !== 'edgetrain');
     document.getElementById('nnnSettings')?.classList.toggle('hidden', state.gameMode !== 'nnn');
+    const choosingEnding = document.getElementById('endgameDrawer') && !document.getElementById('endgameDrawer').classList.contains('hidden');
+    // Tease, Survival, and Edge Training still end when the session timer
+    // runs out. The Oracle decides its own finish. NNN uses the denial
+    // percent on its own card.
+    const timerMatters = !state.gameMode || state.gameMode === 'survival' || state.gameMode === 'edgetrain';
+    document.getElementById('timerEnding')?.classList.toggle('hidden', choosingEnding || !timerMatters);
 }
 
 function setChoiceDrawer(drawerId, buttonId, open) {
     const drawer = document.getElementById(drawerId);
     const button = document.getElementById(buttonId);
+    const style = buttonId === 'playStyleToggle';
+    const prompt = document.getElementById(style ? 'playStylePrompt' : 'endgamePrompt');
+    const name = document.getElementById(style ? 'playStyleName' : 'endgameName');
+    const hint = document.getElementById(style ? 'playStyleHint' : 'endgameHint');
+    const detail = document.getElementById(style ? 'playStyleDetail' : 'endgameDetail');
     if (drawer) drawer.classList.toggle('hidden', !open);
-    if (button) {
-        button.setAttribute('aria-expanded', open ? 'true' : 'false');
-        button.textContent = open ? 'Close' : 'Change';
-    }
+    if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    prompt?.classList.toggle('hidden', !open);
+    name?.classList.toggle('hidden', open);
+    hint?.classList.toggle('hidden', open);
+    detail?.classList.toggle('hidden', open);
+    if (prompt && open) prompt.textContent = style ? 'Select your play style' : 'Select your ending';
+    if (!style) renderModeDetail();
 }
 
 document.getElementById('playStyleToggle')?.addEventListener('click', () => {

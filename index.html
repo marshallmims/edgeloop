@@ -606,11 +606,12 @@
           <div id="customCardsContainer" class="space-y-1.5 hidden"></div>
 
           <div class="space-y-1.5">
-            <div class="flex items-center justify-between gap-2">
-              <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Play Style</p>
-              <button id="playStyleToggle" type="button" aria-expanded="false" aria-controls="playStyleDrawer" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Change</button>
-            </div>
-            <p id="playStyleName" class="text-sm font-bold text-purple-300">Classic Tease</p>
+            <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Play Style</p>
+            <button id="playStyleToggle" type="button" aria-expanded="false" aria-controls="playStyleDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
+              <span id="playStylePrompt" class="hidden text-sm font-bold text-purple-200">Select your play style</span>
+              <span id="playStyleName" class="block text-sm font-bold text-purple-300">Classic Tease</span>
+              <span id="playStyleHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
+            </button>
             <p id="playStyleDetail" class="text-[10px] text-slate-300 leading-snug">Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks the stroke back up.</p>
           </div>
           <div id="playStyleDrawer" class="hidden space-y-1.5">
@@ -705,13 +706,14 @@
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div id="endgameHome">
           <div id="endgameBlock" class="space-y-1.5">
-            <div class="flex items-center justify-between gap-2">
-              <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Session Endgame</p>
-              <button id="endgameToggle" type="button" aria-expanded="false" aria-controls="endgameDrawer" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Change</button>
-            </div>
-            <p id="endgameName" class="text-sm font-bold text-purple-300">Tease</p>
+            <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Session Endgame</p>
+            <button id="endgameToggle" type="button" aria-expanded="false" aria-controls="endgameDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
+              <span id="endgamePrompt" class="hidden text-sm font-bold text-purple-200">Select your ending</span>
+              <span id="endgameName" class="block text-sm font-bold text-purple-300">Tease</span>
+              <span id="endgameHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
+            </button>
             <p id="endgameDetail" class="text-[10px] text-slate-300 leading-snug">No game. The stroke you picked runs on its own.</p>
-            <div class="pt-1.5 border-t border-slate-800 space-y-1.5">
+            <div id="timerEnding" class="pt-1.5 border-t border-slate-800 space-y-1.5">
               <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">When the timer runs out</span>
               <div class="grid grid-cols-3 gap-1.5" id="paramEndgameContainer">
                 <button type="button" data-endgame="orgasm" class="param-endgame-card p-1.5 rounded-lg bg-purple-950/30 border border-purple-800 text-left transition cursor-pointer">
@@ -836,7 +838,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.02</span>
+        <span id="appVersion" class="font-mono">v1.1.4.03</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

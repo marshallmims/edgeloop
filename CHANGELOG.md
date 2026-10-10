@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.03
+
+- **Select your play style, and select your ending.** Each one is a button. It shows the choice that is on, and says to tap it to change. Tap it and it asks you to pick. Tap the one you want and the list closes.
+- **The timer ending stays off The Oracle and NNN.** Climax, Soft Landing, and Strict Denial show for Tease, Survival, and Edge Training, which still end when the session timer runs out. The Oracle decides its own finish. NNN uses the denial percent on its card.
+
 ## 1.1.4.02
 
 - **The video keeps its own shape.** On a desktop or in landscape the picture is 16:9. In portrait it can be taller. The controls beside it no longer stretch the black box. Session Endgame stays on the main screen, in its own card, and Play Style stays off the Player.
