@@ -33,6 +33,7 @@ The heart-rate monitor, The Handy, Intiface, VacuGlide, and TCode stay in the ba
 * **Headset clock, reading.** HereSphere and DeoVR *host* the timestamp server (port 23554). ScriptPlayer connects to them. Follow headset does that: the bar shows the headset's file, time, and play or pause. The protocol is the DeoVR remote packet: 4 byte length, then JSON with `path`, `duration`, `currentTime`, `playbackSpeed`, and `playerState` (0 play, 1 pause, 2 finished).
 * **Headset clock, hosting.** Host a clock listens in that same format, so a tool that already follows DeoVR can follow a video playing here. While a video is open, this app publishes its playhead once a second.
 * **Television address.** Serve turns a file on this computer into `http://<this-machine>:17322/media/<token>/<file>.mp4`. A television that can open a link can play it. The toys follow the video in this app, not the television.
+* **Intiface on another device.** The Intiface address can be a tablet or phone next to you (`192.168.1.20`, or `ws://192.168.1.20:12345`). Start the server there. A phone or tablet already listens for other devices. Intiface on a computer needs Listen on all network interfaces. The website on https cannot open that address. This app can, because it is served from this computer. The address is remembered.
 
 ## What this is not, yet
 
