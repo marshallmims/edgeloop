@@ -97,6 +97,22 @@
     .hud-chrome {
       transition: opacity 0.25s ease;
     }
+    /* The native date glyph is a dark mark on this dark field. Force it
+       light and give it a 44 px target so a tablet and a mouse can hit it. */
+    .edgeloop-date {
+      color-scheme: dark;
+      min-height: 2.75rem;
+      min-width: 11rem;
+    }
+    .edgeloop-date::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 1;
+      width: 1.5rem;
+      height: 1.5rem;
+      padding: 0.6rem;
+      margin-inline-start: 0.25rem;
+      filter: brightness(0) invert(1);
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-2.5 sm:p-5 font-sans antialiased select-none flex flex-col justify-between">
@@ -773,35 +789,35 @@
               </div>
             </div>
             <div id="trainSettings" class="hidden">
-            <div class="flex flex-wrap items-center gap-2 text-[9px] text-slate-400">
-              <label class="flex items-center gap-1 font-mono">Hold
-                <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-12 bg-slate-950 border border-slate-700 rounded-md py-0.5 text-center text-amber-300 font-bold outline-none">
+            <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-300">
+              <label class="flex items-center gap-1.5">Hold
+                <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
                 s
               </label>
-              <label class="flex items-center gap-1 font-mono">
-                <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-10 bg-slate-950 border border-slate-700 rounded-md py-0.5 text-center text-amber-300 font-bold outline-none">
+              <label class="flex items-center gap-1.5">
+                <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
                 edges, then finish
               </label>
             </div>
             </div>
             <div id="nnnSettings" class="hidden">
-            <div class="flex flex-wrap items-center gap-2 text-[9px] text-slate-400">
-              <span id="nnnStatus" class="font-mono text-emerald-300">Today 0/3</span>
-              <label class="flex items-center gap-1 font-mono">Start
-                <input id="nnnStartInput" type="date" value="2026-10-08" class="bg-slate-950 border border-slate-700 rounded-md px-1 py-0.5 text-emerald-300 outline-none">
+            <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-300">
+              <span id="nnnStatus" class="font-mono text-[10px] font-bold text-emerald-300">Today 0/3</span>
+              <label class="flex items-center gap-1.5">Start
+                <input id="nnnStartInput" type="date" value="2026-10-08" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
-              <label class="flex items-center gap-1 font-mono">End
-                <input id="nnnEndInput" type="date" value="2026-11-30" class="bg-slate-950 border border-slate-700 rounded-md px-1 py-0.5 text-emerald-300 outline-none">
+              <label class="flex items-center gap-1.5">End
+                <input id="nnnEndInput" type="date" value="2026-11-30" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
-              <label class="flex items-center gap-1 font-mono">Edges/day
-                <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-10 bg-slate-950 border border-slate-700 rounded-md py-0.5 text-center text-emerald-300 font-bold outline-none">
+              <label class="flex items-center gap-1.5">Edges/day
+                <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
-              <label class="flex items-center gap-1 font-mono">Denial
-                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-12 bg-slate-950 border border-slate-700 rounded-md py-0.5 text-center text-emerald-300 font-bold outline-none">
+              <label class="flex items-center gap-1.5">Denial
+                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
                 %
               </label>
-              <button id="nnnMissedDayBtn" type="button" class="px-1.5 py-0.5 rounded-md bg-slate-950 border border-slate-700 text-slate-300 cursor-pointer">Add a missed day</button>
-              <button id="nnnClearBtn" type="button" class="px-1.5 py-0.5 rounded-md bg-slate-950 border border-slate-700 text-slate-300 cursor-pointer">Clear</button>
+              <button id="nnnMissedDayBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Add a missed day</button>
+              <button id="nnnClearBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Clear</button>
             </div>
             </div>
             <div id="endgameDrawer" class="hidden">
@@ -880,7 +896,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.04</span>
+        <span id="appVersion" class="font-mono">v1.1.4.05</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

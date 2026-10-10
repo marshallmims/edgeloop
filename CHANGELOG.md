@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.05
+
+- **The NNN dates are easier to hit.** The calendar mark is light and about 44 px, and the start, end, edges, denial, missed day, and clear controls match the other panels.
+
 ## 1.1.4.04
 
 - **Session Length is on the dashboard.** Fixed, Mystery, and Endless sit in their own panel. Session Setup keeps the warm-up.
