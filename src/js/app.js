@@ -6261,8 +6261,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             const line = document.getElementById('beatSyncRoute');
             if (line) {
                 line.textContent = beatToggle.checked
-                    ? 'Beat sync sends the next few seconds of script positions to The Handy. Firmware 4 or later. Intiface linear toys still follow the script point by point.'
-                    : 'Beat sync is off. The Handy follows the script’s rhythm (speed and depth). Intiface linear toys still follow each stroke.';
+                    ? 'On. With a funscript, the next few seconds of stroke positions go to The Handy. Firmware 4 or later.'
+                    : 'Off. The Handy follows speed and depth. It does not chase each stroke in a file.';
             }
         });
         beatToggle.dispatchEvent(new Event('change'));

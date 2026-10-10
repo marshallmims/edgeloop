@@ -467,5 +467,9 @@ describe('player markup', () => {
         assert.ok(stage < dock && dock < transport && transport < files && files < morph && morph < ramp);
         assert.match(html, /Tap to configure/);
         assert.match(html, /Stats Overlay/);
+        const handy = html.indexOf('id="modalBodyHandy"');
+        const beat = html.indexOf('id="beatSyncToggle"');
+        const filesEnd = html.indexOf('id="playerFiles"');
+        assert.ok(handy > 0 && handy < beat && beat > filesEnd);
     });
 });

@@ -497,15 +497,6 @@
               <span id="playerPhase" class="text-[10px] font-bold font-mono text-sky-300">IDLE</span>
             </div>
             <ul id="playerToyNotes" class="text-[10px] text-slate-400 leading-snug space-y-0.5"></ul>
-            <!-- The whole row is the switch's touch target, at least 44 px tall. -->
-            <label for="beatSyncToggle" class="flex items-center justify-between gap-3 pt-1.5 min-h-[44px] border-t border-slate-900 cursor-pointer">
-              <span class="text-[10px] text-slate-300 leading-snug"><strong>Beat sync on The Handy</strong> (firmware 4). On, each stroke goes through Handy's cloud. Off, The Handy follows the rhythm only. It asks once the first time you turn it on.</span>
-              <span class="relative inline-flex shrink-0">
-                <input id="beatSyncToggle" type="checkbox" class="sr-only peer">
-                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
-              </span>
-            </label>
-            <p id="beatSyncRoute" class="text-[10px] text-slate-400 leading-snug"></p>
           </div>
 
           <div id="playerEdgeLoopSettings" class="hidden space-y-2"></div>
@@ -1041,7 +1032,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.12</span>
+        <span id="appVersion" class="font-mono">v1.1.4.13</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1142,6 +1133,18 @@
               <span id="handyCapVal" class="font-bold font-mono text-amber-400">100%</span>
             </div>
             <input type="range" id="handyCapSlider" min="10" max="100" step="5" value="100" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded cursor-pointer">
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 space-y-1.5">
+            <label for="beatSyncToggle" class="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
+              <span class="text-xs font-bold text-slate-200">Beat sync</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="beatSyncToggle" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+            <p class="text-[10px] text-slate-400 leading-snug">Off, The Handy follows the speed and depth of the moment. On, with a funscript and firmware 4, it plays each stroke in the file. The next few seconds of positions go to Handy's servers. The video, the file name, and your heart rate stay on this device. Leave it off until you want that match. It asks once the first time you turn it on.</p>
+            <p id="beatSyncRoute" class="text-[10px] text-slate-300 leading-snug"></p>
           </div>
 
           <!-- Handy Physical Sleeve Travel Envelope (Moved from Motion tab) -->

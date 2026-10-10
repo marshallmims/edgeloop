@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.13
+
+- **Beat sync is in The Handy settings.** Open The Handy from the device row. Off, it follows speed and depth. On, with a funscript and firmware 4, it plays each stroke in the file. Leave it off until you want that match.
+
 ## 1.1.4.12
 
 - **Each channel starts on EdgeLoop.** Primary and Secondary say Tap to configure. Inside, choose EdgeLoop or a funscript. Clear sits with the funscript you loaded.
