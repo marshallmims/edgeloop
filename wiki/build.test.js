@@ -64,6 +64,14 @@ describe('wiki build', () => {
             assert.match(bluetooth, /iPad/);
             assert.match(control, /400 milliseconds/);
             assert.match(control, /180 milliseconds/);
+            const home = readFileSync(join(outDir, 'index.html'), 'utf8');
+            const session = readFileSync(join(outDir, 'session', 'index.html'), 'utf8');
+            assert.match(home, /1\.1\.3/);
+            assert.match(home, /1\.1\.4\.13/);
+            assert.match(home, /dev\.edgeloop\.app/);
+            assert.match(session, /Play Style/);
+            assert.match(session, /Beat sync/);
+            assert.match(session, /is still <strong>1\.1\.3<\/strong>/);
             for (const html of [heart, bluetooth, control]) {
                 assert.equal(html.includes('±'), false, stripTags(html).slice(0, 80));
                 assert.equal(/percent accurate|clinically accurate/i.test(html), false);

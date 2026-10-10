@@ -78,6 +78,8 @@
 
 <p>Install HeartCast or Echo and start the broadcast. Run EdgeLoop on a second device. Bluefy on the same iPhone that is running the broadcast app cannot see it. A chest strap paired in Bluefy skips the watch entirely, and it is the more regular signal when you have one.</p>
 
+<p>On 1.1.4.13, leaving or reloading the page drops the Bluetooth link. The next Scan reconnects a sensor this site already has permission for. If that link is stuck, the site forgets it and opens the chooser. You do not have to forget the device in the computer's Bluetooth list first. This is the path that lets HeartCast pair again after a refresh.</p>
+
 <h2>How often a new number arrives</h2>
 
 <p>EdgeLoop does not poll a heart-rate monitor. The monitor sends a notification when it has a measurement, and a usable measurement is applied as soon as it arrives. Usable means 35 to 250 BPM. A number under 35 is ignored. An empty packet does not become a heart rate of zero, and the toys do not fall on the strength of it.</p>
