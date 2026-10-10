@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.18
+
+- **Session Length sits under Start and Stop.** Closing Player leaves that panel in the left column, under the controls. Play Style and Session Endgame stay together on the right.
+
 ## 1.1.4.17
 
 - **The top row is split in half.** On Player, the picture and the file panel each take half the width, and the two cards meet at the same height.

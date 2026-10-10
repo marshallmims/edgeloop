@@ -55,9 +55,9 @@
       min-width: 7.5rem;
     }
     /* The picture and the controls share the left column on both screens.
-       The right column is the file panel while Player is open. Closing
-       Player hides the picture and puts Session Length, Play Style, and
-       Session Endgame in that file panel's place. */
+       Closing Player hides the picture and puts Session Length under those
+       controls. Play Style and Session Endgame stay in the right column,
+       where the file panel sits while Player is open. */
     #playerBody {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -68,6 +68,7 @@
     #sideColumn {
       display: flex;
       flex-direction: column;
+      gap: 0.75rem;
       min-width: 0;
       min-height: 0;
     }
@@ -96,7 +97,8 @@
       display: none !important;
     }
     #playerBody[data-player="off"] #playerFiles,
-    #playerBody[data-player="on"] #sessionBundle {
+    #playerBody[data-player="on"] #sessionBundle,
+    #playerBody[data-player="on"] #sessionLengthPanel {
       display: none !important;
     }
     #sessionBundle {
@@ -107,7 +109,6 @@
     #sessionBundle #sessionSetupHome {
       display: contents;
     }
-    #sessionBundle #sessionLengthPanel,
     #sessionBundle #playStylePanel,
     #sessionBundle #endgamePanel {
       background: transparent;
@@ -116,18 +117,17 @@
       padding: 0;
       box-shadow: none;
     }
-    #sessionBundle #playStylePanel,
     #sessionBundle #endgamePanel {
       padding-top: 0.5rem;
       border-top: 1px solid rgb(30 41 59);
     }
-    /* The closed card is the three choices, not the essays under them. */
+    /* The closed cards are the choices, not the essays under them. */
     #sessionBundle {
       gap: 0.5rem;
     }
     #sessionBundle #playStyleDetail,
     #sessionBundle #endgameDetail,
-    #sessionBundle #sessionLengthPanel > p {
+    #sessionLengthPanel > p {
       display: none !important;
     }
     #sessionBundle #playStyleToggle,
@@ -506,6 +506,38 @@
             <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Green is a pause, red is fast. A marked climax uses Pre-Climax Ramp Up, then Climax Duration, then Post Climax Ramp Down. Marks for this script stay on this device.</p>
           </div>
           </div>
+        
+          <div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Length</span>
+              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
+                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
+                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
+                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
+              </div>
+            </div>
+            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Exact length:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
+            </div>
+            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Mystery window:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">to</span>
+                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
+            </div>
+            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Endless:</span>
+              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
+            </div>
+            <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
+        </div>
         </div>
 
         
@@ -667,37 +699,7 @@
           </div>
         </div>
           <div id="sessionBundle" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 min-w-0">
-<div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Length</span>
-              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
-                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
-                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
-                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
-              </div>
-            </div>
-            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Exact length:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Mystery window:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">to</span>
-                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Endless:</span>
-              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
-            </div>
-            <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
-        </div>
+
 <div id="sessionSetupHome" class="space-y-3">
         <div id="playStylePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div id="customCardsContainer" class="space-y-1.5 hidden"></div>
@@ -1113,7 +1115,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.17</span>
+        <span id="appVersion" class="font-mono">v1.1.4.18</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

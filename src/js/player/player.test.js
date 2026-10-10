@@ -470,8 +470,8 @@ describe('player markup', () => {
         const length = html.indexOf('id="sessionLengthPanel"');
         const style = html.indexOf('id="playStylePanel"');
         const endgame = html.indexOf('id="endgamePanel"');
-        assert.ok(dock < playBtn && playBtn < files);
-        assert.ok(files < bundle && bundle < length && length < style && style < endgame);
+        assert.ok(dock < playBtn && playBtn < length && length < files);
+        assert.ok(files < bundle && bundle < style && style < endgame);
         assert.match(html, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/);
         assert.match(html, /#playerBody\[data-player="off"\] #playerPicture/);
         assert.match(html, /id="playerBody" data-player="off"/);
