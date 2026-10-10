@@ -657,19 +657,16 @@
               <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
-            <div class="pt-1.5 border-t border-slate-800 space-y-1.5">
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-[10px] font-bold text-slate-200">Warm-up</span>
-                <span class="flex items-center gap-2">
-                  <span id="warmupValDisplay" class="font-mono text-[10px] font-bold text-amber-400">5 min</span>
-                  <label class="relative inline-flex items-center min-h-[2.75rem] cursor-pointer">
-                    <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
-                    <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
-                  </label>
-                </span>
+            <div class="flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Warm-up:</span>
+              <div class="flex items-center gap-2 font-mono">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
+                  <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
+                </label>
+                <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
               </div>
-              <input id="warmupInput" type="range" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
-              <p class="text-[9px] text-slate-400 leading-snug">Off, the stroke starts at full range. On, it stays in the lower half and opens over the minutes you set.</p>
             </div>
         </div>
 
@@ -910,7 +907,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.06</span>
+        <span id="appVersion" class="font-mono">v1.1.4.07</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

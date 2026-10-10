@@ -3710,14 +3710,12 @@ function paintWarmup() {
     const enabled = advancedSettings.warmupEnabled !== false && minutes > 0;
     const toggle = document.getElementById('warmupToggle');
     const input = document.getElementById('warmupInput');
-    const disp = document.getElementById('warmupValDisplay');
     if (toggle) toggle.checked = enabled;
     if (input) {
-        input.value = String(minutes);
+        if (document.activeElement !== input) input.value = String(minutes);
         input.disabled = !enabled;
         input.classList.toggle('opacity-40', !enabled);
     }
-    if (disp) disp.textContent = enabled ? `${minutes} min` : 'Off';
 }
 
 function commitWarmup() {
@@ -3735,7 +3733,7 @@ document.getElementById('warmupToggle')?.addEventListener('change', (e) => {
     if (on && !(Number(advancedSettings.warmupMinutes) > 0)) advancedSettings.warmupMinutes = 5;
     commitWarmup();
 });
-document.getElementById('warmupInput')?.addEventListener('input', (e) => {
+document.getElementById('warmupInput')?.addEventListener('change', (e) => {
     if (isRemotePage) return;
     const minutes = Math.max(0, Math.min(10, parseInt(e.target.value, 10) || 0));
     advancedSettings.warmupMinutes = minutes;
