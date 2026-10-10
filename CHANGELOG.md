@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.16
+
+- **The controls stay in the left column.** Start, Stop, edges, pauses, Came Early, and Force Orgasm sit under the picture, the same width as that picture. Closing Player hides the picture and leaves that panel. Session Length, Play Style, and Session Endgame take the file panel’s place as one card. Theater, fullscreen, and the scrub bar come back with the picture.
+
 ## 1.1.4.15
 
 - **The main page uses the Player layout.** Heart rate, both channels, and intensity stay wide. Start, Stop, edges, pauses, Came Early, and Force Orgasm sit in that same row on both screens. Player adds the picture above that menu, and the file panel takes Session Length’s place. Theater, fullscreen, and the scrub bar are put away.

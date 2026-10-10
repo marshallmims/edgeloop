@@ -465,6 +465,18 @@ describe('player markup', () => {
         const ramp = html.indexOf('id="scriptClimaxRampSeconds"');
         assert.ok(device > 0 && device < player && player < stage);
         assert.ok(stage < dock && dock < transport && transport < files && files < morph && morph < ramp);
+        const playBtn = html.indexOf('id="sessionPlayPauseBtn"');
+        const bundle = html.indexOf('id="sessionBundle"');
+        const length = html.indexOf('id="sessionLengthPanel"');
+        const style = html.indexOf('id="playStylePanel"');
+        const endgame = html.indexOf('id="endgamePanel"');
+        assert.ok(dock < playBtn && playBtn < files);
+        assert.ok(files < bundle && bundle < length && length < style && style < endgame);
+        assert.match(html, /grid-template-columns:\s*minmax\(0,\s*7fr\)\s*minmax\(0,\s*5fr\)/);
+        assert.match(html, /#playerBody\[data-player="off"\] #playerPicture/);
+        assert.match(html, /id="playerBody" data-player="off"/);
+        assert.doesNotMatch(html, /id="playerTheaterBtn" hidden/);
+        assert.doesNotMatch(html, /id="playerScrub" hidden/);
         assert.match(html, /Tap to configure/);
         assert.match(html, /Stats Overlay/);
         const handy = html.indexOf('id="modalBodyHandy"');

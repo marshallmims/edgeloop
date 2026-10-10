@@ -647,10 +647,19 @@ function paintPlayerChannels() {
 }
 
 function placeSessionSetup(inPlayer) {
+    const body = document.getElementById('playerBody');
+    if (body) body.dataset.player = inPlayer ? 'on' : 'off';
+    document.getElementById('playerFiles')?.classList.remove('hidden');
     document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', inPlayer);
-    document.getElementById('playerFiles')?.classList.toggle('hidden', !inPlayer);
-    document.getElementById('playStylePanel')?.classList.remove('hidden');
-    document.getElementById('endgamePanel')?.classList.remove('hidden');
+    const slot = document.getElementById('playerEdgeLoopSettings');
+    const home = document.getElementById('sessionSetupHome');
+    const play = document.getElementById('playStylePanel');
+    const end = document.getElementById('endgamePanel');
+    const target = inPlayer && slot ? slot : home;
+    if (play && target && play.parentElement !== target) target.appendChild(play);
+    if (end && target && end.parentElement !== target) target.appendChild(end);
+    play?.classList.remove('hidden');
+    end?.classList.remove('hidden');
 }
 
 function layoutDeviceCards() {
@@ -6145,10 +6154,11 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         const section = document.getElementById('playerSection');
         const body = document.getElementById('playerBody');
         const header = document.getElementById('playerHeaderBtn');
-        if (!section) return;
-        const open = typeof force === 'boolean' ? force : section.classList.contains('hidden');
-        section.classList.toggle('hidden', !open);
-        if (open) body?.classList.remove('hidden');
+        if (!section || !body) return;
+        const open = typeof force === 'boolean' ? force : body.dataset.player !== 'on';
+        section.classList.remove('hidden');
+        body.classList.remove('hidden');
+        if (!open && player && typeof player.leaveImmersive === 'function') player.leaveImmersive();
         header?.setAttribute('aria-expanded', open ? 'true' : 'false');
         placeSessionSetup(open);
         if (!open) channelConfig = null;
