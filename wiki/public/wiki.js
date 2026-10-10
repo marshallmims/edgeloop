@@ -4,7 +4,8 @@ const toggle = document.querySelector('.nav-toggle');
 let index = [];
 let active = -1;
 
-fetch('/search.json')
+const searchUrl = document.body?.dataset.search || '/search.json';
+fetch(searchUrl)
     .then((response) => response.json())
     .then((data) => { index = data; })
     .catch(() => { index = []; });

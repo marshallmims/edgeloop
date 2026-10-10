@@ -59,14 +59,77 @@ a:hover { color: white; }
 .top {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 0.85rem 1.25rem;
+  padding: 0.85rem 1.25rem 0.7rem;
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
   background: rgba(2, 6, 23, 0.92);
   backdrop-filter: blur(10px);
   z-index: 4;
+}
+
+.editions {
+  flex: 1 0 100%;
+  display: flex;
+  gap: 0.45rem;
+  margin: 0.1rem 0 0;
+}
+.edition {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--text);
+  text-decoration: none;
+}
+.edition:hover { border-color: var(--rose); color: white; }
+.edition[aria-current="page"] {
+  border-color: var(--rose);
+  background: rgba(244, 63, 94, 0.12);
+}
+.edition-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--rose);
+  background: rgba(244, 63, 94, 0.28);
+  flex: 0 0 auto;
+}
+.edition[aria-current="page"] .edition-dot { background: var(--rose); }
+.edition-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.edition-kicker {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.edition-name {
+  font-size: 0.88rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edition-meta {
+  margin-left: auto;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .brand {
@@ -174,7 +237,7 @@ a:hover { color: white; }
 }
 .shell.no-toc { grid-template-columns: 16rem minmax(0, 42rem); }
 
-#site-nav { position: sticky; top: 5rem; }
+#site-nav { position: sticky; top: 8.25rem; }
 #content { min-width: 0; }
 
 .shell:not(.no-toc) #content {
@@ -188,7 +251,7 @@ a:hover { color: white; }
   grid-column: 2;
   grid-row: 1 / span 200;
   position: sticky;
-  top: 5rem;
+  top: 8.25rem;
   align-self: start;
   max-height: calc(100vh - 6.5rem);
   overflow: auto;
@@ -251,12 +314,12 @@ h2 {
   font-size: 1.35rem;
   line-height: 1.25;
   margin: 2.2rem 0 0.6rem;
-  scroll-margin-top: 5rem;
+  scroll-margin-top: 8.25rem;
 }
 h3 {
   font-size: 1.05rem;
   margin: 1.5rem 0 0.4rem;
-  scroll-margin-top: 5rem;
+  scroll-margin-top: 8.25rem;
   color: white;
 }
 p { margin: 0.75rem 0; }

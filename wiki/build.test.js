@@ -21,24 +21,33 @@ describe('wiki build', () => {
         try {
             const { pages, search } = buildSite({ outDir });
             const byPath = new Map(pages.map((page) => [page.path, page]));
-            assert.ok(byPath.has('/'));
-            assert.ok(byPath.has('/bluetooth/'));
-            assert.ok(byPath.has('/heart-rate/'));
+            assert.ok(byPath.has('/dev/'));
+            assert.ok(byPath.has('/main/'));
+            assert.ok(byPath.has('/desktop/'));
+            assert.ok(byPath.has('/dev/bluetooth/'));
+            assert.ok(byPath.has('/main/heart-rate/'));
             assert.equal(readFileSync(join(outDir, '404.html'), 'utf8').includes('That page is not on the wiki'), true);
+            const redirects = readFileSync(join(outDir, '_redirects'), 'utf8');
+            assert.match(redirects, /^\/ \/dev\/ 302$/m);
+            assert.match(redirects, /^\/session\/ \/dev\/session\/ 302$/m);
 
             for (const page of pages) {
                 const html = readFileSync(join(outDir, page.file), 'utf8');
                 if (!page.nav) continue;
                 assert.match(html, new RegExp(`<title>[^<]*${page.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
                 assert.match(html, /aria-current="page"/);
+                assert.match(html, /class="edition"/);
+                assert.match(html, />Main</);
+                assert.match(html, />Dev</);
+                assert.match(html, />Desktop</);
                 for (const other of pages) {
-                    if (!other.nav) continue;
+                    if (!other.nav || other.edition !== page.edition) continue;
                     assert.match(html, new RegExp(`href="${other.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
                 }
                 for (const match of html.matchAll(/href="(\/[^"]*)"/g)) {
                     const path = match[1].split('#')[0];
                     if (path === '/icon.svg' || path === '/wiki.css' || path === '/wiki.js' || path === '/search.json') continue;
-                    assert.ok(byPath.has(path), `${page.path} links to ${match[1]}`);
+                    assert.ok(byPath.has(path) || path === '/404.html', `${page.path} links to ${match[1]}`);
                 }
             }
 
@@ -52,9 +61,9 @@ describe('wiki build', () => {
                 assert.equal(hit.text, hit.text.toLowerCase());
             }
 
-            const heart = readFileSync(join(outDir, 'heart-rate', 'index.html'), 'utf8');
-            const bluetooth = readFileSync(join(outDir, 'bluetooth', 'index.html'), 'utf8');
-            const control = readFileSync(join(outDir, 'control', 'index.html'), 'utf8');
+            const heart = readFileSync(join(outDir, 'dev', 'heart-rate', 'index.html'), 'utf8');
+            const bluetooth = readFileSync(join(outDir, 'dev', 'bluetooth', 'index.html'), 'utf8');
+            const control = readFileSync(join(outDir, 'dev', 'control', 'index.html'), 'utf8');
             assert.match(heart, /0x180D/);
             assert.match(heart, /Polar H10/);
             assert.match(heart, /GloryFit/);
@@ -64,14 +73,17 @@ describe('wiki build', () => {
             assert.match(bluetooth, /iPad/);
             assert.match(control, /400 milliseconds/);
             assert.match(control, /180 milliseconds/);
-            const home = readFileSync(join(outDir, 'index.html'), 'utf8');
-            const session = readFileSync(join(outDir, 'session', 'index.html'), 'utf8');
+            const home = readFileSync(join(outDir, 'dev', 'index.html'), 'utf8');
+            const session = readFileSync(join(outDir, 'dev', 'session', 'index.html'), 'utf8');
+            const mainSession = readFileSync(join(outDir, 'main', 'session', 'index.html'), 'utf8');
             assert.match(home, /1\.1\.3/);
             assert.match(home, /1\.1\.4\.13/);
             assert.match(home, /dev\.edgeloop\.app/);
             assert.match(session, /Play Style/);
             assert.match(session, /Beat sync/);
             assert.match(session, /is still <strong>1\.1\.3<\/strong>/);
+            assert.match(mainSession, /stroke is the top row/);
+            assert.match(mainSession, /href="\/dev\/session\/"/);
             for (const html of [heart, bluetooth, control]) {
                 assert.equal(html.includes('±'), false, stripTags(html).slice(0, 80));
                 assert.equal(/percent accurate|clinically accurate/i.test(html), false);

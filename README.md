@@ -307,7 +307,7 @@ If you find a bug, want to add a device driver, or want to tweak the math, contr
 
 **Live Web App:** [https://edgeloop.app](https://edgeloop.app)
 
-**User pages:** [https://wiki.edgeloop.app](https://wiki.edgeloop.app) — Bluetooth on each platform, heart-rate monitors, connecting a toy, and how a session is used. 1.1.3 is the live release. The usage pages describe 1.1.4.13 on dev.edgeloop.app. The footer of the app links there. A push to `dev` or `main` publishes it, the same Cloudflare token as [dev.edgeloop.app](https://dev.edgeloop.app).
+**User pages:** [https://wiki.edgeloop.app](https://wiki.edgeloop.app) — one site, with Main, Dev, and Desktop across the top. Main is the live 1.1.3 app. Dev is 1.1.4.13 on dev.edgeloop.app. Desktop is reserved. The footer of the app links there. A push to `dev` or `main` publishes it, the same Cloudflare token as [dev.edgeloop.app](https://dev.edgeloop.app).
 
 **Discord:** [https://discord.gg/ZFrkehxAC](https://discord.gg/ZFrkehxAC) — questions, device reports, and support.
 
