@@ -1,0 +1,46 @@
+<p class="lede">The local app follows a clock it does not own. HereSphere or DeoVR plays the video in the headset. VLC can play it on this computer instead. EdgeLoop reads the playhead and runs the toys from your pulse.</p>
+
+<div class="note">
+  <p>The card is in the Player, under Player clock. It is on this local page only. Connect still needs a heart-rate monitor and a toy. The status line says the player only supplies the time.</p>
+</div>
+
+<h2>A headset</h2>
+
+<ol>
+  <li>Start the local app and leave the window open. <a href="/run/">Run the local app</a>.</li>
+  <li>In HereSphere or DeoVR, turn on the timestamp server. Port 23554 is the usual one.</li>
+  <li>On the Player clock card, leave the player on Headset. Type the headset address, such as <code>192.168.1.20</code>, and the port. Press Connect.</li>
+</ol>
+
+<p>The headset is the server. This app connects to it. Both speak the DeoVR remote protocol: a length, then a short JSON report of the playhead. The app asks once a second and pushes the time into the page about five times a second.</p>
+
+<p>Nothing listening at that address means the timestamp server is off, or the address is wrong. The status line says so. The video can stay on the headset. The scripts stay in a folder on this computer.</p>
+
+<h2>VLC, instead of a headset</h2>
+
+<ol>
+  <li>In VLC, open Preferences, Show All, Interface, Main interfaces, and turn on Web.</li>
+  <li>Under Interface, Main interfaces, Lua, set an HTTP password if you want one. Leave the password on the card empty when VLC has none.</li>
+  <li>On the card, choose VLC. The address is usually <code>127.0.0.1</code> and the port is 8080. Press Connect.</li>
+  <li>Play a file whose name matches a script in the folder.</li>
+</ol>
+
+<p>The app asks VLC for its status about every 400 milliseconds, through VLC's web interface. A refused password, a web interface that is off, or a port other than the one VLC is using shows on the status line. The usual miss is the web interface still being off.</p>
+
+<h2>The folder</h2>
+
+<p>Type a folder path and apply it. The app walks that folder for videos and <code>.funscript</code> files. It skips names that start with a dot, and it skips <code>node_modules</code>, <code>.git</code>, <code>$RECYCLE.BIN</code>, and <code>System Volume Information</code>. It stops at 8000 files.</p>
+
+<p>Matching is the file name, not the folder. <code>Movie.mp4</code> on the headset pairs with <code>Movie.funscript</code> in the folder. <code>Movie.v0.funscript</code> is the secondary toy. <code>Movie.vib.funscript</code> is that same secondary channel under the older name. The comparison ignores case. If the video name has no script, the status says there is no script with that name in the folder.</p>
+
+<p>The video itself is not copied onto this computer when the headset is playing it. The app reads the script text out of the folder and hands it to the page.</p>
+
+<h2>What this computer remembers</h2>
+
+<p>The headset address, the port, whether you last used Headset or VLC, the VLC password, and the folder path are written to <code>app/app-state.json</code> next to the program. A copy of the project keeps its own file. The VLC password is in that file, in the clear, on this computer. The website never sees it.</p>
+
+<p>The next start reconnects to the last player and reopens the last folder, when that folder is still there.</p>
+
+<h2>Then start the session</h2>
+
+<p>The clock being connected does not start the toys. Connect a heart-rate monitor and a toy, then press Play, the same as on <a href="/dev/session/">Dev</a>. Beat sync, Funscript morphing, and the travel range are that player's settings. This app does not add a second set.</p>

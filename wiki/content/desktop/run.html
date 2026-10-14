@@ -1,0 +1,36 @@
+<p class="lede">The program is a small server on this computer. It opens the EdgeLoop page in your browser and stays running in a terminal window. Closing that window stops it.</p>
+
+<h2>What you need</h2>
+
+<ul>
+  <li>A copy of the EdgeLoop project on Windows, Mac, or Linux.</li>
+  <li>Node.js 22 or newer. <code>node -v</code> should print a version that starts with 22.</li>
+  <li>Chrome or Edge, which is what the page already requires for Bluetooth and for a T-Code cable.</li>
+</ul>
+
+<h2>Start it</h2>
+
+<p>From the project folder:</p>
+
+<ul>
+  <li>Mac or Linux: <code>sh app/start.sh</code></li>
+  <li>Windows: <code>app\start.bat</code></li>
+  <li>Any of the three: <code>node app/host.mjs</code></li>
+</ul>
+
+<p>The window prints <code>EdgeLoop app: http://127.0.0.1:8787/</code> and opens that address. Leave the window open while you play. It listens only on this computer, for its own page. The default port is 8787. <code>EDGELOOP_PORT</code> changes it, if you set that before you start.</p>
+
+<p>The Player clock card, the one labeled Player clock, appears only on this page. The same card stays hidden on edgeloop.app and on dev.edgeloop.app, because those sites have no local program behind them.</p>
+
+<h2>Stop it</h2>
+
+<p>Quit, on the Player clock card, closes the program. Closing the terminal does the same thing. Either one drops the headset or VLC connection. The toys are still stopped by Stop in the page, the same as Dev. Quit is the program, not the session.</p>
+
+<h2>Building a copy</h2>
+
+<p>Two build files live in the project for people packing it themselves. Neither is a download on the wiki.</p>
+
+<ul>
+  <li>A Flatpak manifest, <code>packaging/flatpak/app.edgeloop.App.yml</code>. It is not a Flathub listing.</li>
+  <li><code>node packaging/pack-portable.mjs</code> writes zip folders under <code>dist/</code> that carry their own Node, one for Linux x64 and one for Windows x64. Those zips are not published here.</li>
+</ul>

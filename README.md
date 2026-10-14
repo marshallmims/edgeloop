@@ -207,6 +207,8 @@ edgeloop/
 ├── package.json                # npm test / npm run smoke / npm start; no dependencies
 ├── sw.js                       # Service worker: network-first with cache fallback for offline use
 ├── wrangler.jsonc              # Cloudflare Workers static asset deployment configuration
+├── wrangler.wiki.jsonc         # Separate Worker for wiki.edgeloop.app (build wiki/dist first)
+├── wiki/                       # User pages: source fragments, builder, and the check that links resolve
 ├── tools/
 │   └── smoke.js                # Headless-Chromium smoke test of the real UI (needs Playwright, see Development)
 └── src/
@@ -304,6 +306,8 @@ If you find a bug, want to add a device driver, or want to tweak the math, contr
 3. **Review & Automatic Deployment:** Incoming PRs allow us to compare code line-by-line before approving them, and the test workflow runs on every PR. Once merged into the main branch, Cloudflare automatically compiles the update and deploys it live to `edgeloop.app` within ~30 seconds.
 
 **Live Web App:** [https://edgeloop.app](https://edgeloop.app)
+
+**User pages:** [https://wiki.edgeloop.app](https://wiki.edgeloop.app) — one site, with Main, Dev, and Desktop across the top. Main is the live 1.1.3 app. Dev is 1.1.4.13 on dev.edgeloop.app. Desktop is the experimental 2.0 local app. The footer of the app links there. A push to `dev` or `main` publishes it, the same Cloudflare token as [dev.edgeloop.app](https://dev.edgeloop.app).
 
 **Discord:** [https://discord.gg/ZFrkehxAC](https://discord.gg/ZFrkehxAC) — questions, device reports, and support.
 

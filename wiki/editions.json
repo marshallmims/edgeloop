@@ -1,0 +1,50 @@
+[
+  {
+    "id": "main",
+    "label": "Main",
+    "kicker": "Live",
+    "version": "1.1.3",
+    "app": "https://edgeloop.app",
+    "appLabel": "Open edgeloop.app",
+    "footer": "These pages describe EdgeLoop 1.1.3, the live release on edgeloop.app.",
+    "ready": true,
+    "overrides": {
+      "": {
+        "description": "User pages for EdgeLoop 1.1.3, the live release on edgeloop.app."
+      },
+      "session": {
+        "title": "How a session is decided",
+        "nav": "How a session is decided",
+        "description": "Single and dual max, calibration, strokes, goals, guards, and what the live 1.1.3 app remembers."
+      }
+    }
+  },
+  {
+    "id": "dev",
+    "label": "Dev",
+    "kicker": "Player",
+    "version": "1.1.4.13",
+    "app": "https://dev.edgeloop.app",
+    "appLabel": "Open dev.edgeloop.app",
+    "footer": "These pages describe EdgeLoop 1.1.4.13 on dev.edgeloop.app.",
+    "ready": true,
+    "default": true
+  },
+  {
+    "id": "desktop",
+    "label": "Desktop",
+    "kicker": "Alpha",
+    "version": "2.0",
+    "app": "",
+    "appLabel": "",
+    "footer": "Desktop 2.0 is an experimental local app. It is not the live site.",
+    "ready": false,
+    "overrides": {
+      "": {
+        "title": "Desktop 2.0",
+        "nav": "Start here",
+        "description": "The experimental local app. It runs on this computer and follows a headset or VLC. It is not the live site."
+      }
+    }
+  }
+]
