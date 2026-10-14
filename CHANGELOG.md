@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.20
+
+- **NNN practice is easier to read.** The day's edge count, the dates, and the numbers are larger. Edge Training and Session Length use that same size. Nothing moved.
+
 ## 1.1.4.19
 
 - **Simple Ramp is the plain stroke.** Speed starts high and ramps down as your pulse climbs, and the strokes stay the full length you set. It is the play style that was called Primary Ease.

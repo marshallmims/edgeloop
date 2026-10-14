@@ -522,32 +522,32 @@
         
           <div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
             <div class="flex justify-between items-center">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Length</span>
-              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Session Length</span>
+              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs font-bold">
                 <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
                 <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
                 <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
               </div>
             </div>
             <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Exact length:</span>
+              <span class="text-slate-400 text-xs">Exact length:</span>
               <div class="flex items-center gap-1 font-mono">
-                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 text-sm font-bold">
                 <span class="text-slate-500 text-xs">min</span>
               </div>
             </div>
             <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Mystery window:</span>
+              <span class="text-slate-400 text-xs">Mystery window:</span>
               <div class="flex items-center gap-1 font-mono">
-                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 text-sm font-bold">
                 <span class="text-slate-500 text-xs">to</span>
-                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 text-sm font-bold">
                 <span class="text-slate-500 text-xs">min</span>
               </div>
             </div>
             <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Endless:</span>
-              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
+              <span class="text-slate-400 text-xs">Endless:</span>
+              <span class="text-purple-400 font-mono text-xs font-semibold">Runs until you stop it</span>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
         </div>
@@ -843,35 +843,35 @@
               </div>
             </div>
             <div id="trainSettings" class="hidden">
-            <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-300">
+            <div class="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-300">
               <label class="flex items-center gap-1.5">Hold
-                <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
+                <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
                 s
               </label>
               <label class="flex items-center gap-1.5">
-                <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
+                <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
                 edges, then finish
               </label>
             </div>
             </div>
             <div id="nnnSettings" class="hidden">
-            <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-300">
-              <span id="nnnStatus" class="font-mono text-[10px] font-bold text-emerald-300">Today 0/3</span>
+            <div class="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-200">
+              <span id="nnnStatus" class="font-mono text-base font-bold text-emerald-300">Today 0/3</span>
               <label class="flex items-center gap-1.5">Start
-                <input id="nnnStartInput" type="date" value="2026-10-08" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnStartInput" type="date" value="2026-10-08" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
               <label class="flex items-center gap-1.5">End
-                <input id="nnnEndInput" type="date" value="2026-11-30" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnEndInput" type="date" value="2026-11-30" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
               <label class="flex items-center gap-1.5">Edges/day
-                <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
               <label class="flex items-center gap-1.5">Denial
-                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
                 %
               </label>
-              <button id="nnnMissedDayBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Add a missed day</button>
-              <button id="nnnClearBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Clear</button>
+              <button id="nnnMissedDayBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold text-slate-200 cursor-pointer">Add a missed day</button>
+              <button id="nnnClearBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold text-slate-200 cursor-pointer">Clear</button>
             </div>
             </div>
             <div id="endgameDrawer" class="hidden space-y-1.5">
@@ -1126,7 +1126,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.19</span>
+        <span id="appVersion" class="font-mono">v1.1.4.20</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
