@@ -68,6 +68,19 @@ const EDGE_BOOKS = Object.freeze({
         Object.freeze({ kind: 'fast', len: 5 }),
         Object.freeze({ kind: 'rest', len: 1 }),
         Object.freeze({ kind: 'climb', len: 3 })
+    ]),
+    // Short dips that stay in the top of the band, then a longer stretch
+    // that still is not a finish. The dip is one second so the pulse does
+    // not have to fall down the whole range before the stroke comes back.
+    bratty: Object.freeze([
+        Object.freeze({ kind: 'fast', len: 5 }),
+        Object.freeze({ kind: 'dip', len: 1 }),
+        Object.freeze({ kind: 'fast', len: 4 }),
+        Object.freeze({ kind: 'dip', len: 1 }),
+        Object.freeze({ kind: 'fast', len: 3 }),
+        Object.freeze({ kind: 'dip', len: 1 }),
+        Object.freeze({ kind: 'go', len: 6 }),
+        Object.freeze({ kind: 'dip', len: 1 })
     ])
 });
 
@@ -89,6 +102,13 @@ function phraseSpeed(phrase, beat, fastFloor) {
     if (phrase.kind === 'rest') return 0;
     if (phrase.kind === 'climb') return roundPct(32 + 48 * phrase.along);
     return roundPct(fastFloor + (96 - fastFloor) * beat.speed);
+}
+
+// A dip stays fast enough that the next stroke is not a climb from a stop.
+function brattySpeed(phrase, beat) {
+    if (phrase.kind === 'dip') return 34;
+    if (phrase.kind === 'go') return roundPct(90 + 8 * beat.speed);
+    return roundPct(80 + 16 * beat.speed);
 }
 
 export function motion(seconds, salt = 0, nearness = 0) {
@@ -288,6 +308,29 @@ export function teaseFrame({
         else if (stroker && stroker.kind === 'fast') depth = Math.min(depth, 0.38);
         else if (stroker && stroker.kind === 'climb') depth = Math.min(1, 0.45 + 0.4 * stroker.along);
         else if (stroker) depth = Math.min(depth, 0.45);
+        const stroke = placeStroke(0, 100, depth, 'low');
+        return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
+    }
+
+    if (mode === 'bratty') {
+        // The climb is Ultimate Milker's. Close to the mark it does not
+        // stop and climb back from a crawl: a one-second dip, then the
+        // fast stroke again, and a longer stretch that still dips after.
+        // At the ceiling that pattern keeps going.
+        const chapter = sensor < 0.45 ? 0 : sensor < CLOSE_START ? 1 : 2;
+        const beat = motion(seconds, 4 + chapter * 3.7, sensor);
+        const phrase = chapter === 2 ? edgePhrase(seconds, EDGE_BOOKS.bratty) : null;
+        const basePrimary = (1 - shaped) * 100;
+        const baseSecondary = 20 + climb * 70;
+        const primary = phrase ? brattySpeed(phrase, beat) : roundPct(basePrimary * beat.speed);
+        let secondary = roundPct(baseSecondary * beat.secondary);
+        if (phrase && phrase.kind === 'dip') secondary = roundPct(Math.max(40, secondary * 0.75));
+        else if (phrase && phrase.kind === 'go') secondary = roundPct(Math.max(secondary, 78));
+        let depth = beat.depth;
+        if (chapter === 0) depth = Math.max(depth, 0.82);
+        else if (phrase && phrase.kind === 'fast') depth = Math.min(depth, 0.5);
+        else if (phrase && phrase.kind === 'dip') depth = Math.max(depth, 0.7);
+        else if (phrase && phrase.kind === 'go') depth = 1;
         const stroke = placeStroke(0, 100, depth, 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }

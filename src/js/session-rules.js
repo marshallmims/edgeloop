@@ -670,7 +670,7 @@ export function describeStallPauseNotice({ mode, ceilingBehaviour } = {}) {
     // and the "At the ceiling" setting does not govern it either - so this
     // is asked BEFORE the Full Stop rule, which would otherwise promise a
     // 0% that Survival is not going to give.
-    if (mode === 'survival' || mode === 'calibrate') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
+    if (mode === 'survival' || mode === 'calibrate' || mode === 'bratty') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
     if (resolveCeilingBehaviour(ceilingBehaviour) !== 'crawl') return `${halted} — FULL STOP HOLDS IT AT 0%`;
     return `${halted} — CRAWL RESUMES AFTER THE PAUSE`;
 }

@@ -41,7 +41,7 @@ const running = {
 describe('engine modes', () => {
     it('lists every cockpit mode', () => {
         assert.deepEqual(ENGINE_MODES, [
-            'classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate', 'script'
+            'classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'bratty', 'ruin', 'oracle', 'survival', 'edgetrain', 'calibrate', 'script'
         ]);
     });
 
@@ -477,7 +477,7 @@ describe('engine modes', () => {
     });
 
     it('every tease mode keeps the stroker working until the pulse is close to the mark', () => {
-        const modes = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+        const modes = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'bratty', 'ruin'];
         for (const mode of modes) {
             for (const hr of [100, 120, 125]) {
                 let low = 100;
@@ -509,6 +509,8 @@ describe('engine modes', () => {
             });
             if (mode === 'finisher') {
                 assert.equal(atMark.primaryPercent, 100, 'finisher stays at full speed on the mark');
+            } else if (mode === 'bratty') {
+                assert.ok(atMark.primaryPercent > 80, `bratty dropped to ${atMark.primaryPercent} on the mark`);
             } else if (mode === 'ruin') {
                 assert.ok(atMark.primaryPercent > CRAWL_PERCENT, 'ruin keeps stroking on the mark');
             } else {
@@ -598,6 +600,42 @@ describe('engine modes', () => {
             ...running, activeMode: 'ultimate', hr: 140, edgeHr: 140, isEdged: true, ceilingBehaviour: 'crawl'
         });
         assert.equal(atMark.primaryPercent, CRAWL_PERCENT);
+    });
+
+    it('bratty dips on the edge and comes straight back', () => {
+        const primary = [];
+        const reach = [];
+        for (let sessionSeconds = 0; sessionSeconds < 44; sessionSeconds += 1) {
+            const sample = calculateEngineOutputs({
+                ...running,
+                activeMode: 'bratty',
+                hr: 139,
+                edgeHr: 139,
+                isEdged: false,
+                ceilingBehaviour: 'stop',
+                sessionSeconds
+            });
+            primary.push(sample.primaryPercent);
+            reach.push(sample.strokeMaxPercent - sample.strokeMinPercent);
+        }
+        const low = Math.min(...primary);
+        const high = Math.max(...primary);
+        assert.ok(low >= 30 && low <= 40, `the dip was ${low}`);
+        assert.ok(high >= 85, `the push was ${high}`);
+        assert.ok(primary.filter((speed) => speed <= 40).length >= 4, 'the dips did not repeat');
+        assert.ok(primary.filter((speed) => speed >= 85).length >= 8, 'it did not come back up');
+        const dipReach = reach.filter((span, index) => primary[index] <= 40);
+        assert.ok(dipReach.length >= 4 && Math.min(...dipReach) >= 65, `the dip shortened the stroke to ${Math.min(...dipReach)}`);
+        const stopped = calculateEngineOutputs({
+            ...running,
+            activeMode: 'bratty',
+            hr: 140,
+            edgeHr: 140,
+            isEdged: true,
+            ceilingBehaviour: 'stop',
+            sessionSeconds: 20
+        });
+        assert.ok(stopped.primaryPercent > 80, 'Full Stop took the edge away');
     });
 
     it('Force Orgasm freezes the edge flag instead of releasing it', () => {
@@ -1701,7 +1739,7 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
 
 describe('the MIC badge only promises a push that reaches a motor', () => {
     it('names the modes the boosted pulse can reach', () => {
-        for (const mode of ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin']) {
+        for (const mode of ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'bratty', 'ruin']) {
             assert.equal(micBoostReachesMotors(mode), true, `${mode} teases down on the boosted pulse`);
         }
         assert.equal(micBoostReachesMotors('finisher'), false, 'finisher rises on the measured pulse');

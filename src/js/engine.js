@@ -10,7 +10,7 @@ import { normalizeEnvelope } from './hardware/handy-protocol.js';
 import { teaseFrame, warmupShape, placeStroke, orgasmFrame } from './patterns.js';
 import { scriptAllowance, scriptSecondary, sanitizeScriptSettings, MAX_REJOIN_SECONDS } from './player/script-governor.js';
 
-export const TEASE_MODES = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+export const TEASE_MODES = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'bratty', 'ruin'];
 export const GAME_MODES = ['oracle', 'survival', 'edgetrain', 'calibrate'];
 
 export function resolveTeaseMode(strokeMode, activeMode) {
@@ -26,6 +26,7 @@ export const ENGINE_MODES = [
     'shortener',
     'headplay',
     'ultimate',
+    'bratty',
     'ruin',
     'oracle',
     'survival',

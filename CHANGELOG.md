@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.21
+
+- **Bratty Tease is an experimental play style.** The climb matches Ultimate Milker. Close to the edge it dips for a second and comes back, several times, then runs a longer stretch and dips again. At the ceiling that pattern keeps going.
+
 ## 1.1.4.20
 
 - **NNN practice is easier to read.** The day's edge count, the dates, and the numbers are larger. Edge Training and Session Length use that same size. Nothing moved.
