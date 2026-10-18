@@ -18,6 +18,11 @@ export const state = {
     endgameType: 'orgasm',
     rampdownSecondsLeft: 45,
     hrCurrent: 70,
+    // True once a monitor or the simulator has delivered a usable reading.
+    // The cockpit stays "--" until then, so the resting default is not a pulse.
+    hrReadingSeen: false,
+    // Short reason for the pause in progress. Empty while the session runs.
+    pauseReason: '',
     edges: 0,
     pauses: 0,
     peakHr: 70,
@@ -101,7 +106,7 @@ export const state = {
     stallPauseElapsed: 0,
     stallGuardEngaged: false,
     intensityValue: 50,
-    history: [70],
+    history: [],
     bleBattery: null,
     handyBattery: null,
     intifaceBattery: null,

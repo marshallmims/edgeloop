@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.22
+
+- **A pause in the dev log says why.** Each second records the intensity slider. A pause records the reason: the button, the player, a partner, the heart-rate signal, The Handy, or another toy link. A shared log from iamnotabot paused with the pulse still live and no reason stored.
+- **The pulse readout stays blank until a monitor is connected.** With nothing linked it shows --. 70 is the resting default, and it was reading like a live pulse.
+
 ## 1.1.4.21
 
 - **Bratty Tease is an experimental play style.** The climb matches Ultimate Milker. Close to the edge it dips for a second and comes back, several times, then runs a longer stretch and dips again. At the ceiling that pattern keeps going.

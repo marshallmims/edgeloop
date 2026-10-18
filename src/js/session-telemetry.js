@@ -3,7 +3,7 @@
 // token, a video address, or a script file name cannot ride along, even
 // when a caller hands one in.
 
-export const TELEMETRY_VERSION = 2;
+export const TELEMETRY_VERSION = 3;
 export const SERIES_INTERVAL_MS = 1000;
 export const MAX_SERIES = 4 * 60 * 60;
 export const MAX_EVENTS = 500;
@@ -27,6 +27,26 @@ const SETTING_KEYS = Object.freeze([
 ]);
 
 const ROLES = Object.freeze(['primary', 'secondary', 'off']);
+
+// Why a pause happened. Banner sources that are not already one of these
+// words are mapped in pauseReasonFromSource. Anything else is dropped, so a
+// device name or a connection key cannot land in the file.
+export const PAUSE_REASONS = Object.freeze([
+    'button', 'player', 'remote',
+    'hr-signal', 'hr-link',
+    'handy', 'handy-stop',
+    'vacuglide', 'intiface', 'tcode',
+    'video', 'beat-sync',
+    'device'
+]);
+
+const PAUSE_SOURCE = Object.freeze({
+    hrSignal: 'hr-signal',
+    vacuglideStop: 'vacuglide',
+    vacuglideLink: 'vacuglide',
+    vacuglidePaused: 'vacuglide',
+    'video-stall': 'video'
+});
 const MAC = /(?:[0-9a-f]{2}:){5}[0-9a-f]{2}/i;
 
 export function isDevTelemetryHost(hostname) {
@@ -72,8 +92,15 @@ function roleOf(value) {
     return ROLES.includes(role) ? role : 'off';
 }
 
+export function pauseReasonFromSource(source) {
+    const key = String(source ?? '').trim();
+    if (PAUSE_REASONS.includes(key)) return key;
+    return PAUSE_SOURCE[key] || '';
+}
+
 function cleanPoint(point) {
     const src = point && typeof point === 'object' ? point : {};
+    const status = shortText(src.status, 16);
     return {
         t: Math.max(0, Math.round(num(src.t, 0))),
         hr: Math.round(num(src.hr, 0)),
@@ -89,19 +116,21 @@ function cleanPoint(point) {
         edges: Math.max(0, Math.round(num(src.edges, 0))),
         mode: shortText(src.mode, 24),
         game: shortText(src.game, 24),
-        status: shortText(src.status, 16),
+        status,
         hrSignal: shortText(src.hrSignal, 16),
         scriptMs: Math.round(num(src.scriptMs, 0)),
         offsetMs: Math.round(num(src.offsetMs, 0)),
         expand: Math.max(0, Math.min(250, Math.round(num(src.expand, 100)))),
         climax: pct(src.climax),
         ceiling: Math.round(num(src.ceiling, 0)),
-        primaryOn: flag(src.primaryOn)
+        primaryOn: flag(src.primaryOn),
+        intensity: pct(src.intensity),
+        pauseReason: status === 'PAUSED' ? pauseReasonFromSource(src.pauseReason) : ''
     };
 }
 
 function signature(point) {
-    return [point.status, point.mode, point.game, point.edged, point.orgasm, point.stall, point.edges, point.hrSignal].join('|');
+    return [point.status, point.mode, point.game, point.edged, point.orgasm, point.stall, point.edges, point.hrSignal, point.pauseReason].join('|');
 }
 
 // One running session. `observe` every sample tick; the series keeps one
@@ -140,7 +169,9 @@ export function createSessionLog({ intervalMs = SERIES_INTERVAL_MS, maxSeries = 
                     orgasm: clean.orgasm,
                     stall: clean.stall,
                     edges: clean.edges,
-                    hrSignal: clean.hrSignal
+                    hrSignal: clean.hrSignal,
+                    pauseReason: clean.pauseReason,
+                    intensity: clean.intensity
                 });
                 lastSig = sig;
             }
@@ -313,13 +344,15 @@ export function buildSessionExport(input = {}) {
             orgasm: clean.orgasm,
             stall: clean.stall,
             edges: clean.edges,
-            hrSignal: clean.hrSignal
+            hrSignal: clean.hrSignal,
+            pauseReason: clean.pauseReason,
+            intensity: clean.intensity
         };
     });
     return {
         telemetryVersion: TELEMETRY_VERSION,
         appVersion: shortText(input.appVersion, 16),
-        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the script clock, how far a funscript was opened, and the make and model of the toys. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
+        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the intensity slider, why a pause happened, the script clock, how far a funscript was opened, and the make and model of the toys. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
         session: cleanSession(input.session),
         summary: summarize(series),
         settings: pickSettings(input.settings),

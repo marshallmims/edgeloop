@@ -67,7 +67,8 @@ import { applySettingSchema } from './settings-schema.js';
 import { createWriteCoalescer } from './write-coalescer.js';
 import { planBannerUpdate, canClearBanner, hiddenBannerState, BANNER_OWNER_ANY } from './alert-banner.js';
 import { pushSample, buildFunscripts, toFunscript } from './funscript.js';
-import { isDevTelemetryHost, createSessionLog, buildSessionExport } from './session-telemetry.js';
+import { isDevTelemetryHost, createSessionLog, buildSessionExport, pauseReasonFromSource } from './session-telemetry.js';
+import { formatLiveHr } from './hr-readout.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError } from './hardware/ble-protocol.js';
@@ -300,6 +301,9 @@ const devTelemetry = !isRemotePage && isDevTelemetryHost(typeof location !== 'un
 const SESSION_LOG_KEY = 'edgeloop_session_log';
 const sessionLog = createSessionLog();
 let sessionLogOptIn = safeParse(SESSION_LOG_KEY, false) === true;
+// A remote Pause sets this before the transport click, so the log can tell
+// a partner's pause from the button on this page.
+let pendingPauseReason = '';
 
 function sessionLogWanted() {
     return devTelemetry && sessionLogOptIn;
@@ -317,8 +321,8 @@ const handyHsp = (!isRemotePage && scriptFeed) ? createHandyHsp({
     getKey: () => getHandyKey(),
     getAppId: () => resolveApplicationId(safeGet(HANDY_APP_ID_STORAGE_KEY, '') || ''),
     handlers: {
-        onPause: (reason) => triggerDisconnectAlert(reason),
-        onOffline: (reason) => triggerDisconnectAlert(reason || 'The Handy went offline.')
+        onPause: (reason) => triggerDisconnectAlert(reason, 'handy'),
+        onOffline: (reason) => triggerDisconnectAlert(reason || 'The Handy went offline.', 'handy')
     }
 }) : null;
 let handyHspReleasing = null;
@@ -477,18 +481,26 @@ function hideAlertBanner(owner) {
 
 function triggerDisconnectAlert(message, source = 'device') {
     showAlertBanner(message, { severity: 'safety', source });
-
-    if (pauseSession(null)) syncTelemetry();
+    const reason = pauseReasonFromSource(source) || 'device';
+    if (pauseSession(null, reason)) syncTelemetry();
+    else if (state.sessionStatus === 'PAUSED' && state.pauseReason !== reason) {
+        // Already stopped, and a second fault explains it better than the first.
+        state.pauseReason = reason;
+        captureSessionLog();
+        syncTelemetry();
+    }
     checkReadiness();
 }
 
 // Pause a RUNNING or RAMPDOWN session, remembering which one so RESUME goes
 // back into the rampdown where it left off. Motors are stopped immediately.
+// `source` is the pause reason stored in the dev session log.
 // Returns false when there was nothing to pause.
-function pauseSession(voiceText = 'Paused.') {
+function pauseSession(voiceText = 'Paused.', source = 'button') {
     if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'RAMPDOWN') return false;
     state.resumeStatus = state.sessionStatus;
     state.sessionStatus = 'PAUSED';
+    state.pauseReason = pauseReasonFromSource(source) || 'button';
     state.pauses += 1;
     const pauseEl = document.getElementById('pauseCount');
     if (pauseEl) pauseEl.textContent = state.pauses;
@@ -497,6 +509,7 @@ function pauseSession(voiceText = 'Paused.') {
     dispatchHardware(0, 0, 0, 100, true);
     if (player && player.isPlaying()) player.pause();
     if (voiceText) cueVoice('paused');
+    captureSessionLog();
     return true;
 }
 
@@ -1088,8 +1101,7 @@ function updateEngine() {
     state.effectiveHr = hr;
     state.sensorHr = sensorHr;
 
-    const hrDisplay = document.getElementById('hrDisplay');
-    if (hrDisplay) hrDisplay.textContent = sensorHr;
+    paintLiveHr(sensorHr);
     if (!Number.isFinite(state.peakHr) || sensorHr > state.peakHr) state.peakHr = sensorHr;
 
     const learnBadge = document.getElementById('learnBadge');
@@ -1649,6 +1661,7 @@ function resetSessionCounters() {
     state.rampdownSecondsLeft = 45;
     state.warmupOriginSeconds = 0;
     state.resumeStatus = null;
+    state.pauseReason = '';
     state.durationFallback = false;
     state.endgameFired = false;
     state.endgameHeldByOrgasm = false;
@@ -1907,6 +1920,67 @@ function primaryStrokeLive() {
     return 0;
 }
 
+// What one dev-log sample holds. A pause records speed 0 and the reason,
+// so a later look can tell a button tap from a safety stop.
+function sessionLogFields(now = Date.now()) {
+    const paused = state.sessionStatus === 'PAUSED';
+    const range = effectiveStrokeRange(state.strokeMin, state.strokeMax);
+    const started = funscriptSessionStart || now;
+    return {
+        t: Math.max(0, now - started),
+        hr: state.sensorHr,
+        engineHr: state.effectiveHr,
+        mic: state.micApplied,
+        speed: paused ? 0 : state.strokerSpeed,
+        secondary: paused ? 0 : state.prostateSpeed,
+        strokeMin: range.min,
+        strokeMax: range.max,
+        edged: state.isEdged,
+        orgasm: state.orgasmMode,
+        stall: state.stallGuardEngaged,
+        edges: state.edges,
+        mode: state.teaseMode,
+        game: state.gameMode || '',
+        status: state.sessionStatus,
+        hrSignal: state.hrSignalState,
+        scriptMs: scriptFeed && state.activeMode === 'script' ? scriptFeed.scriptNow() : 0,
+        offsetMs: scriptFeed ? scriptFeed.offset() : 0,
+        expand: Math.round((Number(state.scriptExpand) || 1) * 100),
+        climax: Math.round((Number(state.scriptClimax) || 0) * 100),
+        ceiling: state.effectiveMaxHr,
+        primaryOn: primaryStrokeLive(),
+        intensity: state.intensityValue,
+        pauseReason: paused ? state.pauseReason : ''
+    };
+}
+
+function captureSessionLog(now = Date.now()) {
+    if (!sessionLogWanted() || isRemotePage) return;
+    const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' || state.sessionStatus === 'PAUSED';
+    if (!live) return;
+    if (funscriptSessionStart === 0) funscriptSessionStart = now;
+    sessionLog.observe(sessionLogFields(now));
+}
+
+// The cockpit number. "--" until a monitor or the simulator has actually spoken.
+function liveHrText(bpm = state.hrCurrent) {
+    const simulated = !isRemotePage && Boolean(state.simEngaged);
+    const linked = isRemotePage ? Boolean(state.hrReadingSeen) : (isBleConnected() || simulated);
+    return formatLiveHr({
+        bpm,
+        linked,
+        simulated,
+        seen: Boolean(state.hrReadingSeen) || simulated
+    });
+}
+
+function paintLiveHr(bpm = state.hrCurrent) {
+    const label = liveHrText(bpm);
+    const hrDisplay = document.getElementById('hrDisplay');
+    if (hrDisplay) hrDisplay.textContent = label;
+    return label;
+}
+
 // 250ms Live Funscript Sampling Loop (4Hz). Records what was really sent to
 // the toys (speed plus the physical stroke zone); the buffer is capped at
 // four hours, oldest dropped first.
@@ -1920,40 +1994,15 @@ setInterval(() => {
     if (active || paused) {
         const now = Date.now();
         if (funscriptSessionStart === 0) funscriptSessionStart = now;
-        const range = effectiveStrokeRange(state.strokeMin, state.strokeMax);
+        const sample = sessionLogFields(now);
         pushSample(funscriptSamples, {
-            at: now - funscriptSessionStart,
-            speed: paused ? 0 : state.strokerSpeed,
-            secondary: paused ? 0 : state.prostateSpeed,
-            strokeMin: range.min,
-            strokeMax: range.max
+            at: sample.t,
+            speed: sample.speed,
+            secondary: sample.secondary,
+            strokeMin: sample.strokeMin,
+            strokeMax: sample.strokeMax
         });
-        if (sessionLogWanted()) {
-            sessionLog.observe({
-                t: now - funscriptSessionStart,
-                hr: state.sensorHr,
-                engineHr: state.effectiveHr,
-                mic: state.micApplied,
-                speed: paused ? 0 : state.strokerSpeed,
-                secondary: paused ? 0 : state.prostateSpeed,
-                strokeMin: range.min,
-                strokeMax: range.max,
-                edged: state.isEdged,
-                orgasm: state.orgasmMode,
-                stall: state.stallGuardEngaged,
-                edges: state.edges,
-                mode: state.teaseMode,
-                game: state.gameMode || '',
-                status: state.sessionStatus,
-                hrSignal: state.hrSignalState,
-                scriptMs: scriptFeed && state.activeMode === 'script' ? scriptFeed.scriptNow() : 0,
-                offsetMs: scriptFeed ? scriptFeed.offset() : 0,
-                expand: Math.round((Number(state.scriptExpand) || 1) * 100),
-                climax: Math.round((Number(state.scriptClimax) || 0) * 100),
-                ceiling: state.effectiveMaxHr,
-                primaryOn: primaryStrokeLive()
-            });
-        }
+        if (sessionLogWanted()) sessionLog.observe(sample);
     }
 }, 250);
 
@@ -1967,6 +2016,7 @@ function recordHrReading(bpm, sensorContact = null, now = Date.now()) {
     document.getElementById('hrContactHint')?.classList.toggle('hidden', !state.hrNoContact);
     if (!valid) return false;
     state.hrCurrent = bpm;
+    state.hrReadingSeen = true;
     state.lastHrTimestamp = now;
     state.history.push(bpm);
     if (state.history.length > 60) state.history.shift();
@@ -2344,6 +2394,7 @@ function startOrResumeSession() {
     }
     state.sessionStatus = resumingRampdown ? 'RAMPDOWN' : 'RUNNING';
     state.resumeStatus = null;
+    state.pauseReason = '';
     clearHrSignalPause();
     document.getElementById('rampdownNotice')?.classList.toggle('hidden', !resumingRampdown);
     renderTransport(state.sessionStatus);
@@ -2365,7 +2416,7 @@ playPauseBtn?.addEventListener('click', async () => {
         if (handyBeatSyncWanted()) {
             const ready = await handyHsp.prepare(handyHspWindow());
             if (!ready.ok) {
-                triggerDisconnectAlert(ready.reason || 'Beat sync could not start. Switch it off to play the script as a rhythm.');
+                triggerDisconnectAlert(ready.reason || 'Beat sync could not start. Switch it off to play the script as a rhythm.', 'beat-sync');
                 checkReadiness();
                 return;
             }
@@ -2373,7 +2424,8 @@ playPauseBtn?.addEventListener('click', async () => {
         const started = startOrResumeSession();
         if (!started && handyHsp?.owns()) releaseHandyHsp();
     } else if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
-        pauseSession('Paused.');
+        pauseSession('Paused.', pendingPauseReason || 'button');
+        pendingPauseReason = '';
     }
     checkReadiness();
     syncTelemetry();
@@ -2509,6 +2561,7 @@ function stopSession(outcome = "Stopped", voiceText = null) {
     clearSettle();
     state.sessionStatus = 'IDLE';
     state.resumeStatus = null;
+    state.pauseReason = '';
     state.strokerSpeed = 0;
     state.prostateSpeed = 0;
     dispatchHardware(0, 0, 0, 100, true);
@@ -3245,7 +3298,10 @@ async function openDocumentPip() {
         const bar = pip.document.getElementById('pipBar');
         const play = pip.document.getElementById('pipPlay');
         const line = pip.document.getElementById('pipLine');
-        if (hr) hr.textContent = `${Math.round(state.hrCurrent || 0)} BPM`;
+        if (hr) {
+        const label = liveHrText();
+        hr.textContent = label === '--' ? '--' : `${label} BPM`;
+    }
         if (edges) edges.textContent = `${state.edges || 0} edges`;
         if (bar) bar.style.width = `${state.strokerSpeed || 0}%`;
         if (play) play.textContent = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' ? 'Pause' : 'Start';
@@ -4742,13 +4798,17 @@ document.getElementById('modalBleScanBtn')?.addEventListener('click', async () =
                 if (devName) devName.textContent = 'No device paired';
                 document.getElementById('hrContactHint')?.classList.add('hidden');
                 state.hrNoContact = false;
-                if (!state.simEngaged) document.getElementById('hrWarningTag')?.classList.remove('hidden');
+                if (!state.simEngaged) {
+                    document.getElementById('hrWarningTag')?.classList.remove('hidden');
+                    state.hrReadingSeen = false;
+                    paintLiveHr();
+                }
                 const sessionLive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
                 if (intentional) {
-                    if (sessionLive) triggerDisconnectAlert(`${name} (heart-rate monitor) was disconnected. Motors paused for safety.`);
+                    if (sessionLive) triggerDisconnectAlert(`${name} (heart-rate monitor) was disconnected. Motors paused for safety.`, 'hr-link');
                 } else {
                     const silentMs = Math.max(0, Date.now() - (hrWatchdog.lastValidAt || Date.now()));
-                    triggerDisconnectAlert(`${name} (heart-rate monitor) dropped and did not answer ${attempts} reconnect attempts; no reading for ${Math.round(silentMs / 1000)} s. Motors paused for safety. Turn the sensor off and on, or forget it in the computer's Bluetooth list and pair it again. A reboot is not required.`);
+                    triggerDisconnectAlert(`${name} (heart-rate monitor) dropped and did not answer ${attempts} reconnect attempts; no reading for ${Math.round(silentMs / 1000)} s. Motors paused for safety. Turn the sensor off and on, or forget it in the computer's Bluetooth list and pair it again. A reboot is not required.`, 'hr-link');
                     // A drop is a signal loss too: once the sensor is paired
                     // again and readings return, the session may auto-resume.
                     if (sessionLive && state.sessionStatus === 'PAUSED') {
@@ -4771,6 +4831,8 @@ document.getElementById('modalBleScanBtn')?.addEventListener('click', async () =
         document.getElementById('hrWarningTag')?.classList.add('hidden');
         document.getElementById('simActiveTag')?.classList.add('hidden');
         state.simEngaged = false;
+        state.hrReadingSeen = false;
+        paintLiveHr();
         // Fresh grace window: the first packet may take a few seconds.
         hrWatchdog.reset(Date.now());
         state.hrNoContact = false;
@@ -4797,8 +4859,10 @@ document.getElementById('modalBleScanBtn')?.addEventListener('click', async () =
             if (devName) devName.textContent = 'No device paired';
             if (!state.simEngaged) {
                 document.getElementById('hrWarningTag')?.classList.remove('hidden');
+                state.hrReadingSeen = false;
+                paintLiveHr();
                 if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
-                    triggerDisconnectAlert(`${state.hrDeviceName || 'Heart-rate monitor'} was released for a new pairing that failed (${described.message}). Motors paused for safety.`);
+                    triggerDisconnectAlert(`${state.hrDeviceName || 'Heart-rate monitor'} was released for a new pairing that failed (${described.message}). Motors paused for safety.`, 'hr-link');
                 }
             }
             checkReadiness();
@@ -4878,7 +4942,7 @@ setHandyHandlers({
         setBadgeState('Handy', 'disconnected', 'Offline');
         document.getElementById('modalHandyDisconnectBtn')?.classList.add('hidden');
         // Pauses the session and issues a stop to every other toy.
-        triggerDisconnectAlert(reason || 'The Handy went offline. Motors paused for safety.');
+        triggerDisconnectAlert(reason || 'The Handy went offline. Motors paused for safety.', 'handy');
     },
     // Something the device told us that is worth reading and is not a fault.
     onNotice: (message) => {
@@ -4891,7 +4955,7 @@ setHandyHandlers({
     onStopUnconfirmed: (message) => {
         setHandyStatus(message, 'error');
         setBadgeState('Handy', handyConnected ? 'warning' : 'disconnected', 'Stop unconfirmed', handyConnected ? handyBatteryLabel() : null);
-        triggerDisconnectAlert(`The Handy did not confirm a stop and may still be moving: check the device. (${message})`);
+        triggerDisconnectAlert(`The Handy did not confirm a stop and may still be moving: check the device. (${message})`, 'handy-stop');
     }
 });
 
@@ -4934,7 +4998,7 @@ document.getElementById('modalHandyConnectBtn')?.addEventListener('click', async
             state.handyBattery = null;
             setHandyStatus(message, 'error');
             setBadgeState('Handy', 'disconnected', 'Offline');
-            if (wasConnected) triggerDisconnectAlert('The Handy connection was lost while reconnecting. Motors paused for safety.');
+            if (wasConnected) triggerDisconnectAlert('The Handy connection was lost while reconnecting. Motors paused for safety.', 'handy');
         }
     } finally {
         handyConnectInFlight = false;
@@ -4949,7 +5013,7 @@ document.getElementById('modalHandyDisconnectBtn')?.addEventListener('click', as
     setHandyStatus('Stopping the device...', 'busy');
     setBadgeState('Handy', 'disconnected', 'Stopping...');
     document.getElementById('modalHandyDisconnectBtn')?.classList.add('hidden');
-    triggerDisconnectAlert("The Handy disconnected.");
+    triggerDisconnectAlert("The Handy disconnected.", 'handy');
     const ok = await stopped.catch(() => false);
     // Reconnected meanwhile: the new link owns the modal and the badge.
     if (handyConnected) return;
@@ -5020,7 +5084,7 @@ document.getElementById('modalIntifaceConnectBtn')?.addEventListener('click', ()
             const toys = `${assignedDevices} assigned toy${assignedDevices === 1 ? '' : 's'}`;
             triggerDisconnectAlert(intentional
                 ? `Intiface Central disconnected with ${toys} in use. Motors paused for safety.`
-                : `Intiface Central connection lost: ${toys} unreachable. Motors paused for safety.`);
+                : `Intiface Central connection lost: ${toys} unreachable. Motors paused for safety.`, 'intiface');
         }
     });
 });
@@ -5262,7 +5326,7 @@ setTCodeHandlers({
         const axes = `${assignedAxes} assigned ax${assignedAxes === 1 ? 'is' : 'es'}`;
         triggerDisconnectAlert(intentional
             ? `TCode Serial device disconnected with ${axes} in use. Motors paused for safety.`
-            : `TCode Serial device lost: ${axes} unreachable. Motors paused for safety.`);
+            : `TCode Serial device lost: ${axes} unreachable. Motors paused for safety.`, 'tcode');
     }
 });
 
@@ -5697,7 +5761,10 @@ function setupPartnerHost() {
             if (cmd.type === 'SESSION_STATE') {
                 const hostActive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
                 if (cmd.status === 'RUNNING' && !hostActive) playPauseBtn?.click();
-                else if (cmd.status === 'PAUSED' && hostActive) playPauseBtn?.click();
+                else if (cmd.status === 'PAUSED' && hostActive) {
+                    pendingPauseReason = 'remote';
+                    playPauseBtn?.click();
+                }
                 else if (cmd.status === 'IDLE') stopBtn?.click();
             } else if (cmd.type === 'SESSION_RESET') resetBtn?.click();
             else if (cmd.type === 'ORGASM_TOGGLE') orgasmBtn?.click();
@@ -5803,6 +5870,8 @@ function applyRemoteTelemetry(data) {
         hideAlertBanner('remote');
     }
     if (data.hr !== undefined) state.hrCurrent = data.hr;
+    if (data.hrSeen === true || data.hrSeen === false) state.hrReadingSeen = data.hrSeen;
+    else if (data.hr !== undefined) state.hrReadingSeen = true;
     if (data.seconds !== undefined) state.sessionSeconds = data.seconds;
     if (data.chosenTargetSeconds !== undefined) state.chosenTargetSeconds = data.chosenTargetSeconds;
     if (data.sessionStatus !== undefined) state.sessionStatus = data.sessionStatus;
@@ -5852,8 +5921,7 @@ function applyRemoteTelemetry(data) {
     }
     checkReadiness();
 
-    const hrDisplay = document.getElementById('hrDisplay');
-    if (hrDisplay) hrDisplay.textContent = state.hrCurrent;
+    paintLiveHr();
     const maxInput = document.getElementById('maxHr');
     if (maxInput) maxInput.value = state.effectiveMaxHr;
     const strokerVal = document.getElementById('strokerVal');
@@ -5889,6 +5957,7 @@ function syncTelemetry() {
     broadcastPeerTelemetry({
         type: 'TELEMETRY',
         hr: state.hrCurrent,
+        hrSeen: Boolean(state.hrReadingSeen),
         seconds: state.sessionSeconds,
         chosenTargetSeconds: state.chosenTargetSeconds,
         sessionStatus: state.sessionStatus,
@@ -6094,7 +6163,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             },
             onPlayRequest: () => playPauseBtn?.click(),
             onPauseRequest: () => {
-                if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') pauseSession('Paused.');
+                if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') pauseSession('Paused.', 'player');
             },
             onEnded: () => {
                 const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' || state.sessionStatus === 'PAUSED';
@@ -6119,10 +6188,10 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 updateTimerDisplay();
             },
             onStall: (seconds) => {
-                if (state.activeMode === 'script' && state.sessionStatus === 'RUNNING') triggerDisconnectAlert(describeVideoStall(seconds));
+                if (state.activeMode === 'script' && state.sessionStatus === 'RUNNING') triggerDisconnectAlert(describeVideoStall(seconds), 'video');
             },
             onMediaError: (message) => {
-                if (state.activeMode === 'script' && state.sessionStatus !== 'IDLE') triggerDisconnectAlert(`${message} Every toy was stopped and the session paused.`);
+                if (state.activeMode === 'script' && state.sessionStatus !== 'IDLE') triggerDisconnectAlert(`${message} Every toy was stopped and the session paused.`, 'video');
             },
             onOffset: (ms) => {
                 if (!loadedScriptHash) return;

@@ -91,6 +91,9 @@ describe('sanitizeTelemetry', () => {
         assert.equal(t.ready, undefined);
         assert.equal(t.history, undefined);
         assert.equal(t.hrSignal, undefined);
+        assert.equal(t.hrSeen, undefined);
+        assert.equal(sanitizeTelemetry({ type: 'TELEMETRY', hrSeen: 'yes' }).hrSeen, undefined);
+        assert.equal(sanitizeTelemetry({ type: 'TELEMETRY', hrSeen: false }).hrSeen, false);
     });
 
     it('accepts known statuses, modes and booleans', () => {

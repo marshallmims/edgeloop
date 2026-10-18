@@ -82,6 +82,7 @@ export function sanitizeTelemetry(raw) {
     const out = { type: 'TELEMETRY' };
 
     out.hr = clampNumber(raw.hr, 0, HR_MAX_BPM, true);
+    out.hrSeen = typeof raw.hrSeen === 'boolean' ? raw.hrSeen : undefined;
     out.seconds = clampNumber(raw.seconds, 0, SECONDS_MAX, true);
     out.chosenTargetSeconds = clampNumber(raw.chosenTargetSeconds, 0, SECONDS_MAX, true);
     out.sessionStatus = oneOf(raw.sessionStatus, REMOTE_STATUSES);
