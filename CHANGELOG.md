@@ -6,8 +6,12 @@ credited by username.
 
 ## 1.1.4.22
 
-- **A pause in the dev log says why.** Each second records the intensity slider. A pause records the reason: the button, the player, a partner, the heart-rate signal, The Handy, or another toy link. A shared log from iamnotabot paused with the pulse still live and no reason stored.
-- **The pulse readout stays blank until a monitor is connected.** With nothing linked it shows --. 70 is the resting default, and it was reading like a live pulse.
+- **A pause in the dev log says why.** iamnotabot sent two runs where the toy stopped and the pulse stayed live. The log had the pause and not the cause. Each second now stores the intensity slider. A pause stores who asked: the button, the player, a partner, the heart-rate signal, the strap dropping, The Handy, an unconfirmed stop, VacuGlide, Intiface, T-Code, the video, or beat sync.
+- **Those two runs were Simple Ramp, with no script.** The long one paused for about two minutes at 9:31. The pulse stayed live and the signal stayed ok. The short one went to full speed when the intensity slider moved to 100, while the pulse stayed near 90 against a ceiling of 120. Neither run locked at the ceiling. A firmware flash does not change a pause the app recorded. The next dev log names the pause.
+- **The pulse readout stays blank until a monitor is connected.** iamnotabot saw 70 with nothing paired. That number is the resting default. The readout now shows -- until a strap sends a beat, or the simulator is on. Disconnecting the strap blanks it again.
+- **Adaptive decay still clears on Stop.** DTT loads several scripts in one sitting. Stop is required before the next file, and Stop drops the decay because the decay is the session edge count. Keeping that decay across stops is still open.
+- **A marked climax can release the limiter at the mark.** DTT's cum-now mark felt slow because Pre-Climax Ramp Up defaults to 45 seconds. Set it to 0. The hold after the mark already ignores the pulse cap for Climax Duration.
+- **Other requests are noted, and not in this build.** A noise gate that punishes volume, a spoken "close" or "edge" that drops to crawl, a separate limit per channel, and a crawl other than 10%.
 
 ## 1.1.4.21
 
