@@ -8,8 +8,8 @@ credited by username.
 
 - **Stops and pauses are logged.** When the app tells a toy to stop or pause, the dev log records that command and why. That is there so a later report can show whether the app ordered the stop.
 - **The pulse readout stays blank until a monitor is connected.** With nothing linked it shows --. 70 is the resting default, and it was reading like a live pulse. The readout stays -- until a strap sends a beat, or the simulator is on. Disconnecting the strap blanks it again.
-- **Adaptive decay still clears on Stop.** DTT loads several scripts in one sitting. Stop is required before the next file, and Stop drops the decay because the decay is the session edge count. Keeping that decay across stops is still open.
-- **A marked climax can release the limiter at the mark.** DTT's cum-now mark felt slow because Pre-Climax Ramp Up defaults to 45 seconds. Set it to 0. The hold after the mark already ignores the pulse cap for Climax Duration.
+- **Adaptive decay still clears on Stop.** Loading the next script takes Stop, and Stop drops the decay because the decay is the session edge count. Keeping that decay across stops is still open.
+- **A marked climax can release the limiter at the mark.** Pre-Climax Ramp Up defaults to 45 seconds, which makes a cum-now mark a slow climb. Set it to 0. The hold after the mark already ignores the pulse cap for Climax Duration.
 - **Other requests are noted, and not in this build.** A noise gate that punishes volume, a spoken "close" or "edge" that drops to crawl, a separate limit per channel, and a crawl other than 10%.
 
 ## 1.1.4.21
