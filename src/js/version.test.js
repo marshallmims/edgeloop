@@ -65,7 +65,7 @@ describe('parseChangelog', () => {
         assert.equal(titles[24], '1.1.2');
         assert.equal(titles[25], '1.1.1');
         assert.equal(titles[26], '1.1.0');
-        assert.ok(sections[0].blocks.some((block) => /pause in the dev log/.test(block.text)));
+        assert.ok(sections[0].blocks.some((block) => /Stops and pauses are logged/.test(block.text)));
         assert.ok(sections[1].blocks.some((block) => /Bratty Tease/.test(block.text)));
         assert.ok(sections[2].blocks.some((block) => /easier to read/.test(block.text)));
         assert.ok(sections[3].blocks.some((block) => /Simple Ramp/.test(block.text)));
