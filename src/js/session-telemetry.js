@@ -14,7 +14,7 @@ const SETTING_KEYS = Object.freeze([
     'endgameType', 'gammaCurve', 'warmupMinutes', 'warmupEnabled', 'orgasmSettleSeconds',
     'edgeStrokeDepth', 'cadenceBreathing', 'milkingWave',
     'handyHwMin', 'handyHwMax', 'handyEndMargin',
-    'stallGuard', 'stallGuardSeconds', 'stallPauseSeconds', 'ceilingBehaviour', 'edgeHoldPercent',
+    'stallGuard', 'stallGuardSeconds', 'stallPauseSeconds', 'ceilingBehaviour', 'crawlPercent', 'edgeHoldPercent',
     'trainHoldSeconds', 'trainEdges', 'calibrationPrimaryHr',
     'hrStaleSeconds', 'hrAutoResume',
     'speedSlowest', 'speedFastest',

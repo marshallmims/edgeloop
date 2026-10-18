@@ -11,6 +11,9 @@ import {
     EDGE_RELEASE_BPM,
     MIN_ZONE_WIDTH,
     CRAWL_PERCENT,
+    MIN_CRAWL_PERCENT,
+    MAX_CRAWL_PERCENT,
+    clampCrawlPercent,
     SHORTENER_TOP_PERCENT,
     clampEdgeHoldPercent,
     resolveEdgeTriggerHr,
@@ -129,6 +132,27 @@ describe('engine modes', () => {
         });
         assert.equal(CRAWL_PERCENT, 10);
         assert.equal(crawl.primaryPercent, CRAWL_PERCENT);
+        const slower = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 140,
+            isEdged: true,
+            ceilingBehaviour: 'crawl',
+            crawlSpeed: 4
+        });
+        assert.equal(slower.primaryPercent, 4);
+        assert.equal(slower.secondaryPercent, 4);
+        const clamped = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 140,
+            isEdged: true,
+            ceilingBehaviour: 'crawl',
+            crawlSpeed: 80
+        });
+        assert.equal(clamped.primaryPercent, MAX_CRAWL_PERCENT);
+        assert.equal(clampCrawlPercent('nope'), CRAWL_PERCENT);
+        assert.equal(clampCrawlPercent(0), MIN_CRAWL_PERCENT);
         assert.equal(crawl.secondaryPercent, CRAWL_PERCENT);
         assert.equal(halt.primaryPercent, 0);
         // Stall guard cuts the PRIMARY stroker only; the secondary keeps crawling.
@@ -1697,8 +1721,8 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
         const guards = read('index.html');
         const readme = read('README.md');
         const claims = [
-            ['index.html Guards text', guards.match(/Crawl<\/strong> keeps a 10% micro-motion[\s\S]*?<\/p>/)],
-            ['README Guards bullet', readme.match(/\*Crawl\* keeps a 10% micro-motion[^\n]*/)]
+            ['index.html Guards text', guards.match(/Crawl<\/strong> keeps the crawl speed you set[\s\S]*?<\/p>/)],
+            ['README Guards bullet', readme.match(/\*Crawl\* keeps the crawl speed you set[^\n]*/)]
         ];
         for (const [where, match] of claims) {
             assert.ok(match, `${where}: anchor missing, the guard would be vacuous`);

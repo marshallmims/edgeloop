@@ -6,7 +6,7 @@
 // The one thing this file reads from the engine: the crawl level, so the
 // cockpit banner can tell a crawling motor from a running one with the same
 // number the engine sends.
-import { CRAWL_PERCENT, resolveCeilingBehaviour } from './engine.js';
+import { CRAWL_PERCENT, clampCrawlPercent, resolveCeilingBehaviour } from './engine.js';
 
 // The effective ceiling can never be pushed closer than this to the resting
 // HR, otherwise the tease band collapses into a permanent cut-off.
@@ -545,11 +545,12 @@ const MAX_CRAWL_READING = Math.round(CRAWL_PERCENT * 1.5);
 
 // One channel of the cockpit's cutoff banner, named by what the engine really
 // sent it on this tick rather than by what the mode is supposed to do.
-function describeCutoffChannel(label, percent) {
+function describeCutoffChannel(label, percent, maxCrawl = MAX_CRAWL_READING) {
     if (!Number.isFinite(percent)) return `${label} UNKNOWN`;
     const pct = Math.max(0, Math.min(100, Math.round(percent)));
     if (pct === 0) return label === 'PRIMARY' ? 'PRIMARY CUT' : 'SECONDARY STOPPED';
-    if (pct <= MAX_CRAWL_READING) return `${label} CRAWLING (${pct}%)`;
+    const crawlLine = Number.isFinite(maxCrawl) ? maxCrawl : MAX_CRAWL_READING;
+    if (pct <= crawlLine) return `${label} CRAWLING (${pct}%)`;
     return label === 'PRIMARY' ? `PRIMARY RUNNING (${pct}%)` : `SECONDARY MILKING (${pct}%)`;
 }
 
@@ -570,14 +571,18 @@ export function describeCutoffNotice({
     orgasmMode = false,
     stallGuardEngaged = false,
     primaryPercent,
-    secondaryPercent
+    secondaryPercent,
+    crawlPercent
 } = {}) {
     if (sessionStatus !== 'RUNNING') return '';
     // Force Orgasm is not a cutoff, and the stall guard raises its own
     // banner for the halt it is running.
     if (!isEdged || orgasmMode || stallGuardEngaged) return '';
-    const primary = describeCutoffChannel('PRIMARY', primaryPercent);
-    const secondary = describeCutoffChannel('SECONDARY', secondaryPercent);
+    // Intensity scales the parked speed by 0.5x to 1.5x, so a crawl of N
+    // still reads as a crawl up to 1.5N.
+    const crawlLine = Math.round(clampCrawlPercent(crawlPercent) * 1.5);
+    const primary = describeCutoffChannel('PRIMARY', primaryPercent, crawlLine);
+    const secondary = describeCutoffChannel('SECONDARY', secondaryPercent, crawlLine);
     return `CLIMAX LIMIT REACHED: ${primary} \u2014 ${secondary}`;
 }
 

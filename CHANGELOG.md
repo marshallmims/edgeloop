@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.23
+
+- **Crawl speed is a number.** Under Guards, Crawl is 1% to 30%. 10% is still the default. Full Stop is still a park at 0%. The intensity slider still scales the crawl.
+
 ## 1.1.4.22
 
 - **Stops and pauses are logged.** When the app tells a toy to stop or pause, the dev log records that command and why. That is there so a later report can show whether the app ordered the stop.

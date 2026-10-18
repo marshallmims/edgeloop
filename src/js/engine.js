@@ -108,9 +108,18 @@ export function edgeReleaseHr(maxHr, triggerHr) {
 export const MIN_ZONE_WIDTH = 10;
 
 // Primary / secondary speed while parked at the ceiling in Crawl mode
-// (ceilingBehaviour 'crawl'); Full Stop ('stop') parks at 0%.
+// (ceilingBehaviour 'crawl'); Full Stop ('stop') parks at 0%. The wearer
+// can set the crawl from MIN to MAX. 10 is the factory micro-motion.
 export const CRAWL_PERCENT = 10;
+export const MIN_CRAWL_PERCENT = 1;
+export const MAX_CRAWL_PERCENT = 30;
 export const CEILING_BEHAVIOURS = ['stop', 'crawl'];
+
+export function clampCrawlPercent(value, fallback = CRAWL_PERCENT) {
+    const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(MIN_CRAWL_PERCENT, Math.min(MAX_CRAWL_PERCENT, Math.round(n)));
+}
 
 // Glans Protector: the stroke zone contracts from the full range at rest
 // toward 0-SHORTENER_TOP_PERCENT (base micro-strokes) at the ceiling.
@@ -251,6 +260,7 @@ export function calculateEngineOutputs({
     milkingWave = false,
     stallGuardEngaged = false,
     ceilingBehaviour = 'crawl',
+    crawlSpeed = CRAWL_PERCENT,
     edgeHoldPercent = DEFAULT_EDGE_HOLD_PERCENT,
     ruinHoldSeconds = 0,
     strokeMode,
@@ -406,9 +416,9 @@ export function calculateEngineOutputs({
     let strokeMaxPercent = 100;
 
     const depthContractAmount = 100 - depthSafe;
-    // At the ceiling the user chooses Full Stop (0%) or Crawl (CRAWL_PERCENT).
+    // At the ceiling the user chooses Full Stop (0%) or Crawl (their speed).
     const crawl = resolveCeilingBehaviour(ceilingBehaviour) === 'crawl';
-    const crawlPercent = crawl ? CRAWL_PERCENT : 0;
+    const crawlPercent = crawl ? clampCrawlPercent(crawlSpeed) : 0;
 
     // Stall guard only ever cuts the PRIMARY stroker: the secondary
     // channel keeps whatever the mode gives it at the ceiling.

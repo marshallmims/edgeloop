@@ -8,7 +8,7 @@ import {
     resolveEdgeTriggerHr,
     describeEdgeHoldPreview,
     micBoostReachesMotors,
-    CRAWL_PERCENT
+    clampCrawlPercent
 } from './engine.js';
 import {
     KEYBIND_ACTIONS,
@@ -1166,6 +1166,7 @@ function updateEngine() {
         milkingWave: advancedSettings.milkingWave,
         stallGuardEngaged: state.stallGuardEngaged,
         ceilingBehaviour: advancedSettings.ceilingBehaviour,
+        crawlSpeed: clampCrawlPercent(advancedSettings.crawlPercent),
         edgeHoldPercent: advancedSettings.edgeHoldPercent,
         ruinHoldSeconds: state.ruinHoldSeconds,
         oracleState: state.oracleState,
@@ -1277,7 +1278,8 @@ function updateEngine() {
             orgasmMode: state.orgasmMode,
             stallGuardEngaged: state.stallGuardEngaged,
             primaryPercent: result.primaryPercent,
-            secondaryPercent: result.secondaryPercent
+            secondaryPercent: result.secondaryPercent,
+            crawlPercent: clampCrawlPercent(advancedSettings.crawlPercent)
         });
         cutoffEl.textContent = cutoffText;
         cutoffEl.classList.toggle('hidden', !cutoffText);
@@ -2477,7 +2479,7 @@ function restartSurvivalAfterOrgasm() {
 }
 
 function ceilingSettleFloor() {
-    return advancedSettings.ceilingBehaviour === 'stop' ? 0 : CRAWL_PERCENT;
+    return advancedSettings.ceilingBehaviour === 'stop' ? 0 : clampCrawlPercent(advancedSettings.crawlPercent);
 }
 
 // Ease from the speed the toys are at down to Crawl or Full Stop. An ending
@@ -3972,6 +3974,9 @@ function syncParamsUI() {
     if (stallPause) stallPause.value = clampStallPauseSeconds(advancedSettings.stallPauseSeconds);
     const ceilingSelect = document.getElementById('ceilingBehaviourSelect');
     if (ceilingSelect) ceilingSelect.value = advancedSettings.ceilingBehaviour === 'stop' ? 'stop' : 'crawl';
+    const crawlInput = document.getElementById('crawlPercentInput');
+    if (crawlInput) crawlInput.value = isRemotePage ? '' : String(clampCrawlPercent(advancedSettings.crawlPercent));
+    if (isRemotePage && crawlInput) crawlInput.placeholder = '--';
     const settleInput = document.getElementById('orgasmSettleSecondsInput');
     if (settleInput) settleInput.value = isRemotePage ? '' : String(clampOrgasmSettleSeconds(advancedSettings.orgasmSettleSeconds));
     paintSpeedWindow();
@@ -4430,6 +4435,7 @@ document.getElementById('applyParamsBtn')?.addEventListener('click', async () =>
     advancedSettings.stallGuardSeconds = clampStallGuardSeconds(document.getElementById('stallGuardSecondsInput')?.value);
     advancedSettings.stallPauseSeconds = clampStallPauseSeconds(document.getElementById('stallPauseSecondsInput')?.value);
     advancedSettings.ceilingBehaviour = document.getElementById('ceilingBehaviourSelect')?.value === 'stop' ? 'stop' : 'crawl';
+    advancedSettings.crawlPercent = clampCrawlPercent(document.getElementById('crawlPercentInput')?.value);
     advancedSettings.orgasmSettleSeconds = clampOrgasmSettleSeconds(document.getElementById('orgasmSettleSecondsInput')?.value);
     advancedSettings.edgeHoldPercent = clampEdgeHoldPercent(document.getElementById('edgeHoldPercentInput')?.value);
     advancedSettings.adaptiveDecay = document.getElementById('adaptiveDecayToggle')?.checked ?? true;
