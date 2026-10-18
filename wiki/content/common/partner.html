@@ -1,0 +1,28 @@
+<p class="lede">Share Control gives one other person a link that can run the session, and a second kind of link that only watches. The toys stay with the browser that paired them. The partner's browser sends commands. It does not pair its own Handy and call that yours.</p>
+
+<h2>One controller, any number of watchers</h2>
+
+<p>The button is <strong>Share Control</strong> on the wearer's page. It offers two links.</p>
+
+<ul>
+  <li>A <strong>controller</strong> link ends in <code>?partner=</code>. One partner can start, pause, stop, Force Orgasm, and change the mode. There is one controller at a time.</li>
+  <li>A <strong>viewer</strong> link ends in <code>?group_sub=</code>. Any number of people can watch the live pulse. They cannot drive the toys.</li>
+</ul>
+
+<p>The introduction between the two browsers goes through PeerJS. The script that does it is loaded from a CDN, so the first visit needs that host reachable. If the script never loads, sharing does not open. After the introduction, the commands go from browser to browser. They are not stored on an EdgeLoop account. There is no EdgeLoop account.</p>
+
+<p>Every message that arrives is checked before it is acted on. A command the page does not recognise is dropped.</p>
+
+<h2>Whose settings count</h2>
+
+<p>The partner page shows the wearer's session, not a session of its own. The single max, the dual max, the target mode, and the endgame trigger are the wearer's. A partner page does not fill those in from its own saved settings.</p>
+
+<p>Edge Training's hold length and edge count, and the pullback percent, are read from the wearer's telemetry. A partner cannot pace the session by numbers saved in their own browser.</p>
+
+<p>The partner does not need the heart-rate monitor, and does not need the toys. Those stay on the wearer's machine. Bluetooth permission, Bluefy, and Intiface are the wearer's problem. The partner needs a browser that can open the link.</p>
+
+<h2>If the link drops</h2>
+
+<p>A remote page pings every 5 seconds. A link that has been silent for 20 seconds is dropped. A dropped link is shown as disconnected. It is not left looking connected.</p>
+
+<p>If the wearer's room is gone, because the tab was closed or Share Control was reopened, the partner is told the room was not found and needs a fresh link. An old link does not attach to a new room.</p>
