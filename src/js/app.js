@@ -501,9 +501,13 @@ function pauseSession(voiceText = 'Paused.', source = 'button') {
     state.resumeStatus = state.sessionStatus;
     state.sessionStatus = 'PAUSED';
     state.pauseReason = pauseReasonFromSource(source) || 'button';
-    state.pauses += 1;
-    const pauseEl = document.getElementById('pauseCount');
-    if (pauseEl) pauseEl.textContent = state.pauses;
+    // A relube stop is a pause the wearer asked for. It does not count,
+    // because the pause total is there for stops that were not a relube.
+    if (state.pauseReason !== 'relube') {
+        state.pauses += 1;
+        const pauseEl = document.getElementById('pauseCount');
+        if (pauseEl) pauseEl.textContent = state.pauses;
+    }
     renderTransport('PAUSED');
     clearMicBoost(state);
     dispatchHardware(0, 0, 0, 100, true);
@@ -516,6 +520,7 @@ function pauseSession(voiceText = 'Paused.', source = 'button') {
 // Put the transport button into the look for `status`. Shared by start,
 // pause, stop / reset and the remote controller's telemetry renderer.
 function renderTransport(status) {
+    paintRelubeButton();
     if (!playPauseBtn) return;
     playPauseBtn.disabled = false;
     if (status === 'RUNNING' || status === 'RAMPDOWN') {
@@ -534,8 +539,38 @@ function renderTransport(status) {
     paintPlayerChannels();
 }
 
+function paintRelubeButton() {
+    const btn = document.getElementById('relubeBtn');
+    if (!btn) return;
+    const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+    btn.classList.toggle('hidden', !live);
+}
+
+function commitEdge({ countNnn = true } = {}) {
+    state.edges += 1;
+    const edgeEl = document.getElementById('edgeCount');
+    if (edgeEl) edgeEl.textContent = state.edges;
+    reverseIntifaceRotation('edge');
+    cueVoice('edge');
+    if (countNnn && state.gameMode === 'nnn' && nnnState.holdSeconds <= 0) noteNnnEdge();
+}
+
+// The pulse never reached the mark, usually because the session was paused
+// first. One tap records that edge. A crossing the engine already counted
+// is left alone.
+function countManualEdge() {
+    if (isRemoteViewer || isRemoteController) return;
+    const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN';
+    if (!live || state.settleSecondsLeft > 0 || state.isEdged) return;
+    state.isEdged = true;
+    commitEdge({ countNnn: false });
+    if (state.gameMode === 'nnn') noteNnnEdge();
+    syncTelemetry();
+}
+
 // Grey out the transport with a reason while the hardware is not ready.
 function renderTransportWaiting(reason) {
+    paintRelubeButton();
     if (!playPauseBtn) return;
     playPauseBtn.disabled = true;
     if (playPauseText) playPauseText.textContent = reason;
@@ -1239,14 +1274,7 @@ function updateEngine() {
     const phaseEl = document.getElementById('playerPhase');
     if (phaseEl && state.activeMode === 'script' && result.script) phaseEl.textContent = describeScriptPhase(result.script);
 
-    if (result.newEdgeTriggered && !(state.settleSecondsLeft > 0)) {
-        state.edges += 1;
-        const edgeEl = document.getElementById('edgeCount');
-        if (edgeEl) edgeEl.textContent = state.edges;
-        reverseIntifaceRotation('edge');
-        cueVoice('edge');
-        if (state.gameMode === 'nnn' && nnnState.holdSeconds <= 0) noteNnnEdge();
-    }
+    if (result.newEdgeTriggered && !(state.settleSecondsLeft > 0)) commitEdge();
 
     state.isEdged = result.isEdged;
     state.strokerSpeed = result.primaryPercent;
@@ -2441,6 +2469,18 @@ stopBtn?.addEventListener('click', () => {
         return;
     }
     stopSession("Stopped");
+});
+
+document.getElementById('relubeBtn')?.addEventListener('click', () => {
+    if (isRemoteViewer || isRemoteController) return;
+    pauseSession('Paused.', 'relube');
+    checkReadiness();
+    syncTelemetry();
+    updateEngine();
+});
+
+document.getElementById('countEdgeBtn')?.addEventListener('click', () => {
+    countManualEdge();
 });
 
 function clearSettle() {
@@ -5787,7 +5827,7 @@ function setupPartnerHost() {
 // A viewer page renders everything but can change nothing. Re-applied after
 // every telemetry frame because some renderers reset element classes.
 const VIEWER_LOCKED_IDS = [
-    'sessionPlayPauseBtn', 'sessionStopBtn', 'sessionResetBtn', 'cameEarlyBtn', 'orgasmBtn',
+    'sessionPlayPauseBtn', 'sessionStopBtn', 'sessionResetBtn', 'relubeBtn', 'countEdgeBtn', 'cameEarlyBtn', 'orgasmBtn',
     'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
     'partnerShareBtn', 'historyBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // Nested in the Edge Training card: a disabled ancestor does not stop a
@@ -5810,7 +5850,7 @@ function lockViewerControls() {
 // Everything else is host-only (its handlers return or its state never
 // leaves the page), so it is locked rather than left looking clickable.
 const CONTROLLER_LOCKED_IDS = [
-    'cameEarlyBtn', 'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
+    'cameEarlyBtn', 'countEdgeBtn', 'relubeBtn', 'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
     'partnerShareBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // The mode cards stay live (MODE_CHANGE is a legal command), but the two
     // Edge Training numbers inside one of them are host-only settings.

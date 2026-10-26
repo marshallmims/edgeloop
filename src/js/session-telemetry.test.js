@@ -77,6 +77,7 @@ describe('pause reasons', () => {
         assert.equal(pauseReasonFromSource('vacuglideStop'), 'vacuglide');
         assert.equal(pauseReasonFromSource('handy-stop'), 'handy-stop');
         assert.equal(pauseReasonFromSource('The Handy connection key'), '');
+        assert.equal(pauseReasonFromSource('relube'), 'relube');
         assert.equal(pauseReasonFromSource(''), '');
     });
 
@@ -85,7 +86,9 @@ describe('pause reasons', () => {
         assert.match(app, /pauseSession\(null, reason\)/);
         assert.match(app, /pauseSession\('Paused\.', pendingPauseReason \|\| 'button'\)/);
         assert.match(app, /pauseSession\('Paused\.', 'player'\)/);
-        for (const source of ["'hr-link'", "'handy'", "'handy-stop'", "'beat-sync'", "'intiface'", "'tcode'", "'video'", "'remote'"]) {
+        assert.match(app, /function countManualEdge/);
+        assert.match(app, /state\.pauseReason !== 'relube'/);
+        for (const source of ["'hr-link'", "'handy'", "'handy-stop'", "'beat-sync'", "'intiface'", "'tcode'", "'video'", "'remote'", "'relube'"]) {
             assert.ok(app.includes(source), `missing pause source ${source}`);
         }
     });

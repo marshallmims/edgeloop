@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.24
+
+- **Tap the edge count to record one the pulse missed.** It counts for the session and for NNN. A crossing that was already counted is left alone.
+- **Relube pauses without adding a pause.** Any pause already holds the timer. Relube stops the toys the same way and leaves the pause count alone.
+- **Fitbit does not pair.** Those watches do not broadcast the standard Heart Rate service. A Galaxy Watch does, through Heart for Bluetooth, and a chest strap does. A pulse that only climbs a little still works when Climax HR sits just above the highest number you actually see.
+
 ## 1.1.4.23
 
 - **Crawl speed is a number.** Under Guards, Crawl is 1% to 30%. 10% is still the default. Full Stop is still a park at 0%. The intensity slider still scales the crawl.

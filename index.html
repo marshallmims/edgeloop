@@ -457,6 +457,7 @@
               <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
               <span>STOP</span>
             </button>
+            <button id="relubeBtn" type="button" class="hidden bg-sky-950/70 hover:bg-sky-900 border border-sky-800/80 text-sky-200 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Pause to relube. The timer stays put, and this one is not added to the pause count.">Relube</button>
 
             <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
               Reset
@@ -484,10 +485,11 @@
             <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
             <div id="playerActionsSlot">
 <div id="sessionActions" class="grid grid-cols-4 gap-2 text-center text-xs">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
+          <button id="countEdgeBtn" type="button" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 cursor-pointer hover:border-amber-700" title="Tap to count an edge the pulse did not reach. The same crossing is not counted twice.">
             <div class="text-[9px] text-slate-500 uppercase font-semibold">Edges</div>
             <div id="edgeCount" class="text-lg font-black text-amber-400 font-mono leading-none mt-1">0</div>
-          </div>
+            <div class="text-[8px] text-slate-500 mt-0.5">Tap to count</div>
+          </button>
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
             <div class="text-[9px] text-slate-500 uppercase font-semibold">Pauses</div>
             <div id="pauseCount" class="text-lg font-black text-sky-400 font-mono leading-none mt-1">0</div>
@@ -1136,7 +1138,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.23</span>
+        <span id="appVersion" class="font-mono">v1.1.4.24</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1832,6 +1834,7 @@
           <ul class="list-disc list-inside space-y-0.5 text-slate-400 leading-relaxed">
             <li><strong>Pixel Watch / Wear OS:</strong> native broadcast. Quick Settings &rarr; <strong>Heart Rate Sharing</strong>, then Scan &amp; Pair.</li>
             <li><strong>Galaxy Watch:</strong> install the <strong>"Heart for Bluetooth"</strong> app on the watch and start its broadcast.</li>
+            <li><strong>Fitbit:</strong> does not broadcast the Heart Rate service, so Scan will not see it. Use the Galaxy Watch, a chest strap, or another watch that does broadcast.</li>
             <li><strong>Apple Watch:</strong> broadcast with <strong>HeartCast</strong> or <strong>Echo</strong> to EdgeLoop on a <em>second</em> device (PC, Mac, tablet). iOS cannot loop back on the same iPhone; in Bluefy on the iPhone, pair a chest strap instead.</li>
             <li><strong>Budget GloryFit / Da Fit watches</strong> do not broadcast the Heart Rate service and cannot work.</li>
           </ul>
@@ -1842,6 +1845,7 @@
             <li><strong>Polar H10, Coospo H6M, Cycplus H2 Pro, Garmin, Wahoo:</strong> pair directly; the most stable option.</li>
             <li><strong>Wet the electrodes</strong> before wearing, or the strap reports nothing or poor contact.</li>
           </ul>
+          <p class="text-slate-400 leading-relaxed">A pulse that only climbs a little still drives the session. Set Climax HR just above the highest number you actually see, instead of leaving it at 140. Resting HR is the bottom of that same window.</p>
         </div>
         <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
           <div class="font-bold text-teal-400 text-sm">Browsers</div>

@@ -36,7 +36,7 @@ export const PAUSE_REASONS = Object.freeze([
     'hr-signal', 'hr-link',
     'handy', 'handy-stop',
     'vacuglide', 'intiface', 'tcode',
-    'video', 'beat-sync',
+    'video', 'beat-sync', 'relube',
     'device'
 ]);
 
