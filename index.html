@@ -120,13 +120,8 @@
       padding-top: 0.5rem;
       border-top: 1px solid rgb(30 41 59);
     }
-    /* The closed cards are the choices, not the essays under them. */
     #sessionBundle {
       gap: 0.5rem;
-    }
-    #sessionBundle #playStyleDetail,
-    #sessionBundle #endgameDetail {
-      display: none !important;
     }
     /* Closed Player: Play Style and Session Endgame share one frame with the
        same padding, radius, and gap as the button row under them. */
@@ -154,13 +149,39 @@
       border: 0;
       border-radius: 0;
       padding: 0;
-      height: 100%;
       min-width: 0;
+      height: auto;
+      display: flex;
+      flex-direction: column;
     }
-    #playerBody[data-player="off"] #sessionBundle #endgamePanel {
-      border-top: 0;
-      padding-top: 0;
+    #playStyleSelected,
+    #endgameSelected {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      border-radius: 0.75rem;
+      background: rgb(2 6 23);
+      border: 1px solid rgb(51 65 85);
+    }
+    #playStyleSelected:hover,
+    #endgameSelected:hover {
+      border-color: rgb(168 85 247);
+    }
+    #playerBody[data-player="off"] #sessionSetupHome > #playStylePanel,
+    #playerBody[data-player="off"] #sessionSetupHome > #endgamePanel {
       margin-top: 0;
+    }
+    #playerBody[data-player="off"] #playStylePanel > div:not(#playStyleDrawer):not(.hidden),
+    #playerBody[data-player="off"] #endgameHome,
+    #playerBody[data-player="off"] #endgameBlock {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    #playStylePanel:not(:has(#playStyleDrawer:not(.hidden))) #playStyleSelected,
+    #endgamePanel:not(:has(#endgameDrawer:not(.hidden))) #endgameSelected {
+      flex: 1;
     }
     #bioProfilesGrid,
     #gameModesGrid {
@@ -759,12 +780,14 @@
 
           <div class="space-y-1.5">
             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Play Style</p>
-            <button id="playStyleToggle" type="button" aria-expanded="false" aria-controls="playStyleDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
+            <div id="playStyleSelected">
+            <button id="playStyleToggle" type="button" aria-expanded="false" aria-controls="playStyleDrawer" class="w-full text-left px-2.5 pt-2.5 pb-1 cursor-pointer">
               <span id="playStylePrompt" class="hidden text-sm font-bold text-purple-200">Select your play style</span>
               <span id="playStyleName" class="block text-sm font-bold text-purple-300">Simple Ramp</span>
               <span id="playStyleHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
             </button>
-            <p id="playStyleDetail" class="text-[10px] text-slate-300 leading-snug">Speed starts high and ramps down as your pulse climbs toward the heart rate you set. Strokes stay the full length. Close to that heart rate, it sometimes stops for a beat and then picks back up. Crawl or Full Stop still decides the ceiling.</p>
+            <p id="playStyleDetail" class="px-2.5 pb-2.5 text-[10px] text-slate-300 leading-snug">Speed starts high and ramps down as your pulse climbs toward the heart rate you set. Strokes stay the full length. Close to that heart rate, it sometimes stops for a beat and then picks back up. Crawl or Full Stop still decides the ceiling.</p>
+            </div>
           </div>
           <div id="playStyleDrawer" class="hidden space-y-1.5">
           <div id="bioProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -869,13 +892,15 @@
           <div id="endgameHome">
           <div id="endgameBlock" class="space-y-1.5">
             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Session Endgame</p>
-            <button id="endgameToggle" type="button" aria-expanded="false" aria-controls="endgameDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
+            <div id="endgameSelected">
+            <button id="endgameToggle" type="button" aria-expanded="false" aria-controls="endgameDrawer" class="w-full text-left px-2.5 pt-2.5 pb-1 cursor-pointer">
               <span id="endgamePrompt" class="hidden text-sm font-bold text-purple-200">Select your ending</span>
               <span id="endgameName" class="block text-sm font-bold text-purple-300">Climax</span>
               <span id="endgameHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
             </button>
+            <div id="endgameExtra" class="px-2.5 pb-2.5 space-y-2">
             <p id="endgameDetail" class="text-[10px] text-slate-300 leading-snug">When the timer runs out, the toys surge to 100%.</p>
-            <div id="timerEnding" class="pt-1.5 border-t border-slate-800 space-y-1.5">
+            <div id="timerEnding" class="space-y-1.5">
               <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">When the timer runs out</span>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5" id="paramEndgameContainer">
                 <button type="button" data-endgame="orgasm" class="param-endgame-card h-full text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
@@ -895,11 +920,11 @@
             <div id="trainSettings" class="hidden">
             <div class="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-300">
               <label class="flex items-center gap-1.5">Hold
-                <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
+                <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
                 s
               </label>
               <label class="flex items-center gap-1.5">
-                <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
+                <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
                 edges, then finish
               </label>
             </div>
@@ -908,20 +933,22 @@
             <div class="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-200">
               <span id="nnnStatus" class="font-mono text-base font-bold text-emerald-300">Today 0/3</span>
               <label class="flex items-center gap-1.5">Start
-                <input id="nnnStartInput" type="date" value="2026-10-08" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnStartInput" type="date" value="2026-10-08" class="edgeloop-date bg-slate-900 border border-slate-700 rounded-lg px-2 text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
               <label class="flex items-center gap-1.5">End
-                <input id="nnnEndInput" type="date" value="2026-11-30" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnEndInput" type="date" value="2026-11-30" class="edgeloop-date bg-slate-900 border border-slate-700 rounded-lg px-2 text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
               <label class="flex items-center gap-1.5">Edges/day
-                <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
               <label class="flex items-center gap-1.5">Denial
-                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" title="When today's edge quota is finished, this is the chance the session ends in denial instead of an orgasm. 0 always finishes you. 100 always denies you." class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" title="When today's edge quota is finished, this is the chance the session ends in denial instead of an orgasm. 0 always finishes you. 100 always denies you." class="w-14 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
                 %
               </label>
               <button id="nnnMissedDayBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold text-slate-200 cursor-pointer">Add a missed day</button>
               <button id="nnnClearBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold text-slate-200 cursor-pointer">Clear</button>
+            </div>
+            </div>
             </div>
             </div>
             <div id="endgameDrawer" class="hidden space-y-1.5">
@@ -1254,7 +1281,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.29</span>
+        <span id="appVersion" class="font-mono">v1.1.4.30</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

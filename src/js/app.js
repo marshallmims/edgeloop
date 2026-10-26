@@ -3070,13 +3070,18 @@ function renderModeDetail() {
     }
     document.getElementById('trainSettings')?.classList.toggle('hidden', state.gameMode !== 'edgetrain');
     document.getElementById('nnnSettings')?.classList.toggle('hidden', state.gameMode !== 'nnn');
+    const choosingStyle = document.getElementById('playStyleDrawer') && !document.getElementById('playStyleDrawer').classList.contains('hidden');
     const choosingEnding = document.getElementById('endgameDrawer') && !document.getElementById('endgameDrawer').classList.contains('hidden');
+    document.getElementById('playStyleDetail')?.classList.toggle('hidden', Boolean(choosingStyle));
+    const extra = state.gameMode === 'nnn' || state.gameMode === 'edgetrain';
+    document.getElementById('endgameDetail')?.classList.toggle('hidden', Boolean(choosingEnding) || extra);
+    document.getElementById('endgameExtra')?.classList.toggle('hidden', Boolean(choosingEnding));
     // Climax, Soft Landing, and Strict Denial are the ending when no game is
     // on. Edge Training still uses them when the timer runs out. Survival
     // keeps going until Stop. The Oracle decides its own finish. NNN uses
     // the denial percent on its own card.
     const timerMatters = state.gameMode === 'edgetrain';
-    document.getElementById('timerEnding')?.classList.toggle('hidden', choosingEnding || !timerMatters);
+    document.getElementById('timerEnding')?.classList.toggle('hidden', Boolean(choosingEnding) || !timerMatters);
 }
 
 function setChoiceDrawer(drawerId, buttonId, open) {
@@ -3086,7 +3091,6 @@ function setChoiceDrawer(drawerId, buttonId, open) {
     const prompt = document.getElementById(style ? 'playStylePrompt' : 'endgamePrompt');
     const name = document.getElementById(style ? 'playStyleName' : 'endgameName');
     const hint = document.getElementById(style ? 'playStyleHint' : 'endgameHint');
-    const detail = document.getElementById(style ? 'playStyleDetail' : 'endgameDetail');
     if (drawer) drawer.classList.toggle('hidden', !open);
     if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
     prompt?.classList.add('hidden');
@@ -3095,8 +3099,7 @@ function setChoiceDrawer(drawerId, buttonId, open) {
         hint.classList.remove('hidden');
         hint.textContent = open ? 'Tap to close' : 'Tap to change';
     }
-    detail?.classList.toggle('hidden', open);
-    if (!style) renderModeDetail();
+    renderModeDetail();
 }
 
 // The two cards share a row. Opening one opens the other, so a short card
@@ -3486,6 +3489,7 @@ modeCards.forEach(card => {
         }
         const enabled = GAME_CARD_MODES.includes(mode) ? true : true;
         applyModeSelection(mode, enabled);
+        setBothChoiceDrawers(false);
         if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled });
         else syncTelemetry();
     });

@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.30
+
+- **A choice closes the lists.** Picking a play style or an ending rolls both lists up. The play style card keeps that mode's description. A mode with its own settings, such as NNN practice, keeps those settings in the same card.
+
 ## 1.1.4.29
 
 - **Play Style and Session Endgame use the button row's frame.** The gap, padding, and corners match the buttons under them. The choice boxes are one size.

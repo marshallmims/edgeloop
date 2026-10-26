@@ -484,8 +484,10 @@ describe('player markup', () => {
         assert.match(html, /id="playerChrome"[\s\S]*id="playerScrub"[\s\S]*id="playerTime"[\s\S]*id="playerTheaterBtn"[\s\S]*id="playerFullscreenBtn"/);
         const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
         assert.match(app, /function setBothChoiceDrawers/);
-        assert.match(app, /Tap to close/);
-        assert.doesNotMatch(app, /setBothChoiceDrawers\(false\)/);
+        assert.match(app, /setBothChoiceDrawers\(false\)/);
+        assert.match(html, /id="playStyleSelected"/);
+        assert.match(html, /id="endgameSelected"[\s\S]*id="nnnSettings"/);
+        assert.match(html, /id="endgameSelected"[\s\S]*id="endgameDrawer"/);
         assert.match(html, /Tap to configure/);
         assert.doesNotMatch(html, /Stats Overlay/);
         assert.doesNotMatch(html, /id="playerHudPin"/);
