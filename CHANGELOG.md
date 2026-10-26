@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.02
+
+- **Share Control opens this page.** The 1-on-1 and group popup is gone. The controller link, Copy, and who is connected are on the controllee page.
+
 ## 1.1.5.01
 
 - **Share Control changes the page you are on.** The person whose toys are connected sees the devices, whether a controller is connected, the timer, the heart rate and its graph, and what Primary and Secondary are doing. Play Style, Session Endgame, and Stimulation Intensity move to the controller. Stop on this page still stops the toys. Stop sharing puts those controls back.

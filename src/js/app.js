@@ -3964,7 +3964,6 @@ const modals = {
     Vacuglide: document.getElementById('modalBodyVacuglide'),
     History: document.getElementById('modalBodyHistory'),
     Params: document.getElementById('modalBodyParams'),
-    Partner: document.getElementById('modalBodyPartner'),
     Legal: document.getElementById('modalBodyLegal'),
     Changelog: document.getElementById('modalBodyChangelog'),
     HrGuide: document.getElementById('modalBodyHrGuide')
@@ -3997,7 +3996,6 @@ function openModal(type) {
     }
     else if (type === 'History' && modalTitle) { modalTitle.textContent = "Session History & Funscripts"; modals.History?.classList.remove('hidden'); renderHistory(); }
     else if (type === 'Params' && modalTitle) { modalTitle.textContent = "Session Setup"; modals.Params?.classList.remove('hidden'); renderLearningStatus(); syncParamsUI(); }
-    else if (type === 'Partner' && modalTitle) { modalTitle.textContent = "Share Control Hub"; modals.Partner?.classList.remove('hidden'); setupPartnerHost(); }
     else if (type === 'Legal' && modalTitle) { modalTitle.textContent = "Legal & Medical Disclaimer"; modals.Legal?.classList.remove('hidden'); }
     else if (type === 'Changelog' && modalTitle) {
         modalTitle.textContent = `Changelog · v${APP_VERSION}`;
@@ -4279,7 +4277,11 @@ attachVacuglideToPage({ remote: isRemotePage, win: window, doc: document });
 document.getElementById('historyBtn')?.addEventListener('click', () => openModal('History'));
 document.getElementById('sessionParamsHeaderBtn')?.addEventListener('click', () => openModal('Params'));
 document.getElementById('openParamsBtn')?.addEventListener('click', () => openModal('Params'));
-document.getElementById('partnerShareBtn')?.addEventListener('click', () => { if (!isRemotePage) openModal('Partner'); });
+document.getElementById('partnerShareBtn')?.addEventListener('click', () => {
+    if (isRemotePage) return;
+    setupPartnerHost();
+    document.getElementById('controlleeBanner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
 document.getElementById('bleQuickHelpBtn')?.addEventListener('click', () => openModal('HrGuide'));
 document.getElementById('footerLegalBtn')?.addEventListener('click', () => openModal('Legal'));
 document.getElementById('footerChangelogBtn')?.addEventListener('click', () => openModal('Changelog'));
@@ -5271,26 +5273,6 @@ document.getElementById('importConfigFile')?.addEventListener('change', (e) => {
     e.target.value = '';
 });
 
-// Partner Tab Switcher
-const partnerTab1on1Btn = document.getElementById('partnerTab1on1Btn');
-const partnerTabGroupBtn = document.getElementById('partnerTabGroupBtn');
-const partner1on1Section = document.getElementById('partner1on1Section');
-const partnerGroupSection = document.getElementById('partnerGroupSection');
-
-partnerTab1on1Btn?.addEventListener('click', () => {
-    partnerTab1on1Btn.className = "flex-1 py-1.5 rounded-lg bg-purple-600 text-white transition cursor-pointer";
-    if (partnerTabGroupBtn) partnerTabGroupBtn.className = "flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer";
-    partner1on1Section?.classList.remove('hidden');
-    partnerGroupSection?.classList.add('hidden');
-});
-
-partnerTabGroupBtn?.addEventListener('click', () => {
-    partnerTabGroupBtn.className = "flex-1 py-1.5 rounded-lg bg-purple-600 text-white transition cursor-pointer";
-    if (partnerTab1on1Btn) partnerTab1on1Btn.className = "flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer";
-    partnerGroupSection?.classList.remove('hidden');
-    partner1on1Section?.classList.add('hidden');
-});
-
 // BLE modal "Status:" line. tone: 'idle' | 'busy' | 'ok' | 'error'
 function setBleStatus(text, tone = 'idle') {
     const el = document.getElementById('modalBleMsg');
@@ -6244,13 +6226,6 @@ document.getElementById('clearHistoryBtn')?.addEventListener('click', () => {
 // Partner WebRTC Sync (host side): one controller plus any number of
 // read-only viewers. Commands arrive already validated by peer-messages.js.
 function setPartnerStatus(text, tone = 'wait') {
-    const status = document.getElementById('partnerStatusText');
-    if (status) {
-        status.textContent = text;
-        status.className = tone === 'ok' ? 'font-bold text-emerald-400'
-            : tone === 'error' ? 'font-bold text-rose-400'
-            : 'font-bold text-amber-400';
-    }
     const controllee = document.getElementById('controlleeStatus');
     if (controllee) {
         controllee.textContent = text;
@@ -6300,7 +6275,7 @@ function stopSharing() {
     updateEngine();
 }
 
-// Header badge ("1C+2V") and the Share modal's viewer list, counted apart.
+// Header badge ("1C+2V") for whoever is connected to this room.
 function renderPeerCounts() {
     const counts = getPeerCounts();
     const badge = document.getElementById('shareControlBadge');
@@ -6312,33 +6287,19 @@ function renderPeerCounts() {
         badge.title = `${counts.controllers} controller, ${counts.viewers} viewer(s) connected`;
         badge.classList.toggle('hidden', parts.length === 0);
     }
-    const viewerBadge = document.getElementById('groupViewerCountBadge');
-    if (viewerBadge) viewerBadge.textContent = `${counts.viewers} Watching`;
-    const viewerList = document.getElementById('groupViewersList');
-    if (viewerList) {
-        viewerList.textContent = counts.viewers > 0
-            ? `${counts.viewers} read-only viewer(s) receiving live telemetry.`
-            : 'No viewers currently connected.';
-    }
 }
 
 function setupPartnerHost() {
     enterControlleeMode();
     if (!peerLibraryAvailable()) {
         setPartnerStatus('Signalling library not loaded (CDN blocked or offline). Remote control is unavailable.', 'error');
-        ['partnerShareUrl', 'groupShareUrl'].forEach((id) => {
-            const el = document.getElementById(id);
-            if (el) el.value = 'Unavailable: the PeerJS library could not be loaded';
-        });
+        const linkField = document.getElementById('controlleeShareUrl');
+        if (linkField) linkField.value = 'Unavailable: the PeerJS library could not be loaded';
         return;
     }
     initHostPeer({
         onPeerReady: (id) => {
-            const share = document.getElementById('partnerShareUrl');
-            const group = document.getElementById('groupShareUrl');
             const link = `${window.location.origin}${window.location.pathname}?partner=${id}`;
-            if (share) share.value = link;
-            if (group) group.value = `${window.location.origin}${window.location.pathname}?group_sub=${id}`;
             const controlleeLink = document.getElementById('controlleeShareUrl');
             if (controlleeLink) controlleeLink.value = link;
             // Also fires after a signalling reconnect: keep a live controller shown as such.
@@ -7029,20 +6990,12 @@ async function copyLinkFrom(inputId, btnId) {
     return copied;
 }
 
-document.getElementById('copyShareUrlBtn')?.addEventListener('click', () => {
-    copyLinkFrom('partnerShareUrl', 'copyShareUrlBtn').catch(() => {});
-});
-
 document.getElementById('controlleeCopyBtn')?.addEventListener('click', () => {
     copyLinkFrom('controlleeShareUrl', 'controlleeCopyBtn').catch(() => {});
 });
 
 document.getElementById('controlleeStopBtn')?.addEventListener('click', () => {
     if (!isRemotePage) stopSharing();
-});
-
-document.getElementById('copyGroupUrlBtn')?.addEventListener('click', () => {
-    copyLinkFrom('groupShareUrl', 'copyGroupUrlBtn').catch(() => {});
 });
 
 let loadedScriptHash = '';

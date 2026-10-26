@@ -268,6 +268,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     await page.locator('#guideBtn').click(); await sleep(250); await shot('06-guide'); await closeModal();
     await page.locator('#historyBtn').click(); await sleep(250); await shot('07-history'); await closeModal();
     await page.getByText(/share control/i).first().click(); await sleep(400);
+    if (await page.locator('#modalOverlay').isVisible()) throw new Error('Share Control opened a popup');
     if (!(await page.locator('#controlleeBanner').isVisible())) throw new Error('controllee banner missing after Share Control');
     if (await page.locator('#playStylePanel').isVisible()) throw new Error('play style should be hidden while sharing');
     if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame should be hidden while sharing');
@@ -275,11 +276,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (!(await page.locator('#hrChart').isVisible())) throw new Error('heart-rate graph missing on the controllee');
     await shot('08-share');
     // Copy-link buttons must never throw (clipboard may be denied; execCommand fallback).
-    await page.locator('#copyShareUrlBtn').click().catch(() => {}); await sleep(150);
-    const groupTab = page.locator('#partnerTabGroupBtn, button:has-text("Group"), button:has-text("Viewer")').first();
-    if (await groupTab.count()) await groupTab.click().catch(() => {});
-    await page.locator('#copyGroupUrlBtn').click().catch(() => {}); await sleep(150);
-    await closeModal();
+    await page.locator('#controlleeCopyBtn').click().catch(() => {}); await sleep(150);
     await page.locator('#controlleeStopBtn').click(); await sleep(250);
     if (await page.locator('#controlleeBanner').isVisible()) throw new Error('Stop sharing left the controllee banner up');
     if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after Stop sharing');

@@ -1319,7 +1319,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.01</span>
+        <span id="appVersion" class="font-mono">v1.1.5.02</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1949,48 +1949,7 @@
         </button>
       </div>
 
-      <!-- 6. Share Control Modal (1-on-1 vs Group Tabs) -->
-      <div id="modalBodyPartner" class="space-y-3 hidden">
-        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
-          <button id="partnerTab1on1Btn" class="flex-1 py-1.5 rounded-lg bg-purple-600 text-white transition cursor-pointer">1-on-1 Control</button>
-          <button id="partnerTabGroupBtn" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer">Group Control</button>
-        </div>
-
-        <div id="partner1on1Section" class="space-y-2.5">
-          <p class="text-xs text-slate-400">Share this direct WebRTC link with a single controller. A second controller replaces the first.</p>
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">1-on-1 Session URL</div>
-            <div class="flex gap-2">
-              <input id="partnerShareUrl" type="text" readonly class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 font-mono text-[10px] text-slate-300 select-all outline-none">
-              <button id="copyShareUrlBtn" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-lg transition cursor-pointer">Copy</button>
-            </div>
-          </div>
-          <div class="flex items-center justify-between text-xs text-slate-400 p-2 bg-slate-950 rounded-xl border border-slate-800">
-            <span>Controller Status:</span>
-            <span id="partnerStatusText" class="font-bold text-amber-400">Waiting for controller...</span>
-          </div>
-        </div>
-
-        <div id="partnerGroupSection" class="space-y-2.5 hidden">
-          <p class="text-xs text-slate-400">Share this link with any number of read-only viewers. They see the live telemetry exactly as the controller does, but every control is disabled. Only the 1-on-1 link can control the session.</p>
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">Viewer Join Link</div>
-            <div class="flex gap-2">
-              <input id="groupShareUrl" type="text" readonly class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 font-mono text-[10px] text-slate-300 select-all outline-none">
-              <button id="copyGroupUrlBtn" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-lg transition cursor-pointer">Copy</button>
-            </div>
-          </div>
-          <div class="p-2 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-            <div class="flex justify-between items-center text-xs">
-              <span class="font-bold text-slate-300">Connected Viewers</span>
-              <span id="groupViewerCountBadge" class="font-mono text-purple-400 font-bold">0 Watching</span>
-            </div>
-            <div id="groupViewersList" class="space-y-1 text-[10px] text-slate-500 italic">No viewers currently connected.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 7. Changelog -->
+      <!-- 6. Changelog -->
       <div id="modalBodyChangelog" class="space-y-2.5 hidden">
         <div id="changelogBody" class="text-xs text-slate-400 space-y-2 max-h-[60vh] overflow-y-auto pr-1 leading-relaxed"></div>
         <p class="text-[10px] text-slate-500 leading-snug">Same list as <a id="changelogGithubLink" href="https://github.com/marshallmims/edgeloop/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-300">CHANGELOG.md on GitHub</a>. A published <a id="changelogReleasesLink" href="https://github.com/marshallmims/edgeloop/releases" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-300">Release</a> is what posts that version to Discord.</p>
