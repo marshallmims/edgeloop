@@ -85,6 +85,7 @@ import {
     frameFromPattern,
     frameIsStopped,
     loopFromGesture,
+    manualSplit,
     MANUAL_LINK_MS,
     parseDeviceId,
     PATTERN_CHOICES,
@@ -98,6 +99,7 @@ import {
     rescanIntiface,
     dispatchIntiface,
     applyManualIntiface,
+    setIntifaceManualHold,
     stopAllIntiface,
     setAxisRole,
     setAxisMaxCap,
@@ -123,6 +125,7 @@ import {
     disconnectTCode,
     dispatchTCode,
     applyManualTCode,
+    setTCodeManualHold,
     setTCodeScriptFeed,
     stopTCode,
     setTCodeHandlers,
@@ -753,14 +756,17 @@ function placeSessionSetup(inPlayer) {
     const bar = document.getElementById('sessionSetupBar');
     const play = document.getElementById('playStylePanel');
     const end = document.getElementById('endgamePanel');
+    const manual = document.getElementById('manualPanel');
     if (inPlayer && slot) {
         if (bar && bar.parentElement !== slot) slot.insertBefore(bar, slot.firstChild);
         if (play && play.parentElement !== slot) slot.appendChild(play);
         if (end && end.parentElement !== slot) slot.appendChild(end);
+        if (manual && manual.parentElement !== slot) slot.appendChild(manual);
     } else if (home) {
         if (bar && bundle && bar.parentElement !== bundle) bundle.insertBefore(bar, home);
         if (play && play.parentElement !== home) home.appendChild(play);
         if (end && end.parentElement !== home) home.appendChild(end);
+        if (manual && bundle && manual.parentElement !== bundle) bundle.appendChild(manual);
     }
     // Share Control hides these on the controllee. Opening Player must not
     // put them back; they belong to the controller until sharing stops.
@@ -771,6 +777,7 @@ function placeSessionSetup(inPlayer) {
 }
 
 let sharingControl = false;
+let closePlayerForMode = null;
 
 function layoutDeviceCards() {
     const ready = hardwareReadiness();
@@ -1547,6 +1554,35 @@ function clearManualTimers() {
 function clearManualLatch() {
     clearManualTimers();
     manualLatch = null;
+    setIntifaceManualHold([]);
+    setTCodeManualHold([]);
+}
+
+function noteManualOwned(devices) {
+    if (!manualLatch) return;
+    manualLatch.owned = new Set((devices || []).map((item) => item && item.id).filter(Boolean));
+    manualLatch.pending = false;
+    syncManualHolds();
+}
+
+function syncManualHolds() {
+    const owned = manualLatch && manualLatch.owned ? manualLatch.owned : new Set();
+    const intiface = [];
+    const tcode = [];
+    for (const id of owned) {
+        const parsed = parseDeviceId(id);
+        if (!parsed) continue;
+        if (parsed.family === 'intiface' && parsed.axisKey) intiface.push({ deviceIndex: parsed.deviceIndex, axisKey: parsed.axisKey });
+        else if (parsed.family === 'tcode' && parsed.axisId) tcode.push(parsed.axisId);
+    }
+    setIntifaceManualHold(intiface);
+    setTCodeManualHold(tcode);
+}
+
+function manualPlan() {
+    const catalog = deviceCatalog.length ? deviceCatalog : sharedDeviceCatalog();
+    const owned = manualLatch && manualLatch.owned ? manualLatch.owned : new Set();
+    return manualSplit(catalog, owned);
 }
 
 // Cut every toy without letting the engine fill the gap, then put the latch
@@ -1636,9 +1672,12 @@ function applyManualHardware(frame, { urgent = false } = {}) {
     if (!manualSessionLive()) return;
     const env = normalizeEnvelope(advancedSettings.handyHwMin, advancedSettings.handyHwMax);
     const stopped = urgent || frameIsStopped({ devices });
-    if (stopped) {
+    const plan = manualPlan();
+    if (stopped && !plan.engine) {
         // Once is enough. Repeating a full stop every tick would keep
         // hitting the devices for as long as the controller holds zero.
+        // A toy left on EdgeLoop is not in this frame, so this path is
+        // only the case where the controller has every toy.
         if (manualLatch && !manualLatch.heldStop) forceStopHardware();
         if (manualLatch) manualLatch.heldStop = true;
         paintChannelReadout(0, 0, summary.strokeMin, summary.strokeMax);
@@ -1677,14 +1716,16 @@ function applyManualHardware(frame, { urgent = false } = {}) {
             dispatchVacuglide(output.speed, output.speed === 0);
         }
     }
+    const releasedIntiface = plan.released.some((id) => id.startsWith('intiface'));
+    const releasedTcode = plan.released.some((id) => id.startsWith('tcode'));
     if (intiface.length) {
         applyManualIntiface(intiface, env.min, env.max, {
-            stopAll: intiface.every((item) => item.speed === 0 && item.level === 0)
+            stopAll: !releasedIntiface && intiface.every((item) => item.speed === 0 && item.level === 0)
         });
     }
     if (tcode.length) {
         applyManualTCode(tcode, env.min, env.max, {
-            stopAll: tcode.every((item) => item.speed === 0 && item.level === 0)
+            stopAll: !releasedTcode && tcode.every((item) => item.speed === 0 && item.level === 0)
         });
     }
 }
@@ -1701,8 +1742,11 @@ function tickManual() {
     // A loop has no slider packets of its own. If the controller goes quiet
     // the loop ends and the empty frame takes the toys to a stop.
     if (manualLatch.pattern && Date.now() - (manualLatch.heardAt || 0) > MANUAL_LINK_MS) {
+        const owned = manualLatch.owned || new Set();
         manualLatch.pattern = null;
-        manualLatch.frame = { devices: [] };
+        manualLatch.frame = {
+            devices: [...owned].map((id) => ({ id, speed: 0, strokeMin: 0, strokeMax: 100, level: 0 }))
+        };
         manualLatch.frameAt = manualLatch.heardAt || Date.now();
         manualLatch.heldStop = false;
     }
@@ -1722,7 +1766,12 @@ function armManual(epoch) {
         frame: { devices: [] },
         frameAt: Date.now(),
         heardAt: Date.now(),
-        heldStop: false
+        heldStop: false,
+        owned: new Set(),
+        // The next frame names which toys the controller kept. Until it
+        // arrives every toy stays stopped, so EdgeLoop cannot grab one
+        // the controller is about to take.
+        pending: true
     };
     ensureManualTimer();
     forceStopHardware();
@@ -1846,11 +1895,15 @@ function handleManualCommand(cmd) {
     }
     if (cmd.type === 'MANUAL_STOP') {
         if (!acceptManualCommand(cmd)) return;
+        manualLatch.pending = false;
         manualLatch.pattern = null;
-        manualLatch.frame = { devices: [] };
+        const owned = manualLatch.owned || new Set();
+        manualLatch.frame = {
+            devices: [...owned].map((id) => ({ id, speed: 0, strokeMin: 0, strokeMax: 100, level: 0 }))
+        };
         manualLatch.frameAt = Date.now();
         manualLatch.heldStop = false;
-        applyManualHardware({ devices: [] }, { urgent: true });
+        applyManualHardware(manualLatch.frame, { urgent: true });
         syncTelemetry();
         return;
     }
@@ -1870,6 +1923,7 @@ function handleManualCommand(cmd) {
     if (manualLatch && !acceptEpoch(manualLatch.epoch, cmd.epoch)) return;
     manualLatch.epoch = cmd.epoch;
     if (cmd.type === 'MANUAL_PATTERN') {
+        noteManualOwned(cmd.devices);
         manualLatch.pattern = cmd;
         manualLatch.patternAt = Date.now();
         manualLatch.heardAt = Date.now();
@@ -1880,21 +1934,31 @@ function handleManualCommand(cmd) {
         return;
     }
     if (cmd.type === 'MANUAL_FRAME') {
+        noteManualOwned(cmd.devices);
         manualLatch.pattern = null;
         manualLatch.frame = { devices: cmd.devices };
         manualLatch.frameAt = Date.now();
         manualLatch.heardAt = Date.now();
         ensureManualTimer();
         applyManualHardware(manualLatch.frame, { urgent: cmd.urgent });
+        if (manualPlan().engine) updateEngine();
         syncTelemetry();
     }
 }
 
 function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, force = false) {
     if (isRemotePage) return;
+    let skipHandy = false;
+    let skipVac = false;
     if (manualLatch && !force) {
+        syncManualHolds();
+        // The controller has not said which toys they kept yet.
+        if (manualLatch.pending) return;
+        const plan = manualPlan();
+        skipHandy = plan.claimed.includes('handy');
+        skipVac = plan.claimed.includes('vacuglide');
         if (manualSessionLive()) applyManualHardware(currentManualFrame());
-        return;
+        if (!plan.engine) return;
     }
 
     let targetHandySpeed = 0;
@@ -1915,17 +1979,20 @@ function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, fo
     // for. A T-Code or Intiface linear axis takes a wider zone as a longer,
     // slower stroke rather than a faster one, so they keep the envelope as is.
     const handyPlan = routeTheHandy(primarySpeed, targetHandySpeed, range, force);
-    if (handyPlan) dispatchHandy(handyPlan.speed, handyPlan.min, handyPlan.max, force, range.env.min, range.env.max, advancedSettings.handyEndMargin);
+    if (!skipHandy && handyPlan) dispatchHandy(handyPlan.speed, handyPlan.min, handyPlan.max, force, range.env.min, range.env.max, advancedSettings.handyEndMargin);
     // Intiface linear axes run on their own per-leg timers; this call only
     // updates the planner inputs (and, with force, issues StopAllDevices).
+    // An axis the controller is holding is skipped inside the driver.
     dispatchIntiface(primarySpeed, secondarySpeed, range.min, range.max, range.env.min, range.env.max, force);
     // Same for the direct T-Code serial device: a forced zero dispatch is an
     // immediate stop (every axis to rest on one line).
     dispatchTCode(primarySpeed, secondarySpeed, range.min, range.max, range.env.min, range.env.max, force);
-    dispatchVacuglide(
-        vacuglideSpeedFor(advancedSettings.vacuglideRole, primarySpeed, secondarySpeed, advancedSettings.vacuglideMaxCap),
-        force
-    );
+    if (!skipVac) {
+        dispatchVacuglide(
+            vacuglideSpeedFor(advancedSettings.vacuglideRole, primarySpeed, secondarySpeed, advancedSettings.vacuglideMaxCap),
+            force
+        );
+    }
 }
 
 // Queue a spoken cue (voice.js keeps a short queue, so back-to-back cues are
@@ -4287,10 +4354,8 @@ document.getElementById('sessionParamsHeaderBtn')?.addEventListener('click', () 
 document.getElementById('openParamsBtn')?.addEventListener('click', () => openModal('Params'));
 document.getElementById('partnerShareBtn')?.addEventListener('click', () => {
     if (isRemotePage) return;
-    if (sharingControl) {
-        stopSharing();
-        return;
-    }
+    if (sharingControl) return;
+    if (document.getElementById('playerBody')?.dataset.player === 'on') closePlayerForMode?.(false);
     setupPartnerHost();
     document.getElementById('controlleeBanner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
@@ -6247,25 +6312,32 @@ function setPartnerStatus(text, tone = 'wait') {
     }
 }
 
-function paintShareControlButton() {
-    const btn = document.getElementById('partnerShareBtn');
+function paintAppMode() {
+    const playerOn = document.getElementById('playerBody')?.dataset.player === 'on';
+    const solo = document.getElementById('soloModeBtn');
+    const playerBtn = document.getElementById('playerHeaderBtn');
+    const share = document.getElementById('partnerShareBtn');
+    const mark = (btn, on) => {
+        if (!btn) return;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    mark(solo, !sharingControl && !playerOn);
+    mark(playerBtn, !sharingControl && playerOn);
+    if (playerBtn) {
+        playerBtn.setAttribute('aria-expanded', playerOn ? 'true' : 'false');
+        playerBtn.setAttribute('aria-label', 'Video Player');
+    }
+    mark(share, sharingControl);
+    if (share) share.setAttribute('aria-label', 'Share Control');
     const label = document.getElementById('partnerShareLabel');
-    if (label) {
-        label.textContent = sharingControl ? 'Regular' : 'Share Control';
-        label.classList.toggle('hidden', !sharingControl);
-        label.classList.toggle('sm:inline', true);
-    }
-    if (btn) {
-        btn.setAttribute('aria-pressed', sharingControl ? 'true' : 'false');
-        btn.setAttribute('aria-label', sharingControl ? 'Regular mode' : 'Share Control');
-    }
+    if (label) label.textContent = 'Share Control';
 }
 
 function enterControlleeMode() {
     if (isRemotePage) return;
     sharingControl = true;
     document.body.classList.add('sharing-control');
-    paintShareControlButton();
+    paintAppMode();
     document.getElementById('controlleeBanner')?.classList.remove('hidden');
     document.getElementById('sessionSetupHome')?.classList.add('hidden');
     document.getElementById('playStylePanel')?.classList.add('hidden');
@@ -6281,7 +6353,7 @@ function enterControlleeMode() {
 function exitControlleeMode() {
     sharingControl = false;
     document.body.classList.remove('sharing-control');
-    paintShareControlButton();
+    paintAppMode();
     document.getElementById('controlleeBanner')?.classList.add('hidden');
     document.getElementById('sessionSetupHome')?.classList.remove('hidden');
     document.getElementById('playStylePanel')?.classList.remove('hidden');
@@ -6521,6 +6593,8 @@ let manualKeepalive = null;
 let manualUiHoldUntil = 0;
 let manualDevices = [];
 const manualDraft = new Map();
+const manualOwned = new Set();
+const manualReleased = new Set();
 let manualGesture = null;
 let manualPatternOn = false;
 let manualPatternCmd = null;
@@ -6539,17 +6613,23 @@ function setManualModeUi(on, fromHost = false) {
     const hint = document.getElementById('manualHint');
     btn?.setAttribute('aria-pressed', manualDriving ? 'true' : 'false');
     if (btn) {
-        btn.textContent = manualDriving ? 'EdgeLoop' : 'Manual';
+        btn.textContent = manualDriving ? 'EdgeLoop Control' : 'Manual Control';
         btn.className = manualDriving
             ? 'shrink-0 bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-2 rounded-xl text-xs cursor-pointer'
             : 'shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer';
     }
+    document.body.classList.toggle('manual-on', manualDriving);
+    document.getElementById('manualPanel')?.classList.toggle('hidden', !manualDriving);
     live?.classList.toggle('hidden', !manualDriving);
     if (hint) {
         hint.textContent = manualDriving
-            ? 'You have the toys. Slow and Stop take effect immediately. If the link drops, their toys stop.'
-            : 'EdgeLoop is driving from their pulse. Manual takes the toys from a stop.';
+            ? 'You have the toys in this block. EdgeLoop Control puts Play Style and Session Endgame back. On a toy, You drives it and EdgeLoop leaves it on their pulse. Slow and Stop are immediate.'
+            : 'EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.';
     }
+}
+
+function ownedDrafts() {
+    return [...manualDraft.values()].filter((draft) => manualOwned.has(draft.id));
 }
 
 function ensureDraft(device) {
@@ -6596,7 +6676,7 @@ function refreshManualHold() {
         return;
     }
     let moving = false;
-    for (const draft of manualDraft.values()) {
+    for (const draft of ownedDrafts()) {
         if (draft.speed > 0 || draft.level > 0) moving = true;
     }
     if (moving) scheduleManualFrame(false);
@@ -6615,7 +6695,7 @@ function scheduleManualFrame(urgent = false) {
             type: 'MANUAL_FRAME',
             epoch: manualEpoch,
             urgent,
-            devices: [...manualDraft.values()]
+            devices: ownedDrafts()
         });
     };
     if (urgent) {
@@ -6665,24 +6745,63 @@ function addManualSlider(parent, device, field, label) {
     parent.append(row);
 }
 
+function setDeviceOwner(device, you) {
+    if (you) {
+        manualOwned.add(device.id);
+        manualReleased.delete(device.id);
+        const draft = ensureDraft(device);
+        draft.speed = 0;
+        draft.level = 0;
+    } else {
+        manualOwned.delete(device.id);
+        manualReleased.add(device.id);
+    }
+    manualPatternOn = false;
+    manualPatternCmd = null;
+    writeDraftInputs();
+    document.querySelectorAll(`[data-own-for="${CSS.escape(device.id)}"]`).forEach((btn) => {
+        const on = btn.getAttribute('data-own') === 'you' ? you : !you;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.className = on
+            ? 'px-2 py-1 text-[10px] font-bold bg-purple-600 text-white'
+            : 'px-2 py-1 text-[10px] font-bold bg-slate-900 text-slate-400';
+    });
+    const controls = document.querySelector(`[data-own-controls="${CSS.escape(device.id)}"]`);
+    controls?.classList.toggle('hidden', !you);
+    const note = document.querySelector(`[data-own-note="${CSS.escape(device.id)}"]`);
+    note?.classList.toggle('hidden', you);
+    scheduleManualFrame(true);
+}
+
 function renderManualDevices(devices) {
     const root = document.getElementById('manualDevices');
     if (!root) return;
     manualDevices = devices.filter((item) => item.connected && item.kind !== 'heart' && item.role !== 'off');
+    let claimNew = false;
+    for (const device of manualDevices) {
+        if (!manualOwned.has(device.id) && !manualReleased.has(device.id)) {
+            manualOwned.add(device.id);
+            claimNew = true;
+        }
+    }
     const key = manualDevices.map((item) => `${item.id}:${item.kind}:${item.role}`).join('|');
-    if (root.dataset.key === key) return;
+    if (root.dataset.key === key) {
+        if (claimNew && manualDriving) scheduleManualFrame(true);
+        return;
+    }
     root.dataset.key = key;
     root.replaceChildren();
     if (manualDevices.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'text-[10px] text-slate-400';
-        empty.textContent = 'No toy is connected on their side yet.';
+        empty.textContent = 'No toy is connected on their side yet. A stroker gets speed and stroke length. A vibrator gets one slider. Two vibrators get one slider each.';
         root.append(empty);
         return;
     }
     for (const device of manualDevices) {
+        const you = manualOwned.has(device.id);
         const card = document.createElement('div');
-        card.className = 'p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-2';
+        card.className = 'p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-2' + (device.kind === 'stroke' ? ' sm:col-span-2' : '');
         const title = document.createElement('div');
         title.className = 'flex items-center justify-between gap-2';
         const name = document.createElement('span');
@@ -6690,24 +6809,55 @@ function renderManualDevices(devices) {
         name.textContent = device.name;
         const role = document.createElement('span');
         role.className = 'text-[9px] uppercase tracking-wider text-slate-500 shrink-0';
-        role.textContent = `${device.role} · ${controlLabel(device.kind)}`;
-        title.append(name, role);
+        role.textContent = device.role;
+        const modes = document.createElement('div');
+        modes.className = 'flex shrink-0 overflow-hidden rounded-lg border border-slate-700';
+        for (const choice of [['you', 'You'], ['edgeloop', 'EdgeLoop']]) {
+            const picked = choice[0] === 'you' ? you : !you;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = choice[1];
+            btn.setAttribute('data-own', choice[0]);
+            btn.setAttribute('data-own-for', device.id);
+            btn.setAttribute('aria-pressed', picked ? 'true' : 'false');
+            btn.className = picked
+                ? 'px-2 py-1 text-[10px] font-bold bg-purple-600 text-white'
+                : 'px-2 py-1 text-[10px] font-bold bg-slate-900 text-slate-400';
+            btn.addEventListener('click', () => setDeviceOwner(device, choice[0] === 'you'));
+            modes.append(btn);
+        }
+        title.append(name, role, modes);
         card.append(title);
+        const note = document.createElement('p');
+        note.className = 'text-[10px] text-slate-400 leading-snug' + (you ? ' hidden' : '');
+        note.setAttribute('data-own-note', device.id);
+        note.textContent = 'EdgeLoop is driving this from their pulse.';
+        const controls = document.createElement('div');
+        controls.className = 'space-y-2' + (you ? '' : ' hidden');
+        controls.setAttribute('data-own-controls', device.id);
         const fields = controlsForKind(device.kind);
-        if (fields.includes('speed')) addManualSlider(card, device, 'speed', 'Speed');
-        if (fields.includes('level')) addManualSlider(card, device, 'level', controlLabel(device.kind));
-        if (fields.includes('strokeMin')) addManualSlider(card, device, 'strokeMin', 'Stroke min');
-        if (fields.includes('strokeMax')) addManualSlider(card, device, 'strokeMax', 'Stroke max');
+        if (device.kind === 'stroke') {
+            const caption = document.createElement('p');
+            caption.className = 'text-[10px] text-slate-500 leading-snug';
+            caption.textContent = 'Speed is how fast it moves. Stroke from is the bottom. Stroke to is the top.';
+            controls.append(caption);
+        }
+        if (fields.includes('speed')) addManualSlider(controls, device, 'speed', device.kind === 'stroke' ? 'Speed' : 'Speed');
+        if (fields.includes('level')) addManualSlider(controls, device, 'level', controlLabel(device.kind));
+        if (fields.includes('strokeMin')) addManualSlider(controls, device, 'strokeMin', 'Stroke from');
+        if (fields.includes('strokeMax')) addManualSlider(controls, device, 'strokeMax', 'Stroke to');
+        card.append(note, controls);
         root.append(card);
     }
+    if (claimNew && manualDriving) scheduleManualFrame(true);
 }
 
 function patternPeaks() {
-    return peaksFromValues(manualDevices.map((device) => ensureDraft(device)));
+    return peaksFromValues(manualDevices.filter((device) => manualOwned.has(device.id)).map((device) => ensureDraft(device)));
 }
 
 function startManualPattern(id, extra = {}) {
-    if (!manualDriving || manualDevices.length === 0) return;
+    if (!manualDriving || patternPeaks().length === 0) return;
     if (manualSendTimer) {
         clearTimeout(manualSendTimer);
         manualSendTimer = null;
@@ -6767,11 +6917,12 @@ function initManualPanel() {
         const next = !manualDriving;
         setManualModeUi(next);
         sendPeerCommand({ type: 'MANUAL_ARM', on: next, epoch: manualEpoch });
+        if (next) scheduleManualFrame(true);
     });
     document.getElementById('manualSlowBtn')?.addEventListener('click', () => {
         manualPatternOn = false;
         manualPatternCmd = null;
-        for (const draft of manualDraft.values()) {
+        for (const draft of ownedDrafts()) {
             draft.speed = Math.min(draft.speed, 12);
             draft.level = Math.min(draft.level, 12);
         }
@@ -7022,10 +7173,6 @@ document.getElementById('controlleeCopyBtn')?.addEventListener('click', () => {
     copyLinkFrom('controlleeShareUrl', 'controlleeCopyBtn').catch(() => {});
 });
 
-document.getElementById('controlleeStopBtn')?.addEventListener('click', () => {
-    if (!isRemotePage) stopSharing();
-});
-
 let loadedScriptHash = '';
 function storedScriptOffsets() {
     try {
@@ -7255,9 +7402,21 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         placeSessionSetup(open);
         if (!open) channelConfig = null;
         paintPlayerChannels();
+        paintAppMode();
     }
-    document.getElementById('playerHeaderBtn')?.addEventListener('click', () => togglePlayer());
+    closePlayerForMode = (open) => togglePlayer(open);
+    function selectSolo() {
+        if (!isRemotePage && sharingControl) stopSharing();
+        togglePlayer(false);
+    }
+    function selectVideoPlayer() {
+        if (!isRemotePage && sharingControl) stopSharing();
+        togglePlayer(true);
+    }
+    document.getElementById('soloModeBtn')?.addEventListener('click', selectSolo);
+    document.getElementById('playerHeaderBtn')?.addEventListener('click', selectVideoPlayer);
     document.getElementById('playerToggleBtn')?.addEventListener('click', () => togglePlayer());
+    paintAppMode();
     document.getElementById('playerPrimaryConfigBtn')?.addEventListener('click', () => {
         channelConfig = channelConfig === 'primary' ? null : 'primary';
         paintPlayerChannels();
@@ -7461,7 +7620,6 @@ if (advancedSettings.micEnabled && !isRemotePage) showMicReenable(true);
 if (advancedSettings.voiceEnabled) paintIdlePrompt();
 watchChartResize(document.getElementById('hrChart'), redrawChart);
 if (isRemoteController) {
-    document.getElementById('manualPanel')?.classList.remove('hidden');
     document.getElementById('sessionSetupManual')?.classList.remove('hidden');
     initManualPanel();
 }

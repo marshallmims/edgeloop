@@ -314,6 +314,26 @@ export function frameIsStopped(frame) {
     return devices.every((device) => clampPct(device.speed, 0) === 0 && clampPct(device.level, 0) === 0);
 }
 
+// Toys named in `ownedIds` are the controller's. The rest stay on the pulse.
+// `full` means the engine must not touch a toy. `engine` means at least one
+// connected toy is still EdgeLoop's.
+export function manualSplit(catalog, ownedIds) {
+    const owned = ownedIds instanceof Set ? ownedIds : new Set(ownedIds || []);
+    const claimed = [];
+    const released = [];
+    for (const item of catalog || []) {
+        if (!item || !item.id || !item.connected || item.kind === 'heart' || item.role === 'off') continue;
+        if (owned.has(item.id)) claimed.push(item.id);
+        else released.push(item.id);
+    }
+    return {
+        claimed,
+        released,
+        engine: released.length > 0,
+        full: claimed.length > 0 && released.length === 0
+    };
+}
+
 // Resample a finger-drawn stroke into a loop. x and y are 0–1 across the pad
 // (y grows downward, so the top of the pad is full power). The time it took
 // to draw becomes the loop length.

@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.04
+
+- **Solo, Video Player, and Share Control are the three modes.** Solo is the regular page. Video Player is the player. Share Control is the controllee page. Solo leaves Share Control.
+- **Manual Control replaces Play Style and Session Endgame.** The button then says EdgeLoop Control and puts those choices back. A stroker gets speed and the bottom and top of the stroke. A vibrator gets one slider, and a second vibrator gets its own. You drives that toy. EdgeLoop leaves it on their pulse.
+
 ## 1.1.5.03
 
 - **Share Control toggles back to regular mode.** While control is shared the header button says Regular. Regular mode on the controllee page does the same.

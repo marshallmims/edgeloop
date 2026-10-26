@@ -649,7 +649,21 @@ function speedForRole(role, primary, secondary) {
     return 0;
 }
 
+// Axes the controller is driving. The engine tick must not overwrite them.
+export function setTCodeManualHold(axisIds) {
+    const next = new Set(axisIds || []);
+    if (!device || !Array.isArray(device.axes)) return;
+    for (const axis of device.axes) {
+        const hold = next.has(axis.id);
+        if (hold === Boolean(axis.manualHold)) continue;
+        axis.manualHold = hold;
+        if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+        if (hold && axis.planner) axis.planner.setInput({ enabled: false });
+    }
+}
+
 function applyAxis(axis, primary, secondary, zone, now) {
+    if (axis.manualHold) return;
     const speed = speedForRole(axis.role, primary, secondary);
     const enabled = axis.role !== 'off';
     if (axis.kind === 'linear' && !axis.centred) {

@@ -13,6 +13,7 @@ import {
     patternLevel,
     peaksFromValues,
     sanitizeDeviceCatalog,
+    manualSplit,
     sanitizeManualFrame,
     sanitizeManualPattern
 } from './manual-control.js';
@@ -143,5 +144,22 @@ describe('patterns', () => {
         assert.deepEqual(controlsForKind('vibrate'), ['level']);
         assert.deepEqual(controlsForKind('stroke'), ['speed', 'strokeMin', 'strokeMax']);
         assert.equal(clampPatternPeriod(99999), 8000);
+    });
+
+    it('keeps one toy for the controller and leaves the other on EdgeLoop', () => {
+        const catalog = [
+            { id: 'hr', connected: true, kind: 'heart', role: 'off' },
+            { id: 'handy', connected: true, kind: 'stroke', role: 'primary' },
+            { id: 'intiface:1:vibrate:0', connected: true, kind: 'vibrate', role: 'secondary' },
+            { id: 'intiface:1:vibrate:1', connected: false, kind: 'vibrate', role: 'secondary' }
+        ];
+        const split = manualSplit(catalog, ['handy']);
+        assert.deepEqual(split.claimed, ['handy']);
+        assert.deepEqual(split.released, ['intiface:1:vibrate:0']);
+        assert.equal(split.engine, true);
+        assert.equal(split.full, false);
+        const both = manualSplit(catalog, ['handy', 'intiface:1:vibrate:0']);
+        assert.equal(both.full, true);
+        assert.equal(both.engine, false);
     });
 });

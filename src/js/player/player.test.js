@@ -479,6 +479,8 @@ describe('player markup', () => {
         assert.equal((html.match(/id="manualModeBtn"/g) || []).length, 1);
         assert.match(html, /id="sessionSetupTitle"[^>]*>Session Setup</);
         assert.match(html, /id="sessionParamsHeaderBtn"[\s\S]*Advanced Session Settings/);
+        assert.match(html, /id="soloModeBtn"[\s\S]*Solo[\s\S]*id="playerHeaderBtn"[\s\S]*Video Player[\s\S]*id="partnerShareBtn"/);
+        assert.doesNotMatch(html, /id="controlleeStopBtn"/);
         assert.ok(endgame < tiles && tiles < length, 'session length is a tile on the heart-rate card');
         assert.match(html, /id="hrSetupTiles"[\s\S]*id="warmupToggle"[\s\S]*id="calibrateBtn"[\s\S]*id="durRangeBtn"[\s\S]*id="paramRangeContainer"/);
         assert.match(html, /#playerBody\[data-player="off"\] #sessionBundle\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/);

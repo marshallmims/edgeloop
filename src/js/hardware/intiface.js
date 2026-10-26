@@ -911,7 +911,27 @@ function maybeAlternate(dev, now, active) {
     if (now - (dev.lastDirectionChangeAt || 0) >= dev.alternateSeconds * 1000) flipDirection(dev, now);
 }
 
+// Axes the controller is driving. The engine tick must not overwrite them.
+export function setIntifaceManualHold(pairs) {
+    const next = new Set();
+    for (const pair of pairs || []) {
+        if (!pair || pair.deviceIndex === undefined || !pair.axisKey) continue;
+        next.add(`${pair.deviceIndex}:${pair.axisKey}`);
+    }
+    intifaceDevices.forEach((dev) => {
+        for (const axis of dev.axes || []) {
+            const hold = next.has(`${dev.index}:${axis.key}`);
+            if (hold === Boolean(axis.manualHold)) continue;
+            axis.manualHold = hold;
+            if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+            if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+            if (hold && axis.planner) axis.planner.setInput({ enabled: false });
+        }
+    });
+}
+
 function applyAxis(dev, axis, primary, secondary, zone, now) {
+    if (axis.manualHold) return;
     const speed = axis.role === 'primary' ? primary : (axis.role === 'secondary' ? secondary : 0);
     if (axis.kind === 'linear') {
         axis.planner.setInput({ speed, cap: axis.maxCap, zoneMin: zone.min, zoneMax: zone.max, enabled: axis.role !== 'off' });

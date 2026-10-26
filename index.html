@@ -158,8 +158,29 @@
     body.sharing-control #sessionSetupBar,
     body.sharing-control #playStylePanel,
     body.sharing-control #endgamePanel,
-    body.sharing-control #intensityPanel {
+    body.sharing-control #intensityPanel,
+    body.manual-on #sessionSetupHome,
+    body.manual-on #playStylePanel,
+    body.manual-on #endgamePanel {
       display: none !important;
+    }
+    #sessionBundle > #manualPanel {
+      grid-column: 1 / -1;
+    }
+    #soloModeBtn[aria-pressed="true"] {
+      background: rgb(30 41 59);
+      border-color: rgb(148 163 184);
+      color: white;
+    }
+    #playerHeaderBtn[aria-pressed="true"] {
+      background: rgb(12 74 110);
+      border-color: rgb(56 189 248);
+      color: white;
+    }
+    #partnerShareBtn[aria-pressed="true"] {
+      background: rgb(126 34 206);
+      border-color: rgb(216 180 254);
+      color: white;
     }
     #playStyleHeading,
     #endgameHeading {
@@ -465,10 +486,15 @@
           <span class="hidden sm:inline">Advanced Session Settings</span>
         </button>
 
+        <button id="soloModeBtn" type="button" aria-pressed="true" aria-label="Solo" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-slate-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <span class="hidden sm:inline">Solo</span>
+        </button>
+
 <!-- The player section (your own video and .funscript) -->
-        <button id="playerHeaderBtn" type="button" aria-label="Player" aria-controls="playerSection" aria-expanded="false" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-sky-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+        <button id="playerHeaderBtn" type="button" aria-label="Video Player" aria-controls="playerSection" aria-expanded="false" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-sky-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
           <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-          <span class="hidden sm:inline">Player</span>
+          <span class="hidden md:inline">Video Player</span>
         </button>
 
         <!-- Share Remote Control -->
@@ -787,7 +813,7 @@
             <div id="sessionSetupBar">
               <p id="sessionSetupTitle" class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Setup</p>
               <div id="sessionSetupManual" class="hidden shrink-0">
-                <button id="manualModeBtn" type="button" aria-pressed="false" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer">Manual</button>
+                <button id="manualModeBtn" type="button" aria-pressed="false" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer">Manual Control</button>
               </div>
             </div>
 
@@ -1046,6 +1072,25 @@
           </div>
         </div>
         </div>
+        <section id="manualPanel" class="hidden space-y-3">
+          <p id="manualHint" class="text-[10px] text-slate-400 leading-snug">EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.</p>
+          <div id="manualLive" class="hidden space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+              <button id="manualSlowBtn" type="button" class="min-h-[3rem] bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-sm cursor-pointer">Slow</button>
+              <button id="manualStopBtn" type="button" class="min-h-[3rem] bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-sm cursor-pointer">Stop</button>
+            </div>
+            <div id="manualDevices" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+            <div>
+              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loops</p>
+              <div id="manualPatterns" class="flex flex-wrap gap-1.5"></div>
+            </div>
+            <div class="space-y-1.5">
+              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Draw a loop</p>
+              <canvas id="manualDraw" height="96" class="block w-full h-24 bg-slate-950 rounded-xl border border-slate-700 touch-none cursor-crosshair" aria-label="Draw a loop. The height is the power and the width is the time."></canvas>
+              <p class="text-[9px] text-slate-500 leading-snug">Drag across the pad. Up is stronger. The shape repeats until you tap Stop, Slow, or a slider.</p>
+            </div>
+          </div>
+        </section>
           </div>
         </div>
 </div>
@@ -1089,9 +1134,8 @@
           <div class="min-w-0">
             <p class="text-[10px] font-bold uppercase tracking-wider text-purple-300">Controllee</p>
             <p id="controlleeStatus" class="text-sm font-bold text-amber-300">Waiting for a controller</p>
-            <p class="text-[10px] text-slate-400 leading-snug mt-1">Your toys and heart rate stay on this screen. Play Style, Session Endgame, and Stimulation Intensity are on the controller's screen. Stop here still stops your toys. Regular mode puts this page back.</p>
+            <p class="text-[10px] text-slate-400 leading-snug mt-1">Your toys and heart rate stay on this screen. Play Style, Session Endgame, and Stimulation Intensity are on the controller's screen. Stop here still stops your toys. Solo puts this page back.</p>
           </div>
-          <button id="controlleeStopBtn" type="button" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer">Regular mode</button>
         </div>
         <div class="flex gap-2">
           <input id="controlleeShareUrl" type="text" readonly aria-label="Controller link" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 font-mono text-[10px] text-slate-300 select-all outline-none">
@@ -1266,29 +1310,6 @@
           </div>
         </div>
 
-        <section id="manualPanel" class="hidden bg-slate-900 border border-purple-800 rounded-2xl p-3.5 space-y-3">
-          <div>
-            <p class="text-[10px] font-bold uppercase tracking-wider text-purple-300">Manual control</p>
-            <p id="manualHint" class="text-[10px] text-slate-400 leading-snug">EdgeLoop is driving from their pulse. Manual takes the toys from a stop.</p>
-          </div>
-          <div id="manualLive" class="hidden space-y-3">
-            <div class="grid grid-cols-2 gap-2">
-              <button id="manualSlowBtn" type="button" class="min-h-[3rem] bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-sm cursor-pointer">Slow</button>
-              <button id="manualStopBtn" type="button" class="min-h-[3rem] bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-sm cursor-pointer">Stop</button>
-            </div>
-            <div id="manualDevices" class="space-y-2"></div>
-            <div>
-              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loops</p>
-              <div id="manualPatterns" class="flex flex-wrap gap-1.5"></div>
-            </div>
-            <div class="space-y-1.5">
-              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Draw a loop</p>
-              <canvas id="manualDraw" height="96" class="block w-full h-24 bg-slate-950 rounded-xl border border-slate-700 touch-none cursor-crosshair" aria-label="Draw a loop. The height is the power and the width is the time."></canvas>
-              <p class="text-[9px] text-slate-500 leading-snug">Drag across the pad. Up is stronger. The shape repeats until you tap Stop, Slow, or a slider.</p>
-            </div>
-          </div>
-        </section>
-
         <!-- Stimulation Intensity Multiplier -->
         <div id="intensityPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-1.5">
           <div class="flex justify-between items-center text-xs">
@@ -1332,7 +1353,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.03</span>
+        <span id="appVersion" class="font-mono">v1.1.5.04</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
