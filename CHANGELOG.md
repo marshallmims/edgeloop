@@ -7,6 +7,7 @@ credited by username.
 ## 1.1.4.25
 
 - **Edged stops the toys and counts the edge.** It pauses the same way Pause does, and it does not add a pause. The edge counts for the session and for NNN. A crossing the pulse already counted is left alone.
+- **The session buttons are one full-width row.** Pause, Stop, Edged, Came Early, and Force Orgasm sit under the player. Closing Player leaves that row and hides the picture. Edges and pauses sit on the heart-rate card. On a playing video the top readout stays up, and those buttons fade after a few seconds until the pointer moves or the screen is tapped.
 
 ## 1.1.4.24
 

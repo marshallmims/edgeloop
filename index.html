@@ -85,8 +85,7 @@
       min-height: 16rem;
     }
     #playerBody[data-player="off"] #playerStage {
-      flex: none;
-      background: #0f172a;
+      display: none;
     }
     #playerBody[data-player="off"] #playerDock {
       border-top: 0;
@@ -244,12 +243,46 @@
       opacity: 0;
       pointer-events: none;
     }
-    /* The top readout can stay while the bottom bar hides. */
-    #playerHud[data-pin="on"][data-idle="on"] .hud-info {
-      opacity: 1;
-    }
-    .hud-chrome {
+    .hud-chrome,
+    #sessionControlBar {
       transition: opacity 0.25s ease;
+    }
+    #sessionControlBar {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 1rem;
+      padding: 0.7rem;
+    }
+    #sessionControlBar[data-idle="on"] {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #sessionControlBar #sessionTransport,
+    #sessionControlBar #sessionTransport > div,
+    #hudSessionSlot #sessionTransport,
+    #hudSessionSlot #sessionTransport > div {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      width: 100%;
+    }
+    #sessionControlBar #sessionTransport > div,
+    #hudSessionSlot #sessionTransport > div {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+    @media (min-width: 640px) {
+      #sessionControlBar #sessionTransport > div,
+      #hudSessionSlot #sessionTransport > div {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+    }
+    #sessionControlBar #sessionPlayPauseBtn,
+    #hudSessionSlot #sessionPlayPauseBtn {
+      max-width: none !important;
+      width: 100%;
+      min-width: 0;
     }
     /* The native date glyph is a dark mark on this dark field. Force it
        light and give it a 44 px target so a tablet and a mouse can hit it. */
@@ -405,11 +438,11 @@
             <div id="playerPicture" class="relative flex-1 min-h-[8rem]">
             <p id="playerStageEmpty" class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">Choose a video in the file panel.</p>
             <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
-            <!-- The HUD: only in theater and fullscreen. The bottom bar hides
-                 after 4 s and comes back on a tap or a mouse move. The top
-                 readout stays when Keep the readout up is on. -->
-            <div id="playerHud" data-idle="off" data-pin="on" class="hidden absolute inset-0">
-              <div class="hud-chrome hud-info absolute top-0 inset-x-0 p-3 flex flex-col gap-1 bg-gradient-to-b from-black/70 to-transparent text-white pointer-events-none">
+            <!-- The top readout stays up. The bottom bar hides after a few
+                 seconds while the video is playing, and comes back on a
+                 pointer move or a tap. -->
+            <div id="playerHud" data-idle="off" class="hidden absolute inset-0">
+              <div class="hud-info absolute top-0 inset-x-0 p-3 flex flex-col gap-1 bg-gradient-to-b from-black/70 to-transparent text-white pointer-events-none">
                 <div class="flex justify-between items-start gap-3">
                   <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span class="text-3xl font-black font-mono text-rose-400"><span id="hudHr">--</span><span class="text-xs text-slate-300 ml-1">BPM</span></span>
@@ -419,6 +452,7 @@
                   <div class="text-right font-mono">
                     <div class="text-xl font-bold" id="hudTimer">00:00</div>
                     <div class="text-[11px] text-amber-300">edges <span id="hudEdges">0</span></div>
+                    <div class="text-[11px] text-sky-300">pauses <span id="hudPauses">0</span></div>
                   </div>
                 </div>
                 <div class="flex gap-4 text-[11px] font-mono text-slate-200">
@@ -428,10 +462,9 @@
               </div>
               <p id="hudNotice" class="hud-chrome hidden absolute top-20 inset-x-3 text-center text-[11px] font-bold text-rose-100 bg-rose-950/90 border border-rose-700 rounded-lg px-2 py-1 pointer-events-none"></p>
               <div class="hud-chrome absolute inset-x-0 bottom-0 p-3 pt-10 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2">
+                <div id="hudSessionSlot"></div>
                 <input id="hudSeek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Scrub" class="w-full accent-amber-400 h-8 cursor-pointer">
                 <div class="flex items-center gap-2">
-                  <button id="hudPauseBtn" type="button" class="min-h-[2.75rem] min-w-[5.5rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm cursor-pointer">Play</button>
-                  <button id="hudStopBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-rose-700/90 hover:bg-rose-600 text-white font-bold text-sm cursor-pointer">Stop</button>
                   <span class="flex-1"></span>
                   <label class="flex items-center gap-2 text-[10px] text-slate-200">
                     <span>Volume</span>
@@ -445,29 +478,6 @@
             </div>
           <div id="playerDock" class="shrink-0 border-t border-slate-800 bg-slate-950 px-2 py-2 flex flex-col gap-1.5">
             <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-            <div id="playerTransportSlot" class="shrink-0">
-<div id="sessionTransport" class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
-          <div class="flex gap-2">
-            <button id="sessionPlayPauseBtn" disabled class="flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
-              <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              <span id="playPauseText">WAITING FOR HR SENSOR & TOY</span>
-            </button>
-
-            <button id="sessionStopBtn" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 font-bold py-3 px-3 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
-              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
-              <span>STOP</span>
-            </button>
-            <button id="edgedBtn" type="button" class="hidden bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-100 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Stop and count an edge the pulse has not reached. Counts for NNN. Does not add a pause.">Edged</button>
-
-            <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
-              Reset
-            </button>
-            <button id="pipBtn" type="button" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable.">
-              Pop out
-            </button>
-          </div>
-        </div>
-</div>
               <button id="playerPlayBtn" type="button" class="hidden min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
               <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
               <span class="flex-1"></span>
@@ -483,33 +493,6 @@
             <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
             <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
             <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
-            <div id="playerActionsSlot">
-<div id="sessionActions" class="grid grid-cols-4 gap-2 text-center text-xs">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">Edges</div>
-            <div id="edgeCount" class="text-lg font-black text-amber-400 font-mono leading-none mt-1">0</div>
-          </div>
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">Pauses</div>
-            <div id="pauseCount" class="text-lg font-black text-sky-400 font-mono leading-none mt-1">0</div>
-          </div>
-          <button id="cameEarlyBtn" class="bg-amber-950/60 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer" title="Log accidental release so local learning engine tightens limits next time.">
-            <span id="cameEarlyKicker" class="text-[8px] text-amber-400 font-semibold uppercase">Accidental</span>
-            <span id="cameEarlyLabel" class="font-bold text-[10px] mt-0.5">Came Early</span>
-          </button>
-          <button id="orgasmBtn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer shadow-lg shadow-amber-950/30">
-            <span class="text-[8px] uppercase tracking-wider text-amber-200">Overdrive</span>
-            <span id="orgasmBtnText" class="font-bold text-[10px] mt-0.5">Force Orgasm</span>
-          </button>
-        </div>
-</div>
-            <label class="player-video-chrome flex items-center justify-between gap-3 min-h-[2.75rem] cursor-pointer">
-              <span class="text-[10px] text-slate-300 leading-snug"><strong>Stats Overlay.</strong> Heart rate, edges, and both toys stay on the picture.</span>
-              <span class="relative inline-flex shrink-0">
-                <input id="playerHudPin" type="checkbox" class="sr-only peer" checked>
-                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
-              </span>
-            </label>
             <div id="playerOffsetRow" class="hidden flex flex-wrap items-center gap-2">
               <span class="text-[11px] font-semibold text-slate-100">Offset</span>
               <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
@@ -970,6 +953,33 @@
           </div>
         </div>
 </div>
+    <div id="sessionControlHome">
+      <div id="sessionControlBar">
+        <div id="sessionTransport">
+          <div>
+            <button id="sessionPlayPauseBtn" disabled class="bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
+              <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span id="playPauseText">WAITING FOR HR SENSOR & TOY</span>
+            </button>
+            <button id="sessionStopBtn" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 font-bold py-3 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+              <span>STOP</span>
+            </button>
+            <button id="edgedBtn" type="button" class="hidden bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-100 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Stop and count an edge the pulse has not reached. Counts for NNN. Does not add a pause.">Edged</button>
+            <button id="cameEarlyBtn" class="bg-amber-950/60 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer" title="Log accidental release so local learning engine tightens limits next time.">
+              <span id="cameEarlyKicker" class="text-[8px] text-amber-400 font-semibold uppercase">Accidental</span>
+              <span id="cameEarlyLabel" class="font-bold text-[10px] mt-0.5">Came Early</span>
+            </button>
+            <button id="orgasmBtn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer shadow-lg shadow-amber-950/30">
+              <span class="text-[8px] uppercase tracking-wider text-amber-200">Overdrive</span>
+              <span id="orgasmBtnText" class="font-bold text-[10px] mt-0.5">Force Orgasm</span>
+            </button>
+            <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">Reset</button>
+            <button id="pipBtn" type="button" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable.">Pop out</button>
+          </div>
+        </div>
+      </div>
+    </div>
     </section>
 
     
@@ -1011,6 +1021,16 @@
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-3xl sm:text-4xl font-black text-rose-500 font-mono" id="hrDisplay">--</span>
               <span class="text-xs text-slate-400 font-mono">BPM</span>
+              <span class="ml-auto flex items-end gap-4">
+                <span class="text-right">
+                  <span class="block text-[9px] text-slate-500 uppercase font-semibold">Edges</span>
+                  <span id="edgeCount" class="block text-lg font-black text-amber-400 font-mono leading-none">0</span>
+                </span>
+                <span class="text-right">
+                  <span class="block text-[9px] text-slate-500 uppercase font-semibold">Pauses</span>
+                  <span id="pauseCount" class="block text-lg font-black text-sky-400 font-mono leading-none">0</span>
+                </span>
+              </span>
               <span id="hrWarningTag" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-800 text-rose-300 ml-1">BLE REQUIRED</span>
               <span id="simActiveTag" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700 text-purple-300 ml-1">SIMULATOR ACTIVE</span>
               <span id="hrContactHint" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 ml-1" title="The sensor is transmitting but reports no pulse. Wet the electrodes or tighten the strap / watch band.">NO SKIN CONTACT</span>

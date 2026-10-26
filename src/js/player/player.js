@@ -1025,6 +1025,7 @@ export function createPlayer({
         if (els.fullscreenBtn) els.fullscreenBtn.textContent = fullscreenElement() === els.stage && els.stage ? 'Exit fullscreen' : 'Fullscreen';
         if (els.hudExit) els.hudExit.textContent = fullscreenElement() === els.stage ? 'Exit fullscreen' : 'Exit theater';
         if (on) showHud();
+        call(handlers, 'onImmersive', on);
     }
 
     function leaveImmersive() {
@@ -1099,16 +1100,19 @@ export function createPlayer({
         }
     }
 
-    // The HUD's readouts hide after HUD_HIDE_MS; a tap or a mouse move shows
-    // them again. Its PAUSE and STOP never hide: they only fade, and take a
-    // press at any time.
+    // The top readout stays up. The bottom controls hide after HUD_HIDE_MS
+    // while the video is actually playing, and a pointer brings them back.
     function showHud() {
         if (!els.hud) return;
         els.hud.dataset.idle = 'off';
         if (hudTimer !== null) clearTimer(hudTimer);
+        hudTimer = null;
+        const playing = Boolean(video && !video.paused && !video.ended);
+        call(handlers, 'onControlActivity', { playing });
+        if (!playing) return;
         hudTimer = setTimer(() => {
             hudTimer = null;
-            if (els.hud) els.hud.dataset.idle = 'on';
+            if (els.hud && video && !video.paused && !video.ended) els.hud.dataset.idle = 'on';
         }, HUD_HIDE_MS);
     }
 
@@ -1290,6 +1294,9 @@ export function createPlayer({
             renderTime();
             showHud();
         });
+        video?.addEventListener('play', () => showHud());
+        video?.addEventListener('pause', () => showHud());
+        video?.addEventListener('ended', () => showHud());
         video?.addEventListener('click', () => {
             if (immersive()) call(handlers, 'onPlayButton', { playing: Boolean(video && !video.paused) });
         });

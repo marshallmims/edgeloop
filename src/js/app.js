@@ -694,6 +694,37 @@ function paintPlayerChannels() {
     mark('playerSecondaryEdgeBtn', !secondaryScript);
 }
 
+function placeSessionControls(immersive) {
+    const bar = document.getElementById('sessionControlBar');
+    const home = document.getElementById('sessionControlHome');
+    const slot = document.getElementById('hudSessionSlot');
+    const target = immersive && slot ? slot : home;
+    if (bar && target && bar.parentElement !== target) target.appendChild(bar);
+    syncSessionControlChrome();
+}
+
+let sessionControlTimer = null;
+function syncSessionControlChrome() {
+    const bar = document.getElementById('sessionControlBar');
+    const video = document.getElementById('playerVideo');
+    const immersive = document.getElementById('playerStage')?.dataset.immersive === 'on';
+    const playing = Boolean(video && !video.paused && !video.ended);
+    if (sessionControlTimer) clearTimeout(sessionControlTimer);
+    sessionControlTimer = null;
+    if (bar) bar.dataset.idle = 'off';
+    if (immersive || !playing) return;
+    sessionControlTimer = setTimeout(() => {
+        sessionControlTimer = null;
+        const still = document.getElementById('playerVideo');
+        const stillPlaying = Boolean(still && !still.paused && !still.ended);
+        const stillImmersive = document.getElementById('playerStage')?.dataset.immersive === 'on';
+        if (stillPlaying && !stillImmersive && bar) bar.dataset.idle = 'on';
+    }, 4000);
+}
+
+document.getElementById('playerSection')?.addEventListener('pointermove', () => player?.showHud?.());
+document.getElementById('playerSection')?.addEventListener('pointerdown', () => player?.showHud?.());
+
 function placeSessionSetup(inPlayer) {
     const body = document.getElementById('playerBody');
     if (body) body.dataset.player = inPlayer ? 'on' : 'off';
@@ -2358,11 +2389,8 @@ function paintPlayerHud() {
         primary: `${Math.round(Number(state.strokerSpeed) || 0)}%`,
         secondary: `${Math.round(Number(state.prostateSpeed) || 0)}%`
     });
-}
-
-function applyHudPin() {
-    const hud = document.getElementById('playerHud');
-    if (hud) hud.dataset.pin = advancedSettings.playerHudPin ? 'on' : 'off';
+    const hudPauses = document.getElementById('hudPauses');
+    if (hudPauses) hudPauses.textContent = String(state.pauses || 0);
 }
 
 // Start from IDLE or resume from PAUSED. Returns false when the session was
@@ -6207,6 +6235,8 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 paintPlayerChannels();
                 checkReadiness();
             },
+            onImmersive: (on) => placeSessionControls(Boolean(on)),
+            onControlActivity: () => syncSessionControlChrome(),
             onPlayRequest: () => playPauseBtn?.click(),
             onPauseRequest: () => {
                 if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') pauseSession('Paused.', 'player');
@@ -6358,16 +6388,6 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
         () => clampClimaxPhaseSeconds(advancedSettings.scriptClimaxEaseSeconds, DEFAULT_CLIMAX_EASE_SECONDS),
         (value) => { advancedSettings.scriptClimaxEaseSeconds = clampClimaxPhaseSeconds(value, DEFAULT_CLIMAX_EASE_SECONDS); return advancedSettings.scriptClimaxEaseSeconds; }
     );
-    const hudPin = document.getElementById('playerHudPin');
-    if (hudPin) {
-        hudPin.checked = advancedSettings.playerHudPin !== false;
-        applyHudPin();
-        hudPin.addEventListener('change', () => {
-            advancedSettings.playerHudPin = hudPin.checked;
-            applyHudPin();
-            persistSettings();
-        });
-    }
     const continueAfter = document.getElementById('scriptContinueAfterVideo');
     if (continueAfter) {
         continueAfter.checked = Boolean(advancedSettings.scriptContinueAfterVideo);
