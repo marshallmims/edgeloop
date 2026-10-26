@@ -87,6 +87,8 @@ describe('pause reasons', () => {
         assert.match(app, /pauseSession\('Paused\.', pendingPauseReason \|\| 'button'\)/);
         assert.match(app, /pauseSession\('Paused\.', 'player'\)/);
         assert.match(app, /function countManualEdge/);
+        assert.match(app, /function markCalibrationEdge/);
+        assert.doesNotMatch(app, /classList\.toggle\('hidden', !live\)/);
         assert.match(app, /state\.pauseReason !== 'edged'/);
         for (const source of ["'hr-link'", "'handy'", "'handy-stop'", "'beat-sync'", "'intiface'", "'tcode'", "'video'", "'remote'", "'edged'"]) {
             assert.ok(app.includes(source), `missing pause source ${source}`);

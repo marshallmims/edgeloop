@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.26
+
+- **Edged stays on the row.** The button is there before a session starts, while one is running, and after a pause. A tap before the session starts does nothing.
+- **During Calibration, Edged is the edge.** It saves the heart rate you are on as the single or dual max and eases the toys down, before an orgasm. The app / Finished me is still the orgasm.
+- **Finisher holds the heart rate you set.** Under that number the stroke pushes to get you there. As your pulse arrives it eases off, and on the mark it holds instead of sitting at full speed. Crawl and Full Stop do not replace that hold. Room noise does not speed it up.
+
 ## 1.1.4.25
 
 - **Edged stops the toys and counts the edge.** It pauses the same way Pause does, and it does not add a pause. The edge counts for the session and for NNN. A crossing the pulse already counted is left alone.

@@ -532,7 +532,8 @@ describe('engine modes', () => {
                 ceilingBehaviour: 'crawl'
             });
             if (mode === 'finisher') {
-                assert.equal(atMark.primaryPercent, 100, 'finisher stays at full speed on the mark');
+                assert.ok(atMark.primaryPercent > CRAWL_PERCENT, `finisher parked at ${atMark.primaryPercent} on the mark`);
+                assert.ok(atMark.primaryPercent < 60, `finisher sat at ${atMark.primaryPercent} on the mark`);
             } else if (mode === 'bratty') {
                 assert.ok(atMark.primaryPercent > 80, `bratty dropped to ${atMark.primaryPercent} on the mark`);
             } else if (mode === 'ruin') {
@@ -1665,7 +1666,7 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
         }
     });
 
-    it('Finisher climbs with the pulse and stays at full speed on the mark', () => {
+    it('Finisher pushes under the max and holds on the mark', () => {
         const mean = (hr) => {
             let total = 0;
             const samples = 40;
@@ -1675,15 +1676,23 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
                     activeMode: 'finisher',
                     hr,
                     edgeHr: hr,
-                    isEdged: false,
+                    isEdged: hr >= 140,
                     ceilingBehaviour: 'crawl',
                     sessionSeconds
                 }).primaryPercent;
             }
             return total / samples;
         };
-        assert.ok(mean(90) < mean(120), 'a higher pulse drives a faster stroke');
-        assert.ok(mean(120) < mean(135), 'the climb keeps rising near the mark');
+        const under = mean(90);
+        const closer = mean(120);
+        const arriving = mean(135);
+        const held = mean(140);
+        assert.ok(under > closer, `under the max (${under}) should push harder than ${closer}`);
+        assert.ok(closer > arriving, `the push should ease as the pulse arrives (${closer} then ${arriving})`);
+        assert.ok(arriving > held, `on the mark (${held}) should hold under the approach (${arriving})`);
+        assert.ok(held < 60, `the hold sat at ${held}`);
+        assert.ok(held > CRAWL_PERCENT, `the hold parked at ${held}`);
+        let crawlMark = null;
         for (const ceilingBehaviour of ['stop', 'crawl']) {
             const onTheMark = calculateEngineOutputs({
                 ...running,
@@ -1693,8 +1702,15 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
                 isEdged: true,
                 ceilingBehaviour
             });
-            assert.equal(onTheMark.primaryPercent, 100, `finisher ignores ${ceilingBehaviour}`);
-            assert.equal(onTheMark.secondaryPercent, 100, `finisher secondary ignores ${ceilingBehaviour}`);
+            assert.ok(onTheMark.primaryPercent < 60, `finisher sat at ${onTheMark.primaryPercent} on ${ceilingBehaviour}`);
+            assert.ok(onTheMark.primaryPercent > CRAWL_PERCENT, `finisher parked on ${ceilingBehaviour}`);
+            assert.ok(onTheMark.secondaryPercent < 70, `finisher secondary sat at ${onTheMark.secondaryPercent}`);
+            assert.ok(onTheMark.secondaryPercent > CRAWL_PERCENT);
+            if (crawlMark) {
+                assert.equal(onTheMark.primaryPercent, crawlMark.primaryPercent, 'Crawl and Full Stop do not replace the hold');
+                assert.equal(onTheMark.secondaryPercent, crawlMark.secondaryPercent);
+            }
+            crawlMark = onTheMark;
         }
     });
 
@@ -1754,6 +1770,19 @@ describe('Survival Mode and Ruin & Leak are the documented exceptions to the cei
             /At the ceiling/.test(calibrateDetail[1]),
             `the Calibration detail must say the rule does not govern it: ${calibrateDetail[1]}`
         );
+        assert.match(
+            calibrateDetail[1],
+            /Edged saves the heart rate you are on/,
+            `Calibration must tell the wearer to mark the edge: ${calibrateDetail[1]}`
+        );
+        const finisherDetail = app.match(/finisher: '([^']*)'/);
+        assert.ok(finisherDetail, 'Finisher detail anchor missing');
+        assert.match(finisherDetail[1], /hold you at the heart rate you set/);
+        assert.doesNotMatch(finisherDetail[1], /stays at full speed/);
+        for (const [where, match] of claims) {
+            assert.match(match[0], /instead of sitting at full speed/, `${where} still tells Finisher to sit at full speed`);
+            assert.doesNotMatch(match[0], /stays at full speed/);
+        }
         assert.ok(
             /At the ceiling/.test(ruinDetail[1]),
             `the Ruin & Leak detail must say the rule does not govern it either: ${ruinDetail[1]}`
@@ -1766,7 +1795,7 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
         for (const mode of ['classic', 'milker', 'shortener', 'headplay', 'ultimate', 'bratty', 'ruin']) {
             assert.equal(micBoostReachesMotors(mode), true, `${mode} teases down on the boosted pulse`);
         }
-        assert.equal(micBoostReachesMotors('finisher'), false, 'finisher rises on the measured pulse');
+        assert.equal(micBoostReachesMotors('finisher'), false, 'finisher follows the measured pulse');
         assert.equal(micBoostReachesMotors('oracle'), false);
         assert.equal(micBoostReachesMotors('edgetrain'), false);
         // Survival's speeds run off its own clock; the boost can only shorten

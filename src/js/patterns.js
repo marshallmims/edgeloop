@@ -354,15 +354,19 @@ export function teaseFrame({
     }
 
     if (mode === 'finisher') {
-        // The climb reads the measured pulse, never the microphone boost.
-        // On the mark the stroke stays at full speed: Crawl and Full Stop
-        // are for the modes that ease off, and this one is here to carry
-        // the wearer over.
-        const beat = motion(seconds, 2.2, sensor);
-        const rising = 18 + climb * 82;
-        const primary = atPeak ? 100 : roundPct(rising * beat.speed);
-        const secondary = atPeak ? 100 : roundPct((18 + climb * 70) * beat.secondary);
-        const stroke = placeStroke(0, 100, atPeak ? 1 : beat.depth, 'low');
+        // Hold the wearer on the heart rate they set. Under that mark the
+        // stroke pushes to close the gap. As the measured pulse arrives,
+        // the push eases, and on the mark it holds well under full speed.
+        // A flat 100 at the end was carrying them through the max. Crawl
+        // and Full Stop do not replace the hold. The wave stays in the
+        // top of its range so the hold does not turn into a rest. `climb`
+        // is the measured pulse, so room noise cannot raise it.
+        const beat = motion(seconds, 2.2, 0);
+        const gap = 1 - climb;
+        const level = 46 + gap * 34;
+        const primary = roundPct(level * beat.speed);
+        const secondary = roundPct(level * (0.75 + 0.25 * beat.secondary));
+        const stroke = placeStroke(0, 100, Math.max(beat.depth, 0.85), 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }
 

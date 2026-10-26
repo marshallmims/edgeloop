@@ -482,6 +482,7 @@ describe('player markup', () => {
         assert.doesNotMatch(html, /Stats Overlay/);
         assert.doesNotMatch(html, /id="playerHudPin"/);
         assert.match(html, /id="hudSessionSlot"/);
+        assert.doesNotMatch(html, /id="edgedBtn"[^>]*\bhidden\b/);
         const handy = html.indexOf('id="modalBodyHandy"');
         const beat = html.indexOf('id="beatSyncToggle"');
         const filesEnd = html.indexOf('id="playerFiles"');
