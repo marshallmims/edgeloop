@@ -748,12 +748,20 @@ function placeSessionSetup(inPlayer) {
     if (body) body.dataset.player = inPlayer ? 'on' : 'off';
     document.getElementById('playerFiles')?.classList.remove('hidden');
     const slot = document.getElementById('playerEdgeLoopSettings');
+    const bundle = document.getElementById('sessionBundle');
     const home = document.getElementById('sessionSetupHome');
+    const bar = document.getElementById('sessionSetupBar');
     const play = document.getElementById('playStylePanel');
     const end = document.getElementById('endgamePanel');
-    const target = inPlayer && slot ? slot : home;
-    if (play && target && play.parentElement !== target) target.appendChild(play);
-    if (end && target && end.parentElement !== target) target.appendChild(end);
+    if (inPlayer && slot) {
+        if (bar && bar.parentElement !== slot) slot.insertBefore(bar, slot.firstChild);
+        if (play && play.parentElement !== slot) slot.appendChild(play);
+        if (end && end.parentElement !== slot) slot.appendChild(end);
+    } else if (home) {
+        if (bar && bundle && bar.parentElement !== bundle) bundle.insertBefore(bar, home);
+        if (play && play.parentElement !== home) home.appendChild(play);
+        if (end && end.parentElement !== home) home.appendChild(end);
+    }
     // Share Control hides these on the controllee. Opening Player must not
     // put them back; they belong to the controller until sharing stops.
     if (!sharingControl) {
@@ -3995,7 +4003,7 @@ function openModal(type) {
         warnSerialUnsupported();
     }
     else if (type === 'History' && modalTitle) { modalTitle.textContent = "Session History & Funscripts"; modals.History?.classList.remove('hidden'); renderHistory(); }
-    else if (type === 'Params' && modalTitle) { modalTitle.textContent = "Session Setup"; modals.Params?.classList.remove('hidden'); renderLearningStatus(); syncParamsUI(); }
+    else if (type === 'Params' && modalTitle) { modalTitle.textContent = "Advanced Session Settings"; modals.Params?.classList.remove('hidden'); renderLearningStatus(); syncParamsUI(); }
     else if (type === 'Legal' && modalTitle) { modalTitle.textContent = "Legal & Medical Disclaimer"; modals.Legal?.classList.remove('hidden'); }
     else if (type === 'Changelog' && modalTitle) {
         modalTitle.textContent = `Changelog · v${APP_VERSION}`;
@@ -4279,6 +4287,10 @@ document.getElementById('sessionParamsHeaderBtn')?.addEventListener('click', () 
 document.getElementById('openParamsBtn')?.addEventListener('click', () => openModal('Params'));
 document.getElementById('partnerShareBtn')?.addEventListener('click', () => {
     if (isRemotePage) return;
+    if (sharingControl) {
+        stopSharing();
+        return;
+    }
     setupPartnerHost();
     document.getElementById('controlleeBanner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
@@ -6235,10 +6247,25 @@ function setPartnerStatus(text, tone = 'wait') {
     }
 }
 
+function paintShareControlButton() {
+    const btn = document.getElementById('partnerShareBtn');
+    const label = document.getElementById('partnerShareLabel');
+    if (label) {
+        label.textContent = sharingControl ? 'Regular' : 'Share Control';
+        label.classList.toggle('hidden', !sharingControl);
+        label.classList.toggle('sm:inline', true);
+    }
+    if (btn) {
+        btn.setAttribute('aria-pressed', sharingControl ? 'true' : 'false');
+        btn.setAttribute('aria-label', sharingControl ? 'Regular mode' : 'Share Control');
+    }
+}
+
 function enterControlleeMode() {
     if (isRemotePage) return;
     sharingControl = true;
     document.body.classList.add('sharing-control');
+    paintShareControlButton();
     document.getElementById('controlleeBanner')?.classList.remove('hidden');
     document.getElementById('sessionSetupHome')?.classList.add('hidden');
     document.getElementById('playStylePanel')?.classList.add('hidden');
@@ -6254,6 +6281,7 @@ function enterControlleeMode() {
 function exitControlleeMode() {
     sharingControl = false;
     document.body.classList.remove('sharing-control');
+    paintShareControlButton();
     document.getElementById('controlleeBanner')?.classList.add('hidden');
     document.getElementById('sessionSetupHome')?.classList.remove('hidden');
     document.getElementById('playStylePanel')?.classList.remove('hidden');
@@ -7434,6 +7462,7 @@ if (advancedSettings.voiceEnabled) paintIdlePrompt();
 watchChartResize(document.getElementById('hrChart'), redrawChart);
 if (isRemoteController) {
     document.getElementById('manualPanel')?.classList.remove('hidden');
+    document.getElementById('sessionSetupManual')?.classList.remove('hidden');
     initManualPanel();
 }
 

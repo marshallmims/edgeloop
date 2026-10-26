@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.03
+
+- **Share Control toggles back to regular mode.** While control is shared the header button says Regular. Regular mode on the controllee page does the same.
+- **The header button is Advanced Session Settings.** It opens the same limits as before.
+- **Session Setup titles the play style and the ending.** On the controller, Manual and EdgeLoop sit in that block.
+
 ## 1.1.5.02
 
 - **Share Control opens this page.** The 1-on-1 and group popup is gone. The controller link, Copy, and who is connected are on the controllee page.

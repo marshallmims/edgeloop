@@ -242,6 +242,8 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   await step('open Session Setup', async () => {
     await page.locator('#sessionParamsHeaderBtn').click(); await sleep(300); await shot('05-session-setup');
+    const setupTitle = (await page.locator('#modalTitle').textContent() || '').trim();
+    if (!/advanced session settings/i.test(setupTitle)) throw new Error('modal title: ' + setupTitle);
     const tabs = page.locator('#modalOverlay button');
     const n = await tabs.count();
     for (let i = 0; i < Math.min(n, 12); i++) { const t = tabs.nth(i); const txt = (await t.textContent() || '').trim(); if (/guards|duration|motion|audio|profiles|tuning|general|backup/i.test(txt)) { await t.click().catch(() => {}); await sleep(150); } }
@@ -270,16 +272,31 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     await page.getByText(/share control/i).first().click(); await sleep(400);
     if (await page.locator('#modalOverlay').isVisible()) throw new Error('Share Control opened a popup');
     if (!(await page.locator('#controlleeBanner').isVisible())) throw new Error('controllee banner missing after Share Control');
+    const sharingLabel = (await page.locator('#partnerShareLabel').textContent() || '').trim();
+    if (!/regular/i.test(sharingLabel)) throw new Error('Share Control did not switch to Regular: ' + sharingLabel);
     if (await page.locator('#playStylePanel').isVisible()) throw new Error('play style should be hidden while sharing');
     if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame should be hidden while sharing');
     if (await page.locator('#intensityPanel').isVisible()) throw new Error('intensity should be hidden while sharing');
     if (!(await page.locator('#hrChart').isVisible())) throw new Error('heart-rate graph missing on the controllee');
-    await shot('08-share');
+    const blockTitle = (await page.locator('#sessionSetupTitle').textContent() || '').trim();
+    if (!/session setup/i.test(blockTitle)) throw new Error('Session Setup title missing: ' + blockTitle);
+    await page.screenshot({ path: path.join(OUT, '08-share.png'), fullPage: true });
     // Copy-link buttons must never throw (clipboard may be denied; execCommand fallback).
     await page.locator('#controlleeCopyBtn').click().catch(() => {}); await sleep(150);
+    // The same header button has to come back. A second click is Regular.
+    await page.locator('#partnerShareBtn').click(); await sleep(250);
+    if (await page.locator('#controlleeBanner').isVisible()) throw new Error('Regular left the controllee banner up');
+    if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after Regular');
+    if (!(await page.locator('#sessionSetupTitle').isVisible())) throw new Error('Session Setup title hidden after Regular');
+    const restored = (await page.locator('#partnerShareLabel').textContent() || '').trim();
+    if (!/share control/i.test(restored)) throw new Error('header label did not return to Share Control: ' + restored);
+    const role = (await page.locator('#roleIndicator').textContent() || '').trim();
+    if (!/local host/i.test(role)) throw new Error('role did not return: ' + role);
+    await page.screenshot({ path: path.join(OUT, '08b-regular.png'), fullPage: true });
+    await page.locator('#partnerShareBtn').click(); await sleep(300);
     await page.locator('#controlleeStopBtn').click(); await sleep(250);
-    if (await page.locator('#controlleeBanner').isVisible()) throw new Error('Stop sharing left the controllee banner up');
-    if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after Stop sharing');
+    if (await page.locator('#controlleeBanner').isVisible()) throw new Error('Regular mode left the controllee banner up');
+    if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after Regular mode');
   });
   await step('drive HR above ceiling via simulator', async () => {
     await page.locator('#cardBle').click(); await sleep(200);
@@ -424,6 +441,17 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     const role = await page.evaluate(() => document.querySelector('#roleIndicator')?.textContent?.trim() || '');
     if (!/remote controller/i.test(role)) throw new Error('controller badge missing: ' + role);
     if (!(await page.locator('#manualPanel').isVisible())) throw new Error('manual panel missing on the controller');
+    const setupTitle = (await page.locator('#sessionSetupTitle').textContent() || '').trim();
+    if (!/session setup/i.test(setupTitle)) throw new Error('Session Setup title missing on the controller: ' + setupTitle);
+    const manualBtn = page.locator('#sessionSetupBar #manualModeBtn');
+    if (!(await manualBtn.isVisible())) throw new Error('manual switch missing from Session Setup');
+    await manualBtn.click(); await sleep(200);
+    const flipped = (await manualBtn.textContent() || '').trim();
+    if (!/edgeloop/i.test(flipped)) throw new Error('manual switch did not flip to EdgeLoop: ' + flipped);
+    if (!(await page.locator('#manualLive').isVisible())) throw new Error('manual controls stayed hidden');
+    await page.screenshot({ path: path.join(OUT, '12-controller-manual.png'), fullPage: true });
+    await manualBtn.click(); await sleep(200);
+    if (await page.locator('#manualLive').isVisible()) throw new Error('EdgeLoop left the manual controls open');
     if (await page.locator('#edgedBtn').isDisabled()) throw new Error('Edged should be usable by the controller');
     if (await page.locator('#intensitySlider').isDisabled()) throw new Error('intensity should be usable by the controller');
     await page.locator('#stopBtn, #sessionStopBtn').first().click({ force: true }).catch(() => {});
