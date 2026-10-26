@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.28
+
+- **The video controls are one bar.** The scrub, the time, Theater, and Fullscreen sit on one line under the picture.
+- **Play Style and Session Endgame fill the width.** With Player closed they stretch across the row. Opening either one opens both, so the two lists stay side by side.
+
 ## 1.1.4.27
 
 - **Session length sits with the heart rate.** Warm-up, resting, the two maxes, Calibrate, length, and the minute window are matching tiles on the heart-rate card. They stay there with Player open or closed. Play Style and Session Endgame sit side by side when Player is closed.

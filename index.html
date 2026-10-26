@@ -139,12 +139,20 @@
       padding: 0;
       box-shadow: none;
     }
+    #playerBody[data-player="off"] #sideColumn,
+    #playerBody[data-player="off"] #sessionBundle {
+      width: 100%;
+    }
+    #playerBody[data-player="off"] #sessionBundle {
+      align-items: stretch;
+    }
     #playerBody[data-player="off"] #sessionBundle #playStylePanel,
     #playerBody[data-player="off"] #sessionBundle #endgamePanel {
       background: rgb(15 23 42);
       border: 1px solid rgb(30 41 59);
       border-radius: 1rem;
       padding: 0.875rem;
+      height: 100%;
     }
     #playerBody[data-player="off"] #sessionBundle #endgamePanel {
       border-top: 0;
@@ -265,7 +273,7 @@
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         align-items: stretch;
       }
-      #playerBody[data-player="off"] {
+      #playerBody[data-player="off"]:not(:has(#playerStage[data-theater="on"])) {
         align-items: start;
         grid-template-columns: minmax(0, 1fr);
       }
@@ -545,18 +553,17 @@
             </div>
             </div>
           <div id="playerDock" class="shrink-0 border-t border-slate-800 bg-slate-950 px-2 py-2 flex flex-col gap-1.5">
-            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-              <button id="playerPlayBtn" type="button" class="hidden min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
-              <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
-              <span class="flex-1"></span>
-              <span id="playerTime" class="player-video-chrome font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
-              <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
-              <button id="playerTheaterBtn" type="button" class="player-video-chrome min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
-              <button id="playerFullscreenBtn" type="button" class="player-video-chrome min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
-            </div>
-            <div id="playerScrub" class="player-video-chrome relative w-full h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
-              <canvas id="playerSeekHeat" width="640" height="44" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
-              <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
+            <div id="playerChrome" class="player-video-chrome flex items-center gap-1.5 min-w-0 rounded-xl border border-slate-800 bg-slate-900 px-1.5 py-1.5">
+              <button id="playerPlayBtn" type="button" class="hidden h-9 min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
+              <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden h-9 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
+              <div id="playerScrub" class="relative flex-1 min-w-0 h-9 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
+                <canvas id="playerSeekHeat" width="640" height="36" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
+                <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
+              </div>
+              <span id="playerTime" class="font-mono text-[11px] text-slate-300 shrink-0 tabular-nums">0:00 / 0:00</span>
+              <button id="playerMarkBtn" type="button" class="hidden h-9 px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
+              <button id="playerTheaterBtn" type="button" class="shrink-0 h-9 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
+              <button id="playerFullscreenBtn" type="button" class="shrink-0 h-9 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
             </div>
             <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
             <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
@@ -1235,7 +1242,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.27</span>
+        <span id="appVersion" class="font-mono">v1.1.4.28</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

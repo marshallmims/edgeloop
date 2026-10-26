@@ -3097,13 +3097,20 @@ function setChoiceDrawer(drawerId, buttonId, open) {
     if (!style) renderModeDetail();
 }
 
+// The two cards share a row. Opening one opens the other, so a short card
+// does not sit beside a tall list and leave a hole.
+function setBothChoiceDrawers(open) {
+    setChoiceDrawer('playStyleDrawer', 'playStyleToggle', open);
+    setChoiceDrawer('endgameDrawer', 'endgameToggle', open);
+}
+
 document.getElementById('playStyleToggle')?.addEventListener('click', () => {
     const drawer = document.getElementById('playStyleDrawer');
-    setChoiceDrawer('playStyleDrawer', 'playStyleToggle', Boolean(drawer && drawer.classList.contains('hidden')));
+    setBothChoiceDrawers(Boolean(drawer && drawer.classList.contains('hidden')));
 });
 document.getElementById('endgameToggle')?.addEventListener('click', () => {
     const drawer = document.getElementById('endgameDrawer');
-    setChoiceDrawer('endgameDrawer', 'endgameToggle', Boolean(drawer && drawer.classList.contains('hidden')));
+    setBothChoiceDrawers(Boolean(drawer && drawer.classList.contains('hidden')));
 });
 
 let strokeBeforeScript = 'classic';
@@ -3477,8 +3484,7 @@ modeCards.forEach(card => {
         }
         const enabled = GAME_CARD_MODES.includes(mode) ? true : true;
         applyModeSelection(mode, enabled);
-        if (GAME_CARD_MODES.includes(mode) || mode === 'goal-off') setChoiceDrawer('endgameDrawer', 'endgameToggle', false);
-        else setChoiceDrawer('playStyleDrawer', 'playStyleToggle', false);
+        setBothChoiceDrawers(false);
         if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled });
         else syncTelemetry();
     });
