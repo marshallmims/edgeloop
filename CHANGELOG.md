@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.27
+
+- **Session length sits with the heart rate.** Warm-up, resting, the two maxes, Calibrate, length, and the minute window are matching tiles on the heart-rate card. They stay there with Player open or closed. Play Style and Session Endgame sit side by side when Player is closed.
+
 ## 1.1.4.26
 
 - **Edged stays on the row.** The button is there before a session starts, while one is running, and after a pause. A tap before the session starts does nothing.

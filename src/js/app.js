@@ -732,7 +732,6 @@ function placeSessionSetup(inPlayer) {
     const body = document.getElementById('playerBody');
     if (body) body.dataset.player = inPlayer ? 'on' : 'off';
     document.getElementById('playerFiles')?.classList.remove('hidden');
-    document.getElementById('sessionLengthPanel')?.classList.toggle('hidden', inPlayer);
     const slot = document.getElementById('playerEdgeLoopSettings');
     const home = document.getElementById('sessionSetupHome');
     const play = document.getElementById('playStylePanel');

@@ -468,11 +468,14 @@ describe('player markup', () => {
         const control = html.indexOf('id="sessionControlBar"');
         const bundle = html.indexOf('id="sessionBundle"');
         const length = html.indexOf('id="sessionLengthPanel"');
+        const tiles = html.indexOf('id="hrSetupTiles"');
         const style = html.indexOf('id="playStylePanel"');
         const endgame = html.indexOf('id="endgamePanel"');
         assert.ok(files < control && control < playBtn);
-        assert.ok(length < files);
         assert.ok(files < bundle && bundle < style && style < endgame);
+        assert.ok(endgame < tiles && tiles < length, 'session length is a tile on the heart-rate card');
+        assert.match(html, /id="hrSetupTiles"[\s\S]*id="warmupToggle"[\s\S]*id="calibrateBtn"[\s\S]*id="durRangeBtn"[\s\S]*id="paramRangeContainer"/);
+        assert.match(html, /#playerBody\[data-player="off"\] #sessionBundle\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/);
         assert.match(html, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/);
         assert.match(html, /#playerBody\[data-player="off"\] #playerPicture/);
         assert.match(html, /id="playerBody" data-player="off"/);

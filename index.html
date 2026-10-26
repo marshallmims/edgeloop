@@ -54,10 +54,9 @@
       flex: 1 1 0;
       min-width: 7.5rem;
     }
-    /* The picture and the controls share the left column on both screens.
-       Closing Player hides the picture and puts Session Length under those
-       controls. Play Style and Session Endgame stay in the right column,
-       where the file panel sits while Player is open. */
+    /* The picture and the file panel share the row while Player is open.
+       Closing Player hides that row. Play Style and Session Endgame then
+       sit side by side. Session length lives on the heart-rate tiles. */
     #playerBody {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -95,9 +94,10 @@
     #playerBody[data-player="off"] .player-video-chrome {
       display: none !important;
     }
+    #playerBody[data-player="off"] #playerColumn,
     #playerBody[data-player="off"] #playerFiles,
-    #playerBody[data-player="on"] #sessionBundle,
-    #playerBody[data-player="on"] #sessionLengthPanel {
+    #playerBody[data-player="off"] #playerStatusCard,
+    #playerBody[data-player="on"] #sessionBundle {
       display: none !important;
     }
     #sessionBundle {
@@ -125,9 +125,73 @@
       gap: 0.5rem;
     }
     #sessionBundle #playStyleDetail,
-    #sessionBundle #endgameDetail,
-    #sessionLengthPanel > p {
+    #sessionBundle #endgameDetail {
       display: none !important;
+    }
+    /* Closed Player: the two choices are one pair of cards, the same width
+       as the button row under them. */
+    #playerBody[data-player="off"] #sessionBundle {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      box-shadow: none;
+    }
+    #playerBody[data-player="off"] #sessionBundle #playStylePanel,
+    #playerBody[data-player="off"] #sessionBundle #endgamePanel {
+      background: rgb(15 23 42);
+      border: 1px solid rgb(30 41 59);
+      border-radius: 1rem;
+      padding: 0.875rem;
+    }
+    #playerBody[data-player="off"] #sessionBundle #endgamePanel {
+      border-top: 0;
+      padding-top: 0.875rem;
+    }
+    #hrSetupTiles {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 0.375rem;
+    }
+    .hr-tile {
+      flex: 1 1 6.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.25rem;
+      min-width: 0;
+      border-radius: 0.75rem;
+      background: rgb(2 6 23);
+      border: 1px solid rgb(30 41 59);
+      padding: 0.375rem;
+    }
+    .hr-tile-length { flex: 1.7 1 11rem; }
+    .hr-tile-window { flex: 1.35 1 8.5rem; }
+    .hr-tile-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: rgb(100 116 139);
+      line-height: 1;
+      text-align: center;
+    }
+    .hr-tile-control {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      min-height: 1.7rem;
+      width: 100%;
+    }
+    #paramFixedContainer,
+    #paramRangeContainer,
+    #paramEndlessContainer {
+      justify-content: center;
     }
     #sessionBundle #playStyleToggle,
     #sessionBundle #endgameToggle {
@@ -203,6 +267,10 @@
       }
       #playerBody[data-player="off"] {
         align-items: start;
+        grid-template-columns: minmax(0, 1fr);
+      }
+      #playerBody[data-player="off"] #sessionBundle {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
       #deviceCardGrid > button {
         min-width: 0;
@@ -504,37 +572,6 @@
           </div>
           </div>
         
-          <div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Session Length</span>
-              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs font-bold">
-                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
-                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
-                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
-              </div>
-            </div>
-            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-xs">Exact length:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 text-sm font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-xs">Mystery window:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 text-sm font-bold">
-                <span class="text-slate-500 text-xs">to</span>
-                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 text-sm font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-xs">Endless:</span>
-              <span class="text-purple-400 font-mono text-xs font-semibold">Runs until you stop it</span>
-            </div>
-            <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
-        </div>
         </div>
 
         
@@ -628,7 +665,7 @@
             <ul id="playerSummary" class="text-[10px] text-slate-400 leading-snug space-y-0.5"></ul>
           </div>
 
-          <div class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-1.5">
+          <div id="playerStatusCard" class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-1.5">
             <div class="flex items-center justify-between gap-2">
               <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Status</span>
               <span id="playerPhase" class="text-[10px] font-bold font-mono text-sky-300">IDLE</span>
@@ -732,7 +769,7 @@
                 </span>
               </div>
               <p class="text-[9px] text-slate-400 mt-0.5 leading-snug">
-                Speed climbs with your pulse and stays full on the mark.
+                Pushes under the heart rate you set, then holds on the mark.
               </p>
             </button>
 
@@ -994,29 +1031,70 @@
         <!-- Real-Time Biofeedback Telemetry Hub -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
           <div class="flex flex-col gap-2">
-            <div class="flex items-center gap-2.5 text-xs flex-wrap">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[10px] text-amber-300 font-semibold">Warm-up:</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
-                  <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
-                </label>
-                <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-14 min-w-[3.5rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-amber-500">
-                <span class="text-[10px] text-slate-500">min</span>
+            <div id="hrSetupTiles">
+              <div class="hr-tile">
+                <span class="hr-tile-label">Warm-up</span>
+                <div class="hr-tile-control">
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
+                    <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
+                  </label>
+                  <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-12 bg-slate-950 border border-slate-700 rounded-lg px-1 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-amber-500">
+                  <span class="text-[10px] text-slate-500">min</span>
+                </div>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-slate-300 font-semibold">Resting:</span>
-                <input id="minHr" type="number" value="70" min="30" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
+              <div class="hr-tile">
+                <span class="hr-tile-label">Resting</span>
+                <div class="hr-tile-control">
+                  <input id="minHr" type="number" value="70" min="30" max="250" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
+                </div>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
-                <input id="maxHr" type="number" value="140" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
+              <div class="hr-tile">
+                <span class="hr-tile-label">Single max</span>
+                <div class="hr-tile-control">
+                  <input id="maxHr" type="number" value="140" min="31" max="250" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
+                </div>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
-                <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
+              <div class="hr-tile">
+                <span class="hr-tile-label">Dual max</span>
+                <div class="hr-tile-control">
+                  <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-1 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
+                </div>
               </div>
-              <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
+              <div class="hr-tile">
+                <span class="hr-tile-label">Calibrate</span>
+                <div class="hr-tile-control">
+                  <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
+                </div>
+              </div>
+              <div id="sessionLengthPanel" class="hr-tile hr-tile-length">
+                <span class="hr-tile-label">Length</span>
+                <div class="hr-tile-control">
+                  <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px] font-bold">
+                    <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
+                    <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
+                    <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
+                  </div>
+                </div>
+              </div>
+              <div class="hr-tile hr-tile-window">
+                <span class="hr-tile-label">Window</span>
+                <div class="hr-tile-control">
+                  <div id="paramFixedContainer" class="hidden flex items-center gap-1 text-xs">
+                    <input id="paramFixedInput" type="number" min="1" max="180" value="30" aria-label="Exact length, minutes" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-1 outline-none focus:border-purple-500 text-slate-200 text-xs font-bold font-mono">
+                    <span class="text-slate-500 text-[10px]">min</span>
+                  </div>
+                  <div id="paramRangeContainer" class="flex items-center gap-1 text-xs">
+                    <input id="paramMinInput" type="number" min="1" max="180" value="25" aria-label="Mystery window start, minutes" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-1 outline-none focus:border-purple-500 text-slate-200 text-xs font-bold font-mono">
+                    <span class="text-slate-500 text-[10px]">to</span>
+                    <input id="paramMaxInput" type="number" min="1" max="180" value="45" aria-label="Mystery window end, minutes" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-1 outline-none focus:border-purple-500 text-slate-200 text-xs font-bold font-mono">
+                    <span class="text-slate-500 text-[10px]">min</span>
+                  </div>
+                  <div id="paramEndlessContainer" class="hidden flex items-center text-xs">
+                    <span class="text-purple-400 font-mono text-[10px] font-semibold text-center leading-tight">Runs until you stop it</span>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-3xl sm:text-4xl font-black text-rose-500 font-mono" id="hrDisplay">--</span>
@@ -1157,7 +1235,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.26</span>
+        <span id="appVersion" class="font-mono">v1.1.4.27</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
