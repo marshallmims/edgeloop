@@ -710,6 +710,54 @@ export function dispatchTCode(primarySpeed, secondarySpeed, strokeMin = 0, strok
     }
 }
 
+// Manual control drives one axis at a time. `entries` are
+// { axisId, speed, strokeMin, strokeMax, level }. Caps and the travel
+// envelope still apply. `stopAll` cuts every axis on one line.
+export function applyManualTCode(entries, envMin = 0, envMax = 100, { stopAll = false } = {}) {
+    try {
+        if (!isTCodeConnected() || !device) return;
+        const mapped = zoneFromPercent(0, 100, envMin, envMax);
+        lastEnvelope = mapped.envelope;
+        if (stopAll) {
+            stopTCode();
+            return;
+        }
+        const now = Date.now();
+        for (const entry of entries || []) {
+            const axis = device.axes.find((item) => item.id === entry.axisId);
+            if (!axis || axis.role === 'off') continue;
+            const stroke = axis.kind === 'linear' && !axis.centred;
+            const speed = stroke || axis.kind === 'rotate' ? entry.speed : entry.level;
+            if (stroke) {
+                const zone = zoneFromPercent(entry.strokeMin, entry.strokeMax, envMin, envMax).zone;
+                axis.planner.setInput({
+                    speed,
+                    cap: axis.maxCap,
+                    zoneMin: zone.min,
+                    zoneMax: zone.max,
+                    enabled: speed > 0
+                });
+                pumpPlanner(axis, now);
+            } else if (axis.planner) {
+                const amp = speed > 0 ? rotationAmplitude(speed, axis.maxCap) : 0;
+                axis.planner.setInput({
+                    speed,
+                    cap: axis.maxCap,
+                    zoneMin: 0.5 - amp,
+                    zoneMax: 0.5 + amp,
+                    enabled: amp > 0,
+                    legTravel: 1
+                });
+                pumpPlanner(axis, now);
+            } else {
+                sendScalar(axis, speed > 0 ? scalarLevel(speed, axis.maxCap) : 0);
+            }
+        }
+    } catch (e) {
+        // A manual frame must not take the session tick down with it.
+    }
+}
+
 // Immediate stop: every in-flight leg is forgotten, L0 goes to the bottom
 // of the envelope over restMs, L1 / L2 and the R axes to centre over restMs,
 // V/A axes to 0. One line carries all of it. Safe to call at any time;

@@ -4,6 +4,13 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.01
+
+- **Share Control changes the page you are on.** The person whose toys are connected sees the devices, whether a controller is connected, the timer, the heart rate and its graph, and what Primary and Secondary are doing. Play Style, Session Endgame, and Stimulation Intensity move to the controller. Stop on this page still stops the toys. Stop sharing puts those controls back.
+- **The controller gets the regular cockpit.** They can start, pause, stop, mark an edge, and force an orgasm. They set the play style, the ending, and the intensity. The device row shows the other person's connections.
+- **Manual control is on the controller.** Each connected toy gets the controls it actually has. A stroker gets speed and a stroke range. A vibrator gets one level. Pulse, Wave, Ramp, Edge, and Climb are loops. Drag the pad to draw a loop and it repeats. Slow and Stop land immediately. A slider that is held stays there. A silent link eases the toys off, and a loop stops if the controller goes quiet. Stroke commands stay inside the travel limits already set on the toys. If the controller drops, the toys stop.
+- **The heart rate is sent when a reading arrives.** The one-second clock still sends the rest of the session.
+
 ## 1.1.4.31
 
 - **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.

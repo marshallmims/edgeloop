@@ -77,6 +77,19 @@ import { createHandyHsp } from './hardware/handy-hsp.js';
 import { handyScriptRoute, resolveApplicationId, HANDY_APP_ID_STORAGE_KEY } from './hardware/handy-hsp-protocol.js';
 import { normalizeEnvelope, applyEndMargin, clampEndMargin } from './hardware/handy-protocol.js';
 import { RUIN_RIDE_SECONDS, RUIN_LOCK_SECONDS } from './patterns.js';
+import {
+    acceptEpoch,
+    controlLabel,
+    controlsForKind,
+    decayFrame,
+    frameFromPattern,
+    frameIsStopped,
+    loopFromGesture,
+    MANUAL_LINK_MS,
+    parseDeviceId,
+    PATTERN_CHOICES,
+    peaksFromValues
+} from './manual-control.js';
 import { APP_VERSION, parseChangelog, GITHUB_CHANGELOG_URL, GITHUB_RELEASES_URL } from './version.js';
 import {
     connectIntifaceServer,
@@ -84,6 +97,7 @@ import {
     disconnectIntiface,
     rescanIntiface,
     dispatchIntiface,
+    applyManualIntiface,
     stopAllIntiface,
     setAxisRole,
     setAxisMaxCap,
@@ -108,6 +122,7 @@ import {
     connectTCode,
     disconnectTCode,
     dispatchTCode,
+    applyManualTCode,
     setTCodeScriptFeed,
     stopTCode,
     setTCodeHandlers,
@@ -147,6 +162,7 @@ import { describeSerialSupport } from './hardware/tcode-protocol.js';
 import {
     initHostPeer,
     initRemotePeer,
+    closeHostPeer,
     broadcastPeerTelemetry,
     sendPeerCommand,
     pruneStalePeers,
@@ -738,9 +754,15 @@ function placeSessionSetup(inPlayer) {
     const target = inPlayer && slot ? slot : home;
     if (play && target && play.parentElement !== target) target.appendChild(play);
     if (end && target && end.parentElement !== target) target.appendChild(end);
-    play?.classList.remove('hidden');
-    end?.classList.remove('hidden');
+    // Share Control hides these on the controllee. Opening Player must not
+    // put them back; they belong to the controller until sharing stops.
+    if (!sharingControl) {
+        play?.classList.remove('hidden');
+        end?.classList.remove('hidden');
+    }
 }
+
+let sharingControl = false;
 
 function layoutDeviceCards() {
     const ready = hardwareReadiness();
@@ -859,14 +881,32 @@ function checkReadiness() {
 // Center Intensity Slider
 const intensitySlider = document.getElementById('intensitySlider');
 const intensityValDisplay = document.getElementById('intensityValDisplay');
-intensitySlider?.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value, 10);
-    state.intensityValue = val;
+function paintIntensity(val) {
     const pct = Math.round(50 + val);
+    if (intensitySlider && document.activeElement !== intensitySlider) intensitySlider.value = String(val);
     if (intensityValDisplay) {
         intensityValDisplay.textContent = val === 50 ? "100% (Default Balanced)" : `${pct}% (${val > 50 ? 'Intense' : 'Gentle'})`;
         intensityValDisplay.className = val > 65 ? 'font-mono font-bold text-rose-400' : (val < 35 ? 'font-mono font-bold text-emerald-400' : 'font-mono font-bold text-amber-400');
     }
+}
+
+function applyIntensity(val) {
+    state.intensityValue = val;
+    paintIntensity(val);
+    updateEngine();
+    syncTelemetry();
+}
+
+intensitySlider?.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (!Number.isFinite(val)) return;
+    state.intensityValue = val;
+    paintIntensity(val);
+    if (isRemoteController) {
+        sendPeerCommand({ type: 'INTENSITY', value: val });
+        return;
+    }
+    if (isRemoteViewer) return;
     updateEngine();
     syncTelemetry();
 });
@@ -890,8 +930,21 @@ function applySpeedWindow(edited) {
     updateEngine();
 }
 
-document.getElementById('speedSlowestInput')?.addEventListener('change', () => applySpeedWindow('slowest'));
-document.getElementById('speedFastestInput')?.addEventListener('change', () => applySpeedWindow('fastest'));
+function sendSpeedWindow() {
+    let slowest = clampSpeedBound(document.getElementById('speedSlowestInput')?.value, 0);
+    let fastest = clampSpeedBound(document.getElementById('speedFastestInput')?.value, 100);
+    if (slowest > fastest) fastest = slowest;
+    sendPeerCommand({ type: 'SPEED_WINDOW', slowest, fastest });
+}
+
+document.getElementById('speedSlowestInput')?.addEventListener('change', () => {
+    if (isRemoteController) sendSpeedWindow();
+    else if (!isRemoteViewer) applySpeedWindow('slowest');
+});
+document.getElementById('speedFastestInput')?.addEventListener('change', () => {
+    if (isRemoteController) sendSpeedWindow();
+    else if (!isRemoteViewer) applySpeedWindow('fastest');
+});
 
 // The hardware travel envelope is ONE persisted setting (advancedSettings
 // handyHwMin / handyHwMax) that bounds The Handy and every TCode linear axis,
@@ -1457,8 +1510,384 @@ function routeTheHandy(primarySpeed, targetHandySpeed, range, force) {
     return { speed: targetHandySpeed, min: range.min, max: range.max };
 }
 
+// The controller's manual latch. While it is set, the engine must not move
+// a toy: the latest frame (or the loop the host is playing) is the output.
+// Force stops (pause, watchdog, Stop) still cut the hardware.
+let manualLatch = null;
+let manualTimer = null;
+let handyManualTimer = null;
+let handyManualHold = null;
+let handyManualLastForce = 0;
+let deviceCatalog = [];
+
+function manualSessionLive() {
+    return state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+}
+
+function clearManualTimers() {
+    if (manualTimer) {
+        clearInterval(manualTimer);
+        manualTimer = null;
+    }
+    if (handyManualTimer) {
+        clearTimeout(handyManualTimer);
+        handyManualTimer = null;
+    }
+    handyManualHold = null;
+}
+
+function clearManualLatch() {
+    clearManualTimers();
+    manualLatch = null;
+}
+
+// Cut every toy without letting the engine fill the gap, then put the latch
+// back so a later slider still owns the output.
+function forceStopHardware() {
+    const saved = manualLatch;
+    manualLatch = null;
+    dispatchHardware(0, 0, 0, 100, true);
+    manualLatch = saved;
+}
+
+function paintChannelReadout(primary, secondary, strokeMin, strokeMax) {
+    state.strokerSpeed = primary;
+    state.prostateSpeed = secondary;
+    state.strokeMin = strokeMin;
+    state.strokeMax = strokeMax;
+    const strokerVal = document.getElementById('strokerVal');
+    const strokerBar = document.getElementById('strokerBar');
+    const prostateVal = document.getElementById('prostateVal');
+    const prostateBar = document.getElementById('prostateBar');
+    const strokeBadge = document.getElementById('strokeRangeBadge');
+    if (strokerVal) strokerVal.textContent = `${Math.round(primary)}%`;
+    if (strokerBar) strokerBar.style.width = `${primary}%`;
+    if (prostateVal) prostateVal.textContent = `${Math.round(secondary)}%`;
+    if (prostateBar) prostateBar.style.width = `${secondary}%`;
+    if (strokeBadge) strokeBadge.textContent = `Zone: ${Math.round(strokeMin)}-${Math.round(strokeMax)}%`;
+}
+
+function summarizeManual(outputs) {
+    let primary = 0;
+    let secondary = 0;
+    let strokeMin = 0;
+    let strokeMax = 100;
+    let haveStroke = false;
+    for (const output of outputs) {
+        const info = deviceCatalog.find((item) => item.id === output.id);
+        const role = info ? info.role : 'off';
+        const kind = info ? info.kind : '';
+        const usesLevel = controlsForKind(kind).includes('level');
+        const mag = usesLevel ? output.level : output.speed;
+        if (role === 'primary') primary = Math.max(primary, mag);
+        if (role === 'secondary') secondary = Math.max(secondary, mag);
+        if (kind === 'stroke' && !haveStroke) {
+            strokeMin = output.strokeMin;
+            strokeMax = output.strokeMax;
+            haveStroke = true;
+        }
+    }
+    return { primary, secondary, strokeMin, strokeMax };
+}
+
+function queueHandyManual(speed, strokeMin, strokeMax, urgent) {
+    const env = normalizeEnvelope(advancedSettings.handyHwMin, advancedSettings.handyHwMax);
+    // The driver clamps this into the wearer's travel envelope, so a slider
+    // at 0–100 is the full stroke they allowed and cannot pass the end stops.
+    handyManualHold = { speed, min: strokeMin, max: strokeMax, env };
+    const send = (force) => {
+        if (!handyManualHold) return;
+        dispatchHandy(
+            handyManualHold.speed,
+            handyManualHold.min,
+            handyManualHold.max,
+            force,
+            handyManualHold.env.min,
+            handyManualHold.env.max,
+            advancedSettings.handyEndMargin
+        );
+    };
+    // A stop is never throttled. A slow-down goes out at once, then at most
+    // every 80 ms, and the latest drag is sent again when the window ends.
+    const now = Date.now();
+    const force = speed === 0 || (urgent && now - handyManualLastForce >= 80);
+    if (force) handyManualLastForce = now;
+    send(force);
+    if (!handyManualTimer) {
+        handyManualTimer = setTimeout(() => {
+            handyManualTimer = null;
+            if (manualLatch) send(true);
+        }, 420);
+    }
+}
+
+function applyManualHardware(frame, { urgent = false } = {}) {
+    const devices = frame && Array.isArray(frame.devices) ? frame.devices : [];
+    const summary = summarizeManual(devices);
+    paintChannelReadout(summary.primary, summary.secondary, summary.strokeMin, summary.strokeMax);
+    if (!manualSessionLive()) return;
+    const env = normalizeEnvelope(advancedSettings.handyHwMin, advancedSettings.handyHwMax);
+    const stopped = urgent || frameIsStopped({ devices });
+    if (stopped) {
+        // Once is enough. Repeating a full stop every tick would keep
+        // hitting the devices for as long as the controller holds zero.
+        if (manualLatch && !manualLatch.heldStop) forceStopHardware();
+        if (manualLatch) manualLatch.heldStop = true;
+        paintChannelReadout(0, 0, summary.strokeMin, summary.strokeMax);
+        return;
+    }
+    if (manualLatch) manualLatch.heldStop = false;
+    const handy = devices.find((item) => item.id === 'handy');
+    const handyInfo = deviceCatalog.find((item) => item.id === 'handy');
+    if (handy && handyInfo && handyInfo.connected && handyInfo.role !== 'off') {
+        queueHandyManual(handy.speed, handy.strokeMin, handy.strokeMax, urgent);
+    }
+    const intiface = [];
+    const tcode = [];
+    for (const output of devices) {
+        const parsed = parseDeviceId(output.id);
+        const info = deviceCatalog.find((item) => item.id === output.id);
+        if (!parsed || !info || !info.connected || info.role === 'off') continue;
+        if (parsed.family === 'intiface' && parsed.axisKey) {
+            intiface.push({
+                deviceIndex: parsed.deviceIndex,
+                axisKey: parsed.axisKey,
+                speed: output.speed,
+                strokeMin: output.strokeMin,
+                strokeMax: output.strokeMax,
+                level: output.level
+            });
+        } else if (parsed.family === 'tcode' && parsed.axisId) {
+            tcode.push({
+                axisId: parsed.axisId,
+                speed: output.speed,
+                strokeMin: output.strokeMin,
+                strokeMax: output.strokeMax,
+                level: output.level
+            });
+        } else if (parsed.family === 'vacuglide') {
+            dispatchVacuglide(output.speed, output.speed === 0);
+        }
+    }
+    if (intiface.length) {
+        applyManualIntiface(intiface, env.min, env.max, {
+            stopAll: intiface.every((item) => item.speed === 0 && item.level === 0)
+        });
+    }
+    if (tcode.length) {
+        applyManualTCode(tcode, env.min, env.max, {
+            stopAll: tcode.every((item) => item.speed === 0 && item.level === 0)
+        });
+    }
+}
+
+function currentManualFrame(now = Date.now()) {
+    if (!manualLatch) return { devices: [] };
+    if (manualLatch.pattern) return frameFromPattern(manualLatch.pattern, now - manualLatch.patternAt);
+    return decayFrame(manualLatch.frame, now - manualLatch.frameAt);
+}
+
+function tickManual() {
+    if (!manualLatch) return;
+    deviceCatalog = sharedDeviceCatalog();
+    // A loop has no slider packets of its own. If the controller goes quiet
+    // the loop ends and the empty frame takes the toys to a stop.
+    if (manualLatch.pattern && Date.now() - (manualLatch.heardAt || 0) > MANUAL_LINK_MS) {
+        manualLatch.pattern = null;
+        manualLatch.frame = { devices: [] };
+        manualLatch.frameAt = manualLatch.heardAt || Date.now();
+        manualLatch.heldStop = false;
+    }
+    applyManualHardware(currentManualFrame());
+}
+
+function ensureManualTimer() {
+    if (manualTimer) return;
+    manualTimer = setInterval(tickManual, 50);
+}
+
+function armManual(epoch) {
+    manualLatch = {
+        epoch,
+        pattern: null,
+        patternAt: 0,
+        frame: { devices: [] },
+        frameAt: Date.now(),
+        heardAt: Date.now(),
+        heldStop: false
+    };
+    ensureManualTimer();
+    forceStopHardware();
+    paintChannelReadout(0, 0, state.strokeMin || 0, state.strokeMax || 100);
+}
+
+function acceptManualCommand(cmd) {
+    const epoch = manualLatch ? manualLatch.epoch : 0;
+    if (!acceptEpoch(epoch, cmd.epoch)) return false;
+    if (!manualLatch || cmd.type === 'MANUAL_ARM') armManual(cmd.epoch);
+    else manualLatch.epoch = cmd.epoch;
+    return true;
+}
+
+function intifaceKind(axis) {
+    if (!axis) return 'vibrate';
+    if (axis.kind === 'linear') return 'stroke';
+    if (axis.kind === 'rotate') return 'rotate';
+    const type = String(axis.type || '');
+    if (type === 'Oscillate') return 'oscillate';
+    if (type === 'Inflate') return 'inflate';
+    if (type === 'Constrict') return 'constrict';
+    if (type === 'Position') return 'position';
+    if (type === 'Rotate') return 'rotate';
+    return 'vibrate';
+}
+
+function tcodeKind(axis) {
+    if (!axis) return 'stroke';
+    if (axis.kind === 'rotate') return 'rotate';
+    if (axis.kind === 'vibe') return 'vibrate';
+    if (axis.kind === 'linear' && !axis.centred) return 'stroke';
+    return 'position';
+}
+
+function pushCatalog(list, entry) {
+    if (list.length >= 24) return;
+    list.push(entry);
+}
+
+// What the controller is allowed to see and drive. A role of off is shown
+// and is not given a slider: the wearer turned that output off.
+function sharedDeviceCatalog() {
+    const list = [];
+    const hrName = state.simEngaged ? 'Simulator' : (state.hrDeviceName || 'Heart rate');
+    pushCatalog(list, {
+        id: 'hr',
+        name: hrName,
+        connected: Boolean(isBleConnected() || state.simEngaged),
+        role: 'off',
+        kind: 'heart'
+    });
+    pushCatalog(list, {
+        id: 'handy',
+        name: 'The Handy',
+        connected: Boolean(handyConnected),
+        role: state.handyRole === 'secondary' ? 'secondary' : (state.handyRole === 'off' ? 'off' : 'primary'),
+        kind: 'stroke'
+    });
+    if (isIntifaceConnected() && intifaceDevices.size > 0) {
+        intifaceDevices.forEach((dev, deviceIndex) => {
+            const axes = (dev.axes || []).filter((axis) => !axis.inert);
+            if (axes.length === 0) {
+                pushCatalog(list, {
+                    id: `intiface:${deviceIndex}`,
+                    name: dev.displayName || dev.name || 'Toy',
+                    connected: true,
+                    role: 'off',
+                    kind: 'vibrate'
+                });
+                return;
+            }
+            for (const axis of axes) {
+                const label = axis.descriptor || axis.type || axis.key;
+                pushCatalog(list, {
+                    id: `intiface:${deviceIndex}:${axis.key}`,
+                    name: `${dev.displayName || dev.name || 'Toy'} ${label}`.trim(),
+                    connected: true,
+                    role: axis.role === 'primary' || axis.role === 'secondary' ? axis.role : 'off',
+                    kind: intifaceKind(axis)
+                });
+            }
+        });
+    } else {
+        pushCatalog(list, { id: 'intiface', name: 'Intiface', connected: false, role: 'off', kind: 'vibrate' });
+    }
+    const vacRole = sanitizeVacuglideRole(advancedSettings.vacuglideRole);
+    pushCatalog(list, {
+        id: 'vacuglide',
+        name: 'VacuGlide 2',
+        connected: Boolean(isVacuglideConnected()),
+        role: vacRole === 'primary' || vacRole === 'secondary' ? vacRole : 'off',
+        kind: 'speed'
+    });
+    if (isTCodeConnected()) {
+        const dev = getTCodeDevice();
+        const axes = dev && Array.isArray(dev.axes) ? dev.axes : [];
+        for (const axis of axes) {
+            pushCatalog(list, {
+                id: `tcode:${axis.id}`,
+                name: axis.description || axis.id,
+                connected: true,
+                role: axis.role === 'primary' || axis.role === 'secondary' ? axis.role : 'off',
+                kind: tcodeKind(axis)
+            });
+        }
+    } else {
+        pushCatalog(list, { id: 'tcode', name: 'TCode', connected: false, role: 'off', kind: 'stroke' });
+    }
+    return list;
+}
+
+function handleManualCommand(cmd) {
+    deviceCatalog = sharedDeviceCatalog();
+    if (cmd.type === 'MANUAL_ARM' && cmd.on === false) {
+        if (manualLatch && !acceptEpoch(manualLatch.epoch, cmd.epoch)) return;
+        clearManualLatch();
+        updateEngine();
+        syncTelemetry();
+        return;
+    }
+    if (cmd.type === 'MANUAL_STOP') {
+        if (!acceptManualCommand(cmd)) return;
+        manualLatch.pattern = null;
+        manualLatch.frame = { devices: [] };
+        manualLatch.frameAt = Date.now();
+        manualLatch.heldStop = false;
+        applyManualHardware({ devices: [] }, { urgent: true });
+        syncTelemetry();
+        return;
+    }
+    if (cmd.type === 'MANUAL_ARM') {
+        if (!acceptManualCommand(cmd)) return;
+        syncTelemetry();
+        return;
+    }
+    // Same epoch, same loop: proof the controller is still there. A newer
+    // stop has a higher epoch and must not be undone by this.
+    if (cmd.type === 'MANUAL_PATTERN' && cmd.refresh) {
+        if (!manualLatch || cmd.epoch !== manualLatch.epoch || !manualLatch.pattern) return;
+        manualLatch.heardAt = Date.now();
+        return;
+    }
+    if (!manualLatch && !acceptManualCommand(cmd)) return;
+    if (manualLatch && !acceptEpoch(manualLatch.epoch, cmd.epoch)) return;
+    manualLatch.epoch = cmd.epoch;
+    if (cmd.type === 'MANUAL_PATTERN') {
+        manualLatch.pattern = cmd;
+        manualLatch.patternAt = Date.now();
+        manualLatch.heardAt = Date.now();
+        manualLatch.heldStop = false;
+        ensureManualTimer();
+        tickManual();
+        syncTelemetry();
+        return;
+    }
+    if (cmd.type === 'MANUAL_FRAME') {
+        manualLatch.pattern = null;
+        manualLatch.frame = { devices: cmd.devices };
+        manualLatch.frameAt = Date.now();
+        manualLatch.heardAt = Date.now();
+        ensureManualTimer();
+        applyManualHardware(manualLatch.frame, { urgent: cmd.urgent });
+        syncTelemetry();
+    }
+}
+
 function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, force = false) {
     if (isRemotePage) return;
+    if (manualLatch && !force) {
+        if (manualSessionLive()) applyManualHardware(currentManualFrame());
+        return;
+    }
 
     let targetHandySpeed = 0;
     const handyCap = (state.handyMaxCap ?? 100) / 100;
@@ -2501,8 +2930,7 @@ stopBtn?.addEventListener('click', () => {
     stopSession("Stopped");
 });
 
-document.getElementById('edgedBtn')?.addEventListener('click', () => {
-    if (isRemoteViewer || isRemoteController) return;
+function performEdgeMark() {
     if (state.activeMode === 'calibrate') {
         markCalibrationEdge();
         checkReadiness();
@@ -2518,6 +2946,15 @@ document.getElementById('edgedBtn')?.addEventListener('click', () => {
     checkReadiness();
     syncTelemetry();
     updateEngine();
+}
+
+document.getElementById('edgedBtn')?.addEventListener('click', () => {
+    if (isRemoteViewer) return;
+    if (isRemoteController) {
+        sendPeerCommand({ type: 'EDGE_MARK' });
+        return;
+    }
+    performEdgeMark();
 });
 
 function clearSettle() {
@@ -2636,7 +3073,9 @@ function showIdleTransport() {
 function stopSession(outcome = "Stopped", voiceText = null) {
     const wasActive = state.sessionStatus !== 'IDLE';
     // Status and motors FIRST: nothing below (history, storage, voice) may
-    // leave the session running if it throws.
+    // leave the session running if it throws. Manual control ends with the
+    // session, so the next start is EdgeLoop again.
+    clearManualLatch();
     clearSettle();
     state.sessionStatus = 'IDLE';
     state.resumeStatus = null;
@@ -2675,6 +3114,7 @@ resetBtn?.addEventListener('click', () => {
         sendPeerCommand({ type: 'SESSION_RESET' });
         return;
     }
+    clearManualLatch();
     clearSettle();
     state.sessionStatus = 'IDLE';
     state.resumeStatus = null;
@@ -3475,13 +3915,16 @@ modeCards.forEach(card => {
         if (mode === 'goal-off' && ending) {
             state.endgameType = ending;
             highlightEndgameCard(state.endgameType);
-            persistSessionLimits(true);
+            if (!isRemotePage) persistSessionLimits(true);
         }
         const enabled = GAME_CARD_MODES.includes(mode) ? true : true;
         applyModeSelection(mode, enabled);
         setBothChoiceDrawers(false);
-        if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled });
-        else syncTelemetry();
+        if (isRemoteController) {
+            const command = { type: 'MODE_CHANGE', mode, enabled };
+            if (ending) command.endgame = ending;
+            sendPeerCommand(command);
+        } else syncTelemetry();
     });
 });
 
@@ -4328,9 +4771,11 @@ function highlightEndgameCard(type) {
 }
 paramEndgameCards.forEach(card => {
     card.addEventListener('click', () => {
+        if (isRemoteViewer) return;
         state.endgameType = card.getAttribute('data-endgame');
         highlightEndgameCard(state.endgameType);
         persistSessionLimits(true);
+        if (isRemoteController) sendPeerCommand({ type: 'ENDGAME', endgame: state.endgameType });
     });
 });
 
@@ -5800,11 +6245,59 @@ document.getElementById('clearHistoryBtn')?.addEventListener('click', () => {
 // read-only viewers. Commands arrive already validated by peer-messages.js.
 function setPartnerStatus(text, tone = 'wait') {
     const status = document.getElementById('partnerStatusText');
-    if (!status) return;
-    status.textContent = text;
-    status.className = tone === 'ok' ? 'font-bold text-emerald-400'
-        : tone === 'error' ? 'font-bold text-rose-400'
-        : 'font-bold text-amber-400';
+    if (status) {
+        status.textContent = text;
+        status.className = tone === 'ok' ? 'font-bold text-emerald-400'
+            : tone === 'error' ? 'font-bold text-rose-400'
+            : 'font-bold text-amber-400';
+    }
+    const controllee = document.getElementById('controlleeStatus');
+    if (controllee) {
+        controllee.textContent = text;
+        controllee.className = tone === 'ok' ? 'text-sm font-bold text-emerald-300'
+            : tone === 'error' ? 'text-sm font-bold text-rose-300'
+            : 'text-sm font-bold text-amber-300';
+    }
+}
+
+function enterControlleeMode() {
+    if (isRemotePage) return;
+    sharingControl = true;
+    document.body.classList.add('sharing-control');
+    document.getElementById('controlleeBanner')?.classList.remove('hidden');
+    document.getElementById('sessionSetupHome')?.classList.add('hidden');
+    document.getElementById('playStylePanel')?.classList.add('hidden');
+    document.getElementById('endgamePanel')?.classList.add('hidden');
+    document.getElementById('intensityPanel')?.classList.add('hidden');
+    const role = document.getElementById('roleIndicator');
+    if (role) {
+        role.textContent = 'Controllee';
+        role.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-900 text-purple-200 uppercase';
+    }
+}
+
+function exitControlleeMode() {
+    sharingControl = false;
+    document.body.classList.remove('sharing-control');
+    document.getElementById('controlleeBanner')?.classList.add('hidden');
+    document.getElementById('sessionSetupHome')?.classList.remove('hidden');
+    document.getElementById('playStylePanel')?.classList.remove('hidden');
+    document.getElementById('endgamePanel')?.classList.remove('hidden');
+    document.getElementById('intensityPanel')?.classList.remove('hidden');
+    const role = document.getElementById('roleIndicator');
+    if (role && !isRemotePage) {
+        role.textContent = 'Local Host';
+        role.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 uppercase';
+    }
+}
+
+function stopSharing() {
+    const wasManual = Boolean(manualLatch);
+    clearManualLatch();
+    closeHostPeer();
+    exitControlleeMode();
+    if (wasManual) dispatchHardware(0, 0, 0, 100, true);
+    updateEngine();
 }
 
 // Header badge ("1C+2V") and the Share modal's viewer list, counted apart.
@@ -5830,6 +6323,7 @@ function renderPeerCounts() {
 }
 
 function setupPartnerHost() {
+    enterControlleeMode();
     if (!peerLibraryAvailable()) {
         setPartnerStatus('Signalling library not loaded (CDN blocked or offline). Remote control is unavailable.', 'error');
         ['partnerShareUrl', 'groupShareUrl'].forEach((id) => {
@@ -5842,21 +6336,33 @@ function setupPartnerHost() {
         onPeerReady: (id) => {
             const share = document.getElementById('partnerShareUrl');
             const group = document.getElementById('groupShareUrl');
-            if (share) share.value = `${window.location.origin}${window.location.pathname}?partner=${id}`;
+            const link = `${window.location.origin}${window.location.pathname}?partner=${id}`;
+            if (share) share.value = link;
             if (group) group.value = `${window.location.origin}${window.location.pathname}?group_sub=${id}`;
+            const controlleeLink = document.getElementById('controlleeShareUrl');
+            if (controlleeLink) controlleeLink.value = link;
             // Also fires after a signalling reconnect: keep a live controller shown as such.
             if (getPeerCounts().controllers > 0) setPartnerStatus('Controller Connected', 'ok');
-            else setPartnerStatus('Ready (Awaiting Controller)');
+            else setPartnerStatus('Waiting for a controller');
             renderPeerCounts();
         },
         onPartnerConnected: () => {
-            setPartnerStatus('Controller Connected', 'ok');
+            setPartnerStatus('A controller is connected', 'ok');
             renderPeerCounts();
             syncTelemetry();
         },
         onControllerDisconnected: (reason) => {
-            setPartnerStatus(reason === 'timeout' ? 'Partner disconnected (no response)' : 'Partner disconnected', 'error');
+            // A dropped controller must not leave a manual loop running.
+            if (manualLatch) {
+                clearManualLatch();
+                dispatchHardware(0, 0, 0, 100, true);
+                if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
+                    pauseSession('Controller disconnected. Toys stopped.', 'remote');
+                }
+            }
+            setPartnerStatus(reason === 'timeout' ? 'Controller disconnected (no response)' : 'Controller disconnected', 'error');
             renderPeerCounts();
+            syncTelemetry();
         },
         onViewerConnected: () => {
             renderPeerCounts();
@@ -5885,8 +6391,35 @@ function setupPartnerHost() {
             } else if (cmd.type === 'SESSION_RESET') resetBtn?.click();
             else if (cmd.type === 'ORGASM_TOGGLE') orgasmBtn?.click();
             else if (cmd.type === 'MODE_CHANGE') {
+                if (cmd.endgame) {
+                    state.endgameType = cmd.endgame;
+                    highlightEndgameCard(state.endgameType);
+                    persistSessionLimits(true);
+                }
                 applyModeSelection(cmd.mode, cmd.enabled);
                 syncTelemetry();
+            }
+            else if (cmd.type === 'ENDGAME') {
+                state.endgameType = cmd.endgame;
+                highlightEndgameCard(state.endgameType);
+                persistSessionLimits(true);
+                syncTelemetry();
+            }
+            else if (cmd.type === 'EDGE_MARK') performEdgeMark();
+            else if (cmd.type === 'INTENSITY') applyIntensity(cmd.value);
+            else if (cmd.type === 'SPEED_WINDOW') {
+                advancedSettings.speedSlowest = cmd.slowest;
+                advancedSettings.speedFastest = cmd.fastest;
+                if (advancedSettings.speedSlowest > advancedSettings.speedFastest) {
+                    advancedSettings.speedFastest = advancedSettings.speedSlowest;
+                }
+                paintSpeedWindow();
+                persistSettings();
+                updateEngine();
+                syncTelemetry();
+            }
+            else if (cmd.type === 'MANUAL_ARM' || cmd.type === 'MANUAL_STOP' || cmd.type === 'MANUAL_FRAME' || cmd.type === 'MANUAL_PATTERN') {
+                handleManualCommand(cmd);
             }
         }
     });
@@ -5920,7 +6453,7 @@ function lockViewerControls() {
 // Everything else is host-only (its handlers return or its state never
 // leaves the page), so it is locked rather than left looking clickable.
 const CONTROLLER_LOCKED_IDS = [
-    'cameEarlyBtn', 'edgedBtn', 'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
+    'cameEarlyBtn', 'openParamsBtn', 'sessionParamsHeaderBtn',
     'partnerShareBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // The mode cards stay live (MODE_CHANGE is a legal command), but the two
     // Edge Training numbers inside one of them are host-only settings.
@@ -5971,6 +6504,334 @@ function markRemoteLinkLost(message) {
     setRemoteRoleStatus('Disconnected');
     showRemoteBanner(message);
     checkReadiness();
+}
+
+function paintRemoteDevices(devices) {
+    const hr = devices.find((item) => item.id === 'hr');
+    if (hr) setBadgeState('Ble', hr.connected ? 'connected' : 'disconnected', hr.connected ? hr.name : 'Disconnected', null);
+    const handy = devices.find((item) => item.id === 'handy');
+    if (handy) setBadgeState('Handy', handy.connected ? 'connected' : 'disconnected', handy.connected ? handy.name : 'Disconnected', null);
+    const vac = devices.find((item) => item.id === 'vacuglide');
+    if (vac) setBadgeState('Vacuglide', vac.connected ? 'connected' : 'disconnected', vac.connected ? vac.name : 'Disconnected', null);
+    const group = (prefix) => devices.filter((item) => item.id === prefix || item.id.startsWith(`${prefix}:`));
+    const labelFor = (items) => {
+        const live = items.filter((item) => item.connected);
+        if (live.length === 0) return 'Disconnected';
+        return live.length === 1 ? live[0].name : `${live[0].name} +${live.length - 1}`;
+    };
+    const intiface = group('intiface');
+    if (intiface.length) setBadgeState('Intiface', intiface.some((item) => item.connected) ? 'connected' : 'disconnected', labelFor(intiface), null);
+    const tcode = group('tcode');
+    if (tcode.length) setBadgeState('TCode', tcode.some((item) => item.connected) ? 'connected' : 'disconnected', labelFor(tcode), null);
+}
+
+let manualDriving = false;
+let manualEpoch = 0;
+let manualSendTimer = null;
+let manualKeepalive = null;
+let manualUiHoldUntil = 0;
+let manualDevices = [];
+const manualDraft = new Map();
+let manualGesture = null;
+let manualPatternOn = false;
+let manualPatternCmd = null;
+
+function setManualModeUi(on, fromHost = false) {
+    if (fromHost && on === false && Date.now() < manualUiHoldUntil) return;
+    if (fromHost && on === true) manualUiHoldUntil = 0;
+    manualDriving = Boolean(on);
+    if (!manualDriving) {
+        manualPatternOn = false;
+        manualPatternCmd = null;
+    }
+    setManualKeepalive(manualDriving);
+    const btn = document.getElementById('manualModeBtn');
+    const live = document.getElementById('manualLive');
+    const hint = document.getElementById('manualHint');
+    btn?.setAttribute('aria-pressed', manualDriving ? 'true' : 'false');
+    if (btn) {
+        btn.textContent = manualDriving ? 'EdgeLoop' : 'Manual';
+        btn.className = manualDriving
+            ? 'shrink-0 bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-2 rounded-xl text-xs cursor-pointer'
+            : 'shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer';
+    }
+    live?.classList.toggle('hidden', !manualDriving);
+    if (hint) {
+        hint.textContent = manualDriving
+            ? 'You have the toys. Slow and Stop take effect immediately. If the link drops, their toys stop.'
+            : 'EdgeLoop is driving from their pulse. Manual takes the toys from a stop.';
+    }
+}
+
+function ensureDraft(device) {
+    let draft = manualDraft.get(device.id);
+    if (!draft) {
+        draft = { id: device.id, kind: device.kind, speed: 0, strokeMin: 0, strokeMax: 100, level: 0 };
+        manualDraft.set(device.id, draft);
+    }
+    draft.kind = device.kind;
+    return draft;
+}
+
+function writeDraftInputs() {
+    document.querySelectorAll('[data-manual-id]').forEach((input) => {
+        const draft = manualDraft.get(input.getAttribute('data-manual-id'));
+        const field = input.getAttribute('data-manual-field');
+        if (!draft || !field || document.activeElement === input) return;
+        input.value = String(draft[field]);
+        const readout = input.parentElement?.querySelector('[data-manual-readout]');
+        if (readout) readout.textContent = `${draft[field]}%`;
+    });
+}
+
+function setManualKeepalive(on) {
+    if (on) {
+        if (manualKeepalive) return;
+        // Inside the host's hold window, so a slider that is not moving
+        // stays at that level. A frozen page stops sending and the host
+        // eases the toys off.
+        manualKeepalive = setInterval(refreshManualHold, 200);
+        return;
+    }
+    if (manualKeepalive) {
+        clearInterval(manualKeepalive);
+        manualKeepalive = null;
+    }
+}
+
+function refreshManualHold() {
+    if (!manualDriving) return;
+    if (manualPatternOn) {
+        if (!manualPatternCmd) return;
+        sendPeerCommand({ ...manualPatternCmd, epoch: manualEpoch, refresh: true });
+        return;
+    }
+    let moving = false;
+    for (const draft of manualDraft.values()) {
+        if (draft.speed > 0 || draft.level > 0) moving = true;
+    }
+    if (moving) scheduleManualFrame(false);
+}
+
+function scheduleManualFrame(urgent = false) {
+    const send = () => {
+        manualSendTimer = null;
+        if (!manualDriving) return;
+        // A downward move takes a new epoch so a frame already in flight
+        // cannot put the speed back up.
+        if (urgent) manualEpoch += 1;
+        manualPatternOn = false;
+        manualPatternCmd = null;
+        sendPeerCommand({
+            type: 'MANUAL_FRAME',
+            epoch: manualEpoch,
+            urgent,
+            devices: [...manualDraft.values()]
+        });
+    };
+    if (urgent) {
+        if (manualSendTimer) {
+            clearTimeout(manualSendTimer);
+            manualSendTimer = null;
+        }
+        send();
+        return;
+    }
+    if (manualSendTimer) return;
+    manualSendTimer = setTimeout(send, 50);
+}
+
+function addManualSlider(parent, device, field, label) {
+    const draft = ensureDraft(device);
+    const row = document.createElement('label');
+    row.className = 'block space-y-1';
+    const head = document.createElement('span');
+    head.className = 'flex justify-between text-[10px] font-semibold text-slate-300';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const readout = document.createElement('span');
+    readout.className = 'font-mono text-purple-300';
+    readout.setAttribute('data-manual-readout', field);
+    readout.textContent = `${draft[field]}%`;
+    head.append(name, readout);
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '0';
+    input.max = '100';
+    input.value = String(draft[field]);
+    input.className = 'w-full h-8 accent-purple-400 cursor-pointer';
+    input.setAttribute('data-manual-id', device.id);
+    input.setAttribute('data-manual-field', field);
+    input.addEventListener('input', () => {
+        const value = Number(input.value);
+        const dropping = value < draft[field];
+        draft[field] = value;
+        if (field === 'strokeMin' && value > draft.strokeMax) draft.strokeMax = value;
+        if (field === 'strokeMax' && value < draft.strokeMin) draft.strokeMin = value;
+        readout.textContent = `${value}%`;
+        writeDraftInputs();
+        scheduleManualFrame(dropping || value === 0);
+    });
+    row.append(head, input);
+    parent.append(row);
+}
+
+function renderManualDevices(devices) {
+    const root = document.getElementById('manualDevices');
+    if (!root) return;
+    manualDevices = devices.filter((item) => item.connected && item.kind !== 'heart' && item.role !== 'off');
+    const key = manualDevices.map((item) => `${item.id}:${item.kind}:${item.role}`).join('|');
+    if (root.dataset.key === key) return;
+    root.dataset.key = key;
+    root.replaceChildren();
+    if (manualDevices.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'text-[10px] text-slate-400';
+        empty.textContent = 'No toy is connected on their side yet.';
+        root.append(empty);
+        return;
+    }
+    for (const device of manualDevices) {
+        const card = document.createElement('div');
+        card.className = 'p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-2';
+        const title = document.createElement('div');
+        title.className = 'flex items-center justify-between gap-2';
+        const name = document.createElement('span');
+        name.className = 'text-xs font-bold text-slate-100 truncate';
+        name.textContent = device.name;
+        const role = document.createElement('span');
+        role.className = 'text-[9px] uppercase tracking-wider text-slate-500 shrink-0';
+        role.textContent = `${device.role} · ${controlLabel(device.kind)}`;
+        title.append(name, role);
+        card.append(title);
+        const fields = controlsForKind(device.kind);
+        if (fields.includes('speed')) addManualSlider(card, device, 'speed', 'Speed');
+        if (fields.includes('level')) addManualSlider(card, device, 'level', controlLabel(device.kind));
+        if (fields.includes('strokeMin')) addManualSlider(card, device, 'strokeMin', 'Stroke min');
+        if (fields.includes('strokeMax')) addManualSlider(card, device, 'strokeMax', 'Stroke max');
+        root.append(card);
+    }
+}
+
+function patternPeaks() {
+    return peaksFromValues(manualDevices.map((device) => ensureDraft(device)));
+}
+
+function startManualPattern(id, extra = {}) {
+    if (!manualDriving || manualDevices.length === 0) return;
+    if (manualSendTimer) {
+        clearTimeout(manualSendTimer);
+        manualSendTimer = null;
+    }
+    manualEpoch += 1;
+    manualPatternOn = true;
+    manualPatternCmd = {
+        type: 'MANUAL_PATTERN',
+        epoch: manualEpoch,
+        id,
+        periodMs: extra.periodMs || 2000,
+        devices: patternPeaks()
+    };
+    if (extra.drawn) manualPatternCmd.drawn = extra.drawn;
+    sendPeerCommand(manualPatternCmd);
+}
+
+function paintManualDraw(points) {
+    const canvas = document.getElementById('manualDraw');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = '#c4b5fd';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    points.forEach((point, index) => {
+        const x = point.x * width;
+        const y = point.y * height;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+
+function initManualPanel() {
+    const patterns = document.getElementById('manualPatterns');
+    if (patterns && !patterns.dataset.ready) {
+        patterns.dataset.ready = 'yes';
+        for (const choice of PATTERN_CHOICES) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer';
+            btn.textContent = choice.label;
+            btn.addEventListener('click', () => startManualPattern(choice.id));
+            patterns.append(btn);
+        }
+    }
+    document.getElementById('manualModeBtn')?.addEventListener('click', () => {
+        manualEpoch += 1;
+        manualUiHoldUntil = Date.now() + 800;
+        const next = !manualDriving;
+        setManualModeUi(next);
+        sendPeerCommand({ type: 'MANUAL_ARM', on: next, epoch: manualEpoch });
+    });
+    document.getElementById('manualSlowBtn')?.addEventListener('click', () => {
+        manualPatternOn = false;
+        manualPatternCmd = null;
+        for (const draft of manualDraft.values()) {
+            draft.speed = Math.min(draft.speed, 12);
+            draft.level = Math.min(draft.level, 12);
+        }
+        writeDraftInputs();
+        scheduleManualFrame(true);
+    });
+    document.getElementById('manualStopBtn')?.addEventListener('click', () => {
+        manualEpoch += 1;
+        manualPatternOn = false;
+        manualPatternCmd = null;
+        for (const draft of manualDraft.values()) {
+            draft.speed = 0;
+            draft.level = 0;
+        }
+        writeDraftInputs();
+        if (manualSendTimer) {
+            clearTimeout(manualSendTimer);
+            manualSendTimer = null;
+        }
+        sendPeerCommand({ type: 'MANUAL_STOP', epoch: manualEpoch });
+    });
+    const canvas = document.getElementById('manualDraw');
+    if (!canvas) return;
+    const pointOf = (event) => {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: rect.width ? (event.clientX - rect.left) / rect.width : 0,
+            y: rect.height ? (event.clientY - rect.top) / rect.height : 0
+        };
+    };
+    canvas.addEventListener('pointerdown', (event) => {
+        if (!manualDriving) return;
+        canvas.setPointerCapture(event.pointerId);
+        manualGesture = { started: Date.now(), points: [pointOf(event)] };
+        paintManualDraw(manualGesture.points);
+    });
+    canvas.addEventListener('pointermove', (event) => {
+        if (!manualGesture) return;
+        manualGesture.points.push(pointOf(event));
+        paintManualDraw(manualGesture.points);
+    });
+    const finishGesture = () => {
+        if (!manualGesture) return;
+        const loop = loopFromGesture(manualGesture.points, Date.now() - manualGesture.started);
+        manualGesture = null;
+        if (loop) startManualPattern('drawn', loop);
+    };
+    canvas.addEventListener('pointerup', finishGesture);
+    canvas.addEventListener('pointercancel', finishGesture);
 }
 
 function applyRemoteTelemetry(data) {
@@ -6054,6 +6915,19 @@ function applyRemoteTelemetry(data) {
     if (pauseEl) pauseEl.textContent = state.pauses;
     updateTimerDisplay();
     redrawChart();
+    if (Array.isArray(data.devices)) {
+        paintRemoteDevices(data.devices);
+        if (isRemoteController) renderManualDevices(data.devices);
+    }
+    if (data.intensity !== undefined && document.activeElement?.id !== 'intensitySlider') {
+        state.intensityValue = data.intensity;
+        paintIntensity(data.intensity);
+    }
+    const slowInput = document.getElementById('speedSlowestInput');
+    const fastInput = document.getElementById('speedFastestInput');
+    if (slowInput && data.speedSlowest !== undefined && document.activeElement !== slowInput) slowInput.value = String(data.speedSlowest);
+    if (fastInput && data.speedFastest !== undefined && document.activeElement !== fastInput) fastInput.value = String(data.speedFastest);
+    if (typeof data.manual === 'boolean' && isRemoteController) setManualModeUi(data.manual, true);
     lockRemoteControls();
 }
 
@@ -6070,6 +6944,7 @@ function renderRemoteHostSettings(data) {
 function syncTelemetry() {
     if (isRemotePage) return;
     const readiness = hardwareReadiness();
+    deviceCatalog = sharedDeviceCatalog();
     broadcastPeerTelemetry({
         type: 'TELEMETRY',
         hr: state.hrCurrent,
@@ -6099,6 +6974,13 @@ function syncTelemetry() {
         edgeHoldPercent: clampEdgeHoldPercent(advancedSettings.edgeHoldPercent),
         orgasmMode: state.orgasmMode,
         ready: readiness.hrReady && readiness.toyReady,
+        manual: Boolean(manualLatch),
+        intensity: state.intensityValue,
+        speedSlowest: clampSpeedBound(advancedSettings.speedSlowest, 0),
+        speedFastest: clampSpeedBound(advancedSettings.speedFastest, 100),
+        strokeMin: clampSpeedBound(state.strokeMin, 0),
+        strokeMax: clampSpeedBound(state.strokeMax, 100),
+        devices: deviceCatalog,
         hrSignal: {
             status: state.hrSignalState,
             noContact: state.hrNoContact,
@@ -6149,6 +7031,14 @@ async function copyLinkFrom(inputId, btnId) {
 
 document.getElementById('copyShareUrlBtn')?.addEventListener('click', () => {
     copyLinkFrom('partnerShareUrl', 'copyShareUrlBtn').catch(() => {});
+});
+
+document.getElementById('controlleeCopyBtn')?.addEventListener('click', () => {
+    copyLinkFrom('controlleeShareUrl', 'controlleeCopyBtn').catch(() => {});
+});
+
+document.getElementById('controlleeStopBtn')?.addEventListener('click', () => {
+    if (!isRemotePage) stopSharing();
 });
 
 document.getElementById('copyGroupUrlBtn')?.addEventListener('click', () => {
@@ -6589,6 +7479,11 @@ syncParamsUI();
 if (advancedSettings.micEnabled && !isRemotePage) showMicReenable(true);
 if (advancedSettings.voiceEnabled) paintIdlePrompt();
 watchChartResize(document.getElementById('hrChart'), redrawChart);
+if (isRemoteController) {
+    document.getElementById('manualPanel')?.classList.remove('hidden');
+    initManualPanel();
+}
+
 if (isRemotePage && remoteRoom) {
     lockRemoteLimitInputs();
     lockRemoteControls();

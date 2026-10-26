@@ -86,11 +86,20 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => {
-    if (m.type() === 'error') errors.push('console.error: ' + m.text());
+    if (m.type() === 'error') {
+      // A missing optional manifest is recorded on the response, below.
+      // The browser also prints a generic 404 line with no URL.
+      const text = m.text();
+      if (text.includes('Failed to load resource') && text.includes('404')) return;
+      errors.push('console.error: ' + text);
+    }
     else if (m.type() === 'warning') warnings.push(m.text());
   });
   page.on('requestfailed', r => { if (!r.url().includes('favicon')) errors.push('requestfailed: ' + r.url() + ' ' + (r.failure() || {}).errorText); });
-  page.on('response', r => { if (r.status() >= 400 && !r.url().includes('favicon')) errors.push(`http ${r.status()}: ${r.url()}`); });
+  page.on('response', r => {
+    // python http.server has no app manifest. The node host serves this path.
+    if (r.status() >= 400 && !r.url().includes('favicon') && !r.url().includes('/edgeloop-app.json')) errors.push(`http ${r.status()}: ${r.url()}`);
+  });
 
   // The Handy cloud API is mocked inside the browser, so the transport can be driven end to end
   // without hardware: every request is answered the way the real API v2 would, and recorded, so the
@@ -117,7 +126,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
         }).map(d => (d.id || '') + '.' + d.className.split(' ').slice(0, 4).join('.')));
         await page.screenshot({ path: path.join(OUT, 'fail-' + name.replace(/[^a-z0-9]+/gi, '_') + '.png') });
       } catch (e2) {}
-      steps.push({ name, ok: false, error: e.message.split('\n')[0], overlays });
+      steps.push({ name, ok: false, error: e.message.split('\n').slice(0, 6).join(' | '), overlays });
     }
   };
   const shot = (n) => page.screenshot({ path: path.join(OUT, n + '.png') });
@@ -258,13 +267,22 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   await step('open Guide / History / Share', async () => {
     await page.locator('#guideBtn').click(); await sleep(250); await shot('06-guide'); await closeModal();
     await page.locator('#historyBtn').click(); await sleep(250); await shot('07-history'); await closeModal();
-    await page.getByText(/share control/i).first().click(); await sleep(400); await shot('08-share');
+    await page.getByText(/share control/i).first().click(); await sleep(400);
+    if (!(await page.locator('#controlleeBanner').isVisible())) throw new Error('controllee banner missing after Share Control');
+    if (await page.locator('#playStylePanel').isVisible()) throw new Error('play style should be hidden while sharing');
+    if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame should be hidden while sharing');
+    if (await page.locator('#intensityPanel').isVisible()) throw new Error('intensity should be hidden while sharing');
+    if (!(await page.locator('#hrChart').isVisible())) throw new Error('heart-rate graph missing on the controllee');
+    await shot('08-share');
     // Copy-link buttons must never throw (clipboard may be denied; execCommand fallback).
     await page.locator('#copyShareUrlBtn').click().catch(() => {}); await sleep(150);
     const groupTab = page.locator('#partnerTabGroupBtn, button:has-text("Group"), button:has-text("Viewer")').first();
     if (await groupTab.count()) await groupTab.click().catch(() => {});
     await page.locator('#copyGroupUrlBtn').click().catch(() => {}); await sleep(150);
     await closeModal();
+    await page.locator('#controlleeStopBtn').click(); await sleep(250);
+    if (await page.locator('#controlleeBanner').isVisible()) throw new Error('Stop sharing left the controllee banner up');
+    if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after Stop sharing');
   });
   await step('drive HR above ceiling via simulator', async () => {
     await page.locator('#cardBle').click(); await sleep(200);
@@ -275,18 +293,25 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   await step('mode cards click', async () => {
     if (await page.locator('#expTabGameBtn').count()) throw new Error('modes/games tabs should be gone');
     if (!(await page.locator('#playStyleName').isVisible())) throw new Error('play style missing');
-    await page.locator('#playStyleToggle').click(); await sleep(150);
+    // One tap opens both lists. A second tap closes both, so the goal row
+    // is checked while the first open is still up.
+    await page.locator('#playStyleSelected').click(); await sleep(150);
     if (!(await page.locator('#bioProfilesGrid').isVisible())) throw new Error('stroke row hidden');
-    await page.locator('#endgameToggle').click(); await sleep(150);
     if (!(await page.locator('#gameModesGrid').isVisible())) throw new Error('goal row hidden');
     await page.getByText(/prostate milker/i).first().click().catch(() => {}); await sleep(200);
-    await page.locator('#playStyleToggle').click(); await sleep(150);
+    await page.locator('#playStyleSelected').click(); await sleep(150);
     await page.getByText(/simple ramp/i).first().click().catch(() => {}); await sleep(200);
     if (!(await page.locator('[data-mode="goal-off"]').count())) throw new Error('tease goal missing');
     if (!(await page.locator('[data-mode="edgetrain"]').count())) throw new Error('edge training game missing');
-    await page.locator('[data-mode="edgetrain"]').click(); await sleep(150);
+    if (!(await page.locator('#gameModesGrid').isVisible())) {
+      await page.locator('#playStyleSelected').click(); await sleep(150);
+    }
+    await page.locator('#gameModesGrid [data-mode="edgetrain"]').click(); await sleep(150);
     if (!(await page.locator('#trainHoldSecondsInput').isVisible())) throw new Error('edge training hold input missing');
-    await page.locator('[data-mode="goal-off"]').click(); await sleep(150);
+    if (!(await page.locator('#gameModesGrid').isVisible())) {
+      await page.locator('#playStyleSelected').click(); await sleep(150);
+    }
+    await page.locator('#gameModesGrid [data-mode="goal-off"][data-endgame="orgasm"]').click(); await sleep(150);
   });
   await step('connect the mocked Handy', async () => {
     await page.locator('#cardHandy').click(); await sleep(300);
@@ -307,7 +332,25 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (await play.count() !== 1) throw new Error('#sessionPlayPauseBtn missing');
     if (await play.isDisabled()) throw new Error('START is disabled: ' + await playText());
     handyCalls.length = 0;
-    await play.click(); await sleep(1500);
+    try {
+      await play.click();
+    } catch (err) {
+      const box = await play.evaluate((el) => {
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return {
+          display: style.display,
+          visibility: style.visibility,
+          opacity: style.opacity,
+          w: rect.width,
+          h: rect.height,
+          top: rect.top,
+          disabled: el.disabled
+        };
+      }).catch(() => null);
+      throw new Error(`${err.message.split('\n')[0]} ${JSON.stringify(box)}`);
+    }
+    await sleep(1500);
     if ((await playText()) !== 'PAUSE') throw new Error('expected PAUSE after START, got: ' + await playText());
     const cue = ((await page.locator('#mindgamePromptText').textContent()) || '').trim();
     if (!/Session started/i.test(cue)) throw new Error('dashboard cue did not say session start: ' + cue);
@@ -335,7 +378,8 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (!/START SESSION/i.test(await playText())) throw new Error('expected START SESSION after STOP, got: ' + await playText());
     const motion = handyCalls.filter(c => /^\/hamp\/(start|stop|velocity)$/.test(c.path));
     if (!motion.length || motion[motion.length - 1].path !== '/hamp/stop') throw new Error('the last motion command after STOP must be PUT /hamp/stop: ' + JSON.stringify(motion));
-    await page.locator('#sessionResetBtn').click({ force: true }); await sleep(300);
+    // Reset stays off the transport row. The handler is what the smoke needs.
+    await page.locator('#sessionResetBtn').evaluate((el) => el.click()); await sleep(300);
     const edges = (await page.locator('#edgeCount').textContent() || '').trim();
     const timer = (await page.locator('#sessionTimer').textContent() || '').trim();
     if (edges !== '0' || !/^00:00$/.test(timer)) throw new Error('Reset did not zero the counters: edges=' + edges + ' timer=' + timer);
@@ -382,6 +426,9 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     await sleep(1500);
     const role = await page.evaluate(() => document.querySelector('#roleIndicator')?.textContent?.trim() || '');
     if (!/remote controller/i.test(role)) throw new Error('controller badge missing: ' + role);
+    if (!(await page.locator('#manualPanel').isVisible())) throw new Error('manual panel missing on the controller');
+    if (await page.locator('#edgedBtn').isDisabled()) throw new Error('Edged should be usable by the controller');
+    if (await page.locator('#intensitySlider').isDisabled()) throw new Error('intensity should be usable by the controller');
     await page.locator('#stopBtn, #sessionStopBtn').first().click({ force: true }).catch(() => {});
     await page.locator('#resetBtn, #sessionResetBtn').first().click({ force: true }).catch(() => {});
     await shot('12-controller');

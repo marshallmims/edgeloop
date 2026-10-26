@@ -290,6 +290,26 @@ export function sendPeerCommand(cmd) {
     }
 }
 
+// The host is done sharing. Connections close without a "partner
+// disconnected" callback: the page that asked to stop already knows.
+export function closeHostPeer() {
+    if (localRole !== 'host' && !peer) return;
+    const closing = [controllerConn, ...viewerConns].filter(Boolean);
+    controllerConn = null;
+    viewerConns.clear();
+    lastSeen.clear();
+    handlers = {};
+    localRole = null;
+    stopPing();
+    for (const conn of closing) safeClose(conn);
+    const current = peer;
+    peer = null;
+    hostConn = null;
+    if (current && !current.destroyed) {
+        try { current.destroy(); } catch (e) { /* already gone */ }
+    }
+}
+
 export function isPeerLinkOpen() {
     if (localRole === 'host') return Boolean(controllerConn) || viewerConns.size > 0;
     return Boolean(hostConn && hostConn.open);

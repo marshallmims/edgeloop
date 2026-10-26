@@ -967,6 +967,43 @@ export function dispatchIntiface(primarySpeed, secondarySpeed, strokeMin = 0, st
     applyLastSpeeds(Date.now());
 }
 
+// Manual control drives one axis at a time. `entries` are
+// { deviceIndex, axisKey, speed, strokeMin, strokeMax, level }. The wearer's
+// per-axis cap and travel envelope still apply. `stopAll` is the fast path
+// for Slow is not enough / Stop: every motor is cut, not eased.
+export function applyManualIntiface(entries, envMin = 0, envMax = 100, { stopAll = false } = {}) {
+    if (!isIntifaceConnected() || intifaceDevices.size === 0) return;
+    const mapped = zoneFromPercent(0, 100, envMin, envMax);
+    lastEnvelope = mapped.envelope;
+    if (stopAll) {
+        dispatchIntiface(0, 0, 0, 100, envMin, envMax, true);
+        return;
+    }
+    const now = Date.now();
+    for (const entry of entries || []) {
+        const dev = intifaceDevices.get(entry.deviceIndex);
+        if (!dev) continue;
+        const axis = dev.axes.find((item) => item.key === entry.axisKey);
+        if (!axis || axis.inert || axis.role === 'off') continue;
+        const speed = axis.kind === 'linear' || axis.kind === 'rotate' ? entry.speed : entry.level;
+        if (axis.kind === 'linear') {
+            const zone = zoneFromPercent(entry.strokeMin, entry.strokeMax, envMin, envMax).zone;
+            axis.planner.setInput({
+                speed,
+                cap: axis.maxCap,
+                zoneMin: zone.min,
+                zoneMax: zone.max,
+                enabled: speed > 0
+            });
+            pumpLinear(dev, axis, now);
+        } else if (axis.kind === 'rotate') {
+            sendRotate(dev, axis, scalarFor(axis, speed));
+        } else {
+            applyScalar(dev, axis, speed, now);
+        }
+    }
+}
+
 // ---- user settings ----------------------------------------------------------------
 
 function restAxisNow(dev, axis) {
