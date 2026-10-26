@@ -501,9 +501,9 @@ function pauseSession(voiceText = 'Paused.', source = 'button') {
     state.resumeStatus = state.sessionStatus;
     state.sessionStatus = 'PAUSED';
     state.pauseReason = pauseReasonFromSource(source) || 'button';
-    // A relube stop is a pause the wearer asked for. It does not count,
-    // because the pause total is there for stops that were not a relube.
-    if (state.pauseReason !== 'relube') {
+    // An edged stop is a pause the wearer asked for so the edge can be
+    // counted. It does not add to the pause total.
+    if (state.pauseReason !== 'edged') {
         state.pauses += 1;
         const pauseEl = document.getElementById('pauseCount');
         if (pauseEl) pauseEl.textContent = state.pauses;
@@ -520,7 +520,7 @@ function pauseSession(voiceText = 'Paused.', source = 'button') {
 // Put the transport button into the look for `status`. Shared by start,
 // pause, stop / reset and the remote controller's telemetry renderer.
 function renderTransport(status) {
-    paintRelubeButton();
+    paintEdgedButton();
     if (!playPauseBtn) return;
     playPauseBtn.disabled = false;
     if (status === 'RUNNING' || status === 'RAMPDOWN') {
@@ -539,8 +539,8 @@ function renderTransport(status) {
     paintPlayerChannels();
 }
 
-function paintRelubeButton() {
-    const btn = document.getElementById('relubeBtn');
+function paintEdgedButton() {
+    const btn = document.getElementById('edgedBtn');
     if (!btn) return;
     const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
     btn.classList.toggle('hidden', !live);
@@ -570,7 +570,7 @@ function countManualEdge() {
 
 // Grey out the transport with a reason while the hardware is not ready.
 function renderTransportWaiting(reason) {
-    paintRelubeButton();
+    paintEdgedButton();
     if (!playPauseBtn) return;
     playPauseBtn.disabled = true;
     if (playPauseText) playPauseText.textContent = reason;
@@ -2471,16 +2471,16 @@ stopBtn?.addEventListener('click', () => {
     stopSession("Stopped");
 });
 
-document.getElementById('relubeBtn')?.addEventListener('click', () => {
+document.getElementById('edgedBtn')?.addEventListener('click', () => {
     if (isRemoteViewer || isRemoteController) return;
-    pauseSession('Paused.', 'relube');
+    countManualEdge();
+    const finishing = state.orgasmMode || state.settleSecondsLeft > 0 || state.sessionStatus === 'IDLE';
+    if (!finishing && (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN')) {
+        pauseSession(null, 'edged');
+    }
     checkReadiness();
     syncTelemetry();
     updateEngine();
-});
-
-document.getElementById('countEdgeBtn')?.addEventListener('click', () => {
-    countManualEdge();
 });
 
 function clearSettle() {
@@ -5827,7 +5827,7 @@ function setupPartnerHost() {
 // A viewer page renders everything but can change nothing. Re-applied after
 // every telemetry frame because some renderers reset element classes.
 const VIEWER_LOCKED_IDS = [
-    'sessionPlayPauseBtn', 'sessionStopBtn', 'sessionResetBtn', 'relubeBtn', 'countEdgeBtn', 'cameEarlyBtn', 'orgasmBtn',
+    'sessionPlayPauseBtn', 'sessionStopBtn', 'sessionResetBtn', 'edgedBtn', 'cameEarlyBtn', 'orgasmBtn',
     'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
     'partnerShareBtn', 'historyBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // Nested in the Edge Training card: a disabled ancestor does not stop a
@@ -5850,7 +5850,7 @@ function lockViewerControls() {
 // Everything else is host-only (its handlers return or its state never
 // leaves the page), so it is locked rather than left looking clickable.
 const CONTROLLER_LOCKED_IDS = [
-    'cameEarlyBtn', 'countEdgeBtn', 'relubeBtn', 'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
+    'cameEarlyBtn', 'edgedBtn', 'intensitySlider', 'speedSlowestInput', 'speedFastestInput', 'openParamsBtn', 'sessionParamsHeaderBtn',
     'partnerShareBtn', 'cardBle', 'cardHandy', 'cardIntiface', 'cardVacuglide', 'cardTCode',
     // The mode cards stay live (MODE_CHANGE is a legal command), but the two
     // Edge Training numbers inside one of them are host-only settings.

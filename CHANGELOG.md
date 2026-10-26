@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.25
+
+- **Edged stops the toys and counts the edge.** It pauses the same way Pause does, and it does not add a pause. The edge counts for the session and for NNN. A crossing the pulse already counted is left alone.
+
 ## 1.1.4.24
 
 - **Tap the edge count to record one the pulse missed.** It counts for the session and for NNN. A crossing that was already counted is left alone.

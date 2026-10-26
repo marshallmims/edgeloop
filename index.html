@@ -457,7 +457,7 @@
               <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
               <span>STOP</span>
             </button>
-            <button id="relubeBtn" type="button" class="hidden bg-sky-950/70 hover:bg-sky-900 border border-sky-800/80 text-sky-200 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Pause to relube. The timer stays put, and this one is not added to the pause count.">Relube</button>
+            <button id="edgedBtn" type="button" class="hidden bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-100 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Stop and count an edge the pulse has not reached. Counts for NNN. Does not add a pause.">Edged</button>
 
             <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
               Reset
@@ -485,11 +485,10 @@
             <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
             <div id="playerActionsSlot">
 <div id="sessionActions" class="grid grid-cols-4 gap-2 text-center text-xs">
-          <button id="countEdgeBtn" type="button" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 cursor-pointer hover:border-amber-700" title="Tap to count an edge the pulse did not reach. The same crossing is not counted twice.">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
             <div class="text-[9px] text-slate-500 uppercase font-semibold">Edges</div>
             <div id="edgeCount" class="text-lg font-black text-amber-400 font-mono leading-none mt-1">0</div>
-            <div class="text-[8px] text-slate-500 mt-0.5">Tap to count</div>
-          </button>
+          </div>
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
             <div class="text-[9px] text-slate-500 uppercase font-semibold">Pauses</div>
             <div id="pauseCount" class="text-lg font-black text-sky-400 font-mono leading-none mt-1">0</div>
@@ -1138,7 +1137,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.24</span>
+        <span id="appVersion" class="font-mono">v1.1.4.25</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
