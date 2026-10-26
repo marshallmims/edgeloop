@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.31
+
+- **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.
+- **No Nut November does not offer an orgasm.** The mode is renamed from NNN practice. Reaching the day's edge quota eases the toys down and ends the session. The denial percent is gone.
+
 ## 1.1.4.30
 
 - **A choice closes the lists.** Picking a play style or an ending rolls both lists up. The play style card keeps that mode's description. A mode with its own settings, such as NNN practice, keeps those settings in the same card.

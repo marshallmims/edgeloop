@@ -33,8 +33,7 @@ import {
     addMissedDay,
     clearNnn,
     tickNnnHold,
-    recordNnnEdge,
-    rollNnnOutcome
+    recordNnnEdge
 } from './nnn.js';
 import {
     ORGASM_BOOST_CAP,
@@ -3016,7 +3015,7 @@ const MODE_DETAILS = {
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. A session length does not end it either. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. Press Stop when you are done. The pattern is the play style you picked.',
     calibrate: 'A climb of its own, separate from Survival. Edged saves the heart rate you are on and eases the toys down, before an orgasm. The app / Finished me saves the orgasm. The first run is your primary stimulation device alone. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
-    nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota it either finishes you or denies you.',
+    nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota the toys ease down and the session ends. There is no orgasm.',
     script: 'Your video and its funscript. The session warm-up does not apply, so the file plays at once. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. The primary meter is how much of the file is allowed, and 100% is the whole file inside your travel range.',
     'goal-off': 'No game. The play style you picked runs on its own.'
 };
@@ -3035,7 +3034,7 @@ const MODE_NAMES = {
     survival: 'Survival',
     edgetrain: 'Edge Training',
     oracle: 'The Oracle',
-    nnn: 'NNN practice',
+    nnn: 'No Nut November',
     calibrate: 'Calibration'
 };
 
@@ -3109,11 +3108,12 @@ function setBothChoiceDrawers(open) {
     setChoiceDrawer('endgameDrawer', 'endgameToggle', open);
 }
 
-document.getElementById('playStyleToggle')?.addEventListener('click', () => {
+document.getElementById('playStyleSelected')?.addEventListener('click', () => {
     const drawer = document.getElementById('playStyleDrawer');
     setBothChoiceDrawers(Boolean(drawer && drawer.classList.contains('hidden')));
 });
-document.getElementById('endgameToggle')?.addEventListener('click', () => {
+document.getElementById('endgameSelected')?.addEventListener('click', (event) => {
+    if (event.target.closest('#endgameExtra')) return;
     const drawer = document.getElementById('endgameDrawer');
     setBothChoiceDrawers(Boolean(drawer && drawer.classList.contains('hidden')));
 });
@@ -3220,11 +3220,9 @@ function paintNnn() {
     const el = document.getElementById('nnnStatus');
     if (el) el.textContent = describeNnn(nnnState);
     const daily = document.getElementById('nnnDailyInput');
-    const denial = document.getElementById('nnnDenialInput');
     const start = document.getElementById('nnnStartInput');
     const end = document.getElementById('nnnEndInput');
     if (daily && document.activeElement !== daily) daily.value = String(nnnState.dailyEdges);
-    if (denial && document.activeElement !== denial) denial.value = String(nnnState.denialPercent);
     if (start && document.activeElement !== start) start.value = nnnState.startDate;
     if (end && document.activeElement !== end) end.value = nnnState.endDate;
 }
@@ -3234,17 +3232,14 @@ function noteNnnEdge() {
     const recorded = recordNnnEdge(nnnState);
     nnnState = recorded.state;
     if (recorded.justFinished && !nnnState.outcome) {
-        const outcome = rollNnnOutcome(nnnState.denialPercent);
-        nnnState = { ...nnnState, outcome };
-        if (outcome === 'permitted') setOrgasmMode(true, { voice: true });
-        else beginSettle({ endsSession: true, outcome: 'Denied', voiceText: 'Denied.' });
+        nnnState = { ...nnnState, outcome: 'denied' };
+        beginSettle({ endsSession: true, outcome: 'Denied', voiceText: 'Denied.' });
     }
     saveNnn();
     paintNnn();
 }
 
 document.getElementById('nnnDailyInput')?.addEventListener('click', (e) => e.stopPropagation());
-document.getElementById('nnnDenialInput')?.addEventListener('click', (e) => e.stopPropagation());
 document.getElementById('nnnStartInput')?.addEventListener('click', (e) => e.stopPropagation());
 document.getElementById('nnnEndInput')?.addEventListener('click', (e) => e.stopPropagation());
 document.getElementById('nnnDailyInput')?.addEventListener('change', (e) => {
@@ -3253,11 +3248,6 @@ document.getElementById('nnnDailyInput')?.addEventListener('change', (e) => {
     if (nnnState.lastOpened === nnnState.startDate || nnnState.edgesToday === 0) {
         nnnState = { ...nnnState, quotaToday: Math.max(nnnState.quotaToday, n) };
     }
-    saveNnn();
-    paintNnn();
-});
-document.getElementById('nnnDenialInput')?.addEventListener('change', (e) => {
-    nnnState = sanitizeNnn({ ...nnnState, denialPercent: parseInt(e.target.value, 10) });
     saveNnn();
     paintNnn();
 });
