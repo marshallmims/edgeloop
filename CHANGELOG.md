@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.29
+
+- **Play Style and Session Endgame use the button row's frame.** The gap, padding, and corners match the buttons under them. The choice boxes are one size.
+- **A choice stays open.** Picking a play style or an ending leaves both lists up, so the other one can be set without opening it again. Tap the card to close them.
+
 ## 1.1.4.28
 
 - **The video controls are one bar.** The scrub, the time, Theater, and Fullscreen sit on one line under the picture.

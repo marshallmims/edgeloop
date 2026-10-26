@@ -3089,11 +3089,13 @@ function setChoiceDrawer(drawerId, buttonId, open) {
     const detail = document.getElementById(style ? 'playStyleDetail' : 'endgameDetail');
     if (drawer) drawer.classList.toggle('hidden', !open);
     if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    prompt?.classList.toggle('hidden', !open);
-    name?.classList.toggle('hidden', open);
-    hint?.classList.toggle('hidden', open);
+    prompt?.classList.add('hidden');
+    name?.classList.remove('hidden');
+    if (hint) {
+        hint.classList.remove('hidden');
+        hint.textContent = open ? 'Tap to close' : 'Tap to change';
+    }
     detail?.classList.toggle('hidden', open);
-    if (prompt && open) prompt.textContent = style ? 'Select your play style' : 'Select your ending';
     if (!style) renderModeDetail();
 }
 
@@ -3484,7 +3486,6 @@ modeCards.forEach(card => {
         }
         const enabled = GAME_CARD_MODES.includes(mode) ? true : true;
         applyModeSelection(mode, enabled);
-        setBothChoiceDrawers(false);
         if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled });
         else syncTelemetry();
     });

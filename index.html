@@ -128,35 +128,47 @@
     #sessionBundle #endgameDetail {
       display: none !important;
     }
-    /* Closed Player: the two choices are one pair of cards, the same width
-       as the button row under them. */
+    /* Closed Player: Play Style and Session Endgame share one frame with the
+       same padding, radius, and gap as the button row under them. */
     #playerBody[data-player="off"] #sessionBundle {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
-      gap: 0.75rem;
-      background: transparent;
-      border: 0;
-      padding: 0;
+      gap: 0.5rem;
+      width: 100%;
+      align-items: stretch;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 1rem;
+      padding: 0.7rem;
       box-shadow: none;
     }
-    #playerBody[data-player="off"] #sideColumn,
-    #playerBody[data-player="off"] #sessionBundle {
-      width: 100%;
+    #playerSection > #sessionControlHome {
+      margin-top: 0.5rem;
     }
-    #playerBody[data-player="off"] #sessionBundle {
-      align-items: stretch;
+    #playerBody[data-player="off"] #sideColumn {
+      width: 100%;
     }
     #playerBody[data-player="off"] #sessionBundle #playStylePanel,
     #playerBody[data-player="off"] #sessionBundle #endgamePanel {
-      background: rgb(15 23 42);
-      border: 1px solid rgb(30 41 59);
-      border-radius: 1rem;
-      padding: 0.875rem;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
       height: 100%;
+      min-width: 0;
     }
     #playerBody[data-player="off"] #sessionBundle #endgamePanel {
       border-top: 0;
-      padding-top: 0.875rem;
+      padding-top: 0;
+      margin-top: 0;
+    }
+    #bioProfilesGrid,
+    #gameModesGrid {
+      gap: 0.5rem;
+    }
+    #bioProfilesGrid > button,
+    #gameModesGrid > button {
+      min-height: 5.75rem;
     }
     #hrSetupTiles {
       display: flex;
@@ -905,7 +917,7 @@
                 <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
               </label>
               <label class="flex items-center gap-1.5">Denial
-                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" title="When today's edge quota is finished, this is the chance the session ends in denial instead of an orgasm. 0 always finishes you. 100 always denies you." class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-sm font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
                 %
               </label>
               <button id="nnnMissedDayBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold text-slate-200 cursor-pointer">Add a missed day</button>
@@ -1242,7 +1254,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.28</span>
+        <span id="appVersion" class="font-mono">v1.1.4.29</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
