@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.09
+
+- **Came Early and Force Orgasm are one line each.** The small words above them are gone.
+
 ## 1.1.5.08
 
 - **Each EdgeLoop toy keeps its own play style.** Setting one vibrator to Milker and the other to Classic no longer changes both.

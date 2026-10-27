@@ -2154,12 +2154,10 @@ function updateGameNotice() {
 // Calibration are climbs that are supposed to finish you, so that same
 // button changes its words while either is selected.
 function renderCameEarlyButton() {
-    const kicker = document.getElementById('cameEarlyKicker');
     const label = document.getElementById('cameEarlyLabel');
-    if (!cameEarlyBtn || !kicker || !label) return;
+    if (!cameEarlyBtn || !label) return;
     const finishing = !isRemotePage && (state.activeMode === 'survival' || state.activeMode === 'calibrate');
     const calibrating = state.activeMode === 'calibrate';
-    kicker.textContent = finishing ? 'The app' : 'Accidental';
     label.textContent = finishing ? 'Finished me' : 'Came Early';
     cameEarlyBtn.title = calibrating
         ? (state.calibrationPass === 'dual'
@@ -2168,8 +2166,6 @@ function renderCameEarlyButton() {
         : finishing
             ? 'Survival finished you. This ends the run. Your Climax HR stays as typed.'
             : 'Log accidental release so local learning engine tightens limits next time.';
-    kicker.classList.toggle('text-rose-300', finishing);
-    kicker.classList.toggle('text-amber-400', !finishing);
     cameEarlyBtn.classList.toggle('bg-rose-950/60', finishing);
     cameEarlyBtn.classList.toggle('hover:bg-rose-900', finishing);
     cameEarlyBtn.classList.toggle('border-rose-800', finishing);
@@ -2187,13 +2183,13 @@ function calibrationHintText() {
     const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED';
     if (state.calibrationPass === 'dual') {
         return saved
-            ? `Primary and secondary both on. Edged saves the heart rate you are on as the dual max and eases the toys down. The app / Finished me saves the orgasm. The primary max stays ${saved}.`
-            : 'Primary and secondary both on. Edged saves the heart rate you are on as the dual max and eases the toys down. The app / Finished me saves the orgasm.';
+            ? `Primary and secondary both on. Edged saves the heart rate you are on as the dual max and eases the toys down. Finished me saves the orgasm. The primary max stays ${saved}.`
+            : 'Primary and secondary both on. Edged saves the heart rate you are on as the dual max and eases the toys down. Finished me saves the orgasm.';
     }
     if (saved && !live) {
-        return `Primary device only. Edged saves the heart rate you are on. The app / Finished me saves the orgasm and replaces your single max, now ${saved}.`;
+        return `Primary device only. Edged saves the heart rate you are on. Finished me saves the orgasm and replaces your single max, now ${saved}.`;
     }
-    return 'Primary device only. Leave the secondary off. Edged saves the heart rate you are on and eases the toys down. When you orgasm, tap The app / Finished me.';
+    return 'Primary device only. Leave the secondary off. Edged saves the heart rate you are on and eases the toys down. When you orgasm, tap Finished me.';
 }
 
 function renderCalibration() {
@@ -2215,7 +2211,7 @@ function renderCalibration() {
 
 // Calibration is a climb you arm on purpose. It is not a goal card, so leaving
 // it has to be explicit: the button itself, a stroke, another goal, Stop, or
-// Reset. Otherwise the accidental-release button stays "The app / Finished me".
+// Reset. Otherwise the accidental-release button stays "Finished me".
 function leaveCalibration() {
     if (state.gameMode !== 'calibrate' && state.activeMode !== 'calibrate') return false;
     if (state.gameMode === 'calibrate') state.gameMode = null;
@@ -3444,14 +3440,14 @@ function offerCalibration() {
     // Whichever devices are on decides the number this run replaces. A saved
     // max is not a reason to refuse another run.
     if (dual) {
-        const ok = confirm(`Both devices are on, so this run sets your dual max. It is ${dualMax} now. Your single max stays ${single}.\n\nIt slowly pushes. Tap Edged when you are on the edge, before it finishes you. That saves this heart rate as your dual max and eases the toys down. If it does finish you, tap the button labeled The app / Finished me.\n\nStart the both-devices run? Press play when you are ready.`);
+        const ok = confirm(`Both devices are on, so this run sets your dual max. It is ${dualMax} now. Your single max stays ${single}.\n\nIt slowly pushes. Tap Edged when you are on the edge, before it finishes you. That saves this heart rate as your dual max and eases the toys down. If it does finish you, tap the button labeled Finished me.\n\nStart the both-devices run? Press play when you are ready.`);
         if (!ok) return false;
         armCalibration('dual');
         return true;
     }
     const ok = confirm(hadPrimary
-        ? `Primary device only, so this run sets your single max. It is ${single} now.\n\nIt slowly pushes. Tap Edged when you are on the edge, before it finishes you. That replaces your single max and eases the toys down. If it does finish you, tap the button labeled The app / Finished me.\n\nStart the primary run? Press play when you are ready.`
-        : 'Calibration matches the app to your body and your toys.\n\nUse your primary stimulation device alone and leave the secondary off. It slowly pushes. Tap Edged when you are on the edge, before it finishes you. That saves this heart rate as your single max and eases the toys down. If it does finish you, tap the button labeled The app / Finished me.\n\nA later run with both devices on replaces the dual max. You can change either number by hand at any time.\n\nStart the primary run? Press play when you are ready.');
+        ? `Primary device only, so this run sets your single max. It is ${single} now.\n\nIt slowly pushes. Tap Edged when you are on the edge, before it finishes you. That replaces your single max and eases the toys down. If it does finish you, tap the button labeled Finished me.\n\nStart the primary run? Press play when you are ready.`
+        : 'Calibration matches the app to your body and your toys.\n\nUse your primary stimulation device alone and leave the secondary off. It slowly pushes. Tap Edged when you are on the edge, before it finishes you. That saves this heart rate as your single max and eases the toys down. If it does finish you, tap the button labeled Finished me.\n\nA later run with both devices on replaces the dual max. You can change either number by hand at any time.\n\nStart the primary run? Press play when you are ready.');
     if (!ok) return false;
     armCalibration('primary');
     return true;
@@ -3592,7 +3588,7 @@ const MODE_DETAILS = {
     ruin: 'The stroker keeps moving through the edge. After about 12 seconds on the mark it stops dead for 18 seconds and the other toy drops low, so it can leak without a full orgasm. "At the ceiling" does not govern the ride or that stop.',
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. A session length does not end it either. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. Press Stop when you are done. The pattern is the play style you picked.',
-    calibrate: 'A climb of its own, separate from Survival. Edged saves the heart rate you are on and eases the toys down, before an orgasm. The app / Finished me saves the orgasm. The first run is your primary stimulation device alone. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
+    calibrate: 'A climb of its own, separate from Survival. Edged saves the heart rate you are on and eases the toys down, before an orgasm. Finished me saves the orgasm. The first run is your primary stimulation device alone. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
     edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
     nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota the toys ease down and the session ends. There is no orgasm.',
     script: 'Your video and its funscript. The session warm-up does not apply, so the file plays at once. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. The primary meter is how much of the file is allowed, and 100% is the whole file inside your travel range.',
