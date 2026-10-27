@@ -21,7 +21,23 @@
 
 import { SETTING_DEFAULTS } from './state.js';
 import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, clampOrgasmSettleSeconds, MAX_SESSION_MINUTES } from './session-rules.js';
-import { clampEdgeHoldPercent } from './engine.js';
+import { clampEdgeHoldPercent, clampCrawlPercent } from './engine.js';
+import {
+    clampReactBpm,
+    clampFloor,
+    resolveApproach,
+    resolveEdgeAction,
+    clampRejoinSeconds,
+    clampClimaxSeconds,
+    clampClimaxPhaseSeconds,
+    DEFAULT_CLIMAX_RAMP_SECONDS,
+    DEFAULT_CLIMAX_EASE_SECONDS,
+    clampMaxSpeed,
+    resolveInvert,
+    resolveSecondChannel,
+    resolveVideoEnd,
+    resolveStrokeModel
+} from './player/script-governor.js';
 import { clampStaleSeconds } from './hr-watchdog.js';
 import { clampEndMargin } from './hardware/handy-protocol.js';
 import { sanitizeVacuglideRole, clampSpeedCap, clampValvePulseMs } from './hardware/vacuglide-protocol.js';
@@ -133,6 +149,21 @@ export const SETTING_SANITIZERS = {
     dualMaxHr: passToOwner,
     keybinds: (value) => sanitizeKeybinds(value),
     speedSlowest: wholeNumber('speedSlowest', 0, 100),
+    scriptStrokeModel: (value) => resolveStrokeModel(value),
+    scriptReactBpm: (value) => clampReactBpm(value),
+    scriptFloorPercent: (value) => clampFloor(value),
+    scriptApproach: (value) => resolveApproach(value),
+    scriptEdgeAction: (value) => resolveEdgeAction(value),
+    scriptRejoinSeconds: (value) => clampRejoinSeconds(value),
+    scriptMaxSpeed: (value) => clampMaxSpeed(value),
+    scriptInvert: (value) => resolveInvert(value),
+    scriptSecondChannel: (value) => resolveSecondChannel(value),
+    scriptVideoEnd: (value) => resolveVideoEnd(value),
+    scriptContinueAfterVideo: boolean('scriptContinueAfterVideo'),
+    playerHudPin: boolean('playerHudPin'),
+    scriptClimaxRampSeconds: (value) => clampClimaxPhaseSeconds(value, DEFAULT_CLIMAX_RAMP_SECONDS),
+    scriptClimaxSeconds: (value) => clampClimaxSeconds(value),
+    scriptClimaxEaseSeconds: (value) => clampClimaxPhaseSeconds(value, DEFAULT_CLIMAX_EASE_SECONDS),
     speedFastest: wholeNumber('speedFastest', 0, 100),
     vacuglideRole: (value) => sanitizeVacuglideRole(value),
     vacuglideMaxCap: (value) => clampSpeedCap(value),
@@ -153,6 +184,7 @@ export const SETTING_SANITIZERS = {
     edgeStrokeDepth: fixedAtFactory('edgeStrokeDepth'),
 
     warmupMinutes: wholeNumber('warmupMinutes', 0, 10),
+    warmupEnabled: boolean('warmupEnabled'),
     orgasmSettleSeconds: (value) => clampOrgasmSettleSeconds(value),
     cadenceBreathing: boolean('cadenceBreathing'),
     milkingWave: boolean('milkingWave'),
@@ -169,6 +201,7 @@ export const SETTING_SANITIZERS = {
     stallGuardSeconds: (value) => clampStallGuardSeconds(value),
     stallPauseSeconds: (value) => clampStallPauseSeconds(value),
     ceilingBehaviour: oneOf('ceilingBehaviour', ['stop', 'crawl']),
+    crawlPercent: (value) => clampCrawlPercent(value),
     edgeHoldPercent: (value) => clampEdgeHoldPercent(value),
     trainHoldSeconds: (value) => clampTrainHoldSeconds(value),
     trainEdges: (value) => clampTrainEdges(value),

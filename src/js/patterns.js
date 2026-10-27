@@ -36,6 +36,81 @@ function edgeClose(nearness) {
     return clamp((clamp(nearness, 0, 1) - CLOSE_START) / (1 - CLOSE_START), 0, 1);
 }
 
+// A beat of rest, then the stroke comes back. Only in the last stretch
+// before the mark (`close` from edgeClose), and only when two waves that do
+// not share a period both sit in a trough, so the rest is a beat or two and
+// not a tick you can count. Below that stretch it is never a rest: a stop
+// in the middle of the band is what used to hold a session under the max.
+function phraseRest(seconds, salt, close) {
+    if (!(close > 0.2)) return false;
+    const a = wobble(seconds, 5.9, salt);
+    const b = wobble(seconds, 9.4, salt + 3.3);
+    return a < 0.2 && b < 0.3;
+}
+
+// The last stretch, close to the mark. A long fast run, a beat of rest, then
+// a climb back up. The lengths repeat, so the fast part is long enough to
+// feel and the stop is still only a beat or two. `shift` seconds lets the
+// other toy rest on a different beat.
+const EDGE_BOOKS = Object.freeze({
+    ultimate: Object.freeze([
+        Object.freeze({ kind: 'fast', len: 8 }),
+        Object.freeze({ kind: 'rest', len: 2 }),
+        Object.freeze({ kind: 'climb', len: 5 }),
+        Object.freeze({ kind: 'fast', len: 7 }),
+        Object.freeze({ kind: 'rest', len: 2 }),
+        Object.freeze({ kind: 'climb', len: 4 })
+    ]),
+    milker: Object.freeze([
+        Object.freeze({ kind: 'fast', len: 6 }),
+        Object.freeze({ kind: 'rest', len: 2 }),
+        Object.freeze({ kind: 'climb', len: 4 }),
+        Object.freeze({ kind: 'fast', len: 5 }),
+        Object.freeze({ kind: 'rest', len: 1 }),
+        Object.freeze({ kind: 'climb', len: 3 })
+    ]),
+    // Short dips that stay in the top of the band, then a longer stretch
+    // that still is not a finish. The dip is one second so the pulse does
+    // not have to fall down the whole range before the stroke comes back.
+    bratty: Object.freeze([
+        Object.freeze({ kind: 'fast', len: 5 }),
+        Object.freeze({ kind: 'dip', len: 1 }),
+        Object.freeze({ kind: 'fast', len: 4 }),
+        Object.freeze({ kind: 'dip', len: 1 }),
+        Object.freeze({ kind: 'fast', len: 3 }),
+        Object.freeze({ kind: 'dip', len: 1 }),
+        Object.freeze({ kind: 'go', len: 6 }),
+        Object.freeze({ kind: 'dip', len: 1 })
+    ])
+});
+
+function edgePhrase(seconds, book, shift = 0) {
+    const cycle = book.reduce((sum, phrase) => sum + phrase.len, 0);
+    let t = Math.floor((Number(seconds) || 0) + shift);
+    t = ((t % cycle) + cycle) % cycle;
+    for (const phrase of book) {
+        if (t < phrase.len) {
+            const along = phrase.len <= 1 ? 1 : t / (phrase.len - 1);
+            return { kind: phrase.kind, along };
+        }
+        t -= phrase.len;
+    }
+    return { kind: 'fast', along: 1 };
+}
+
+function phraseSpeed(phrase, beat, fastFloor) {
+    if (phrase.kind === 'rest') return 0;
+    if (phrase.kind === 'climb') return roundPct(32 + 48 * phrase.along);
+    return roundPct(fastFloor + (96 - fastFloor) * beat.speed);
+}
+
+// A dip stays fast enough that the next stroke is not a climb from a stop.
+function brattySpeed(phrase, beat) {
+    if (phrase.kind === 'dip') return 34;
+    if (phrase.kind === 'go') return roundPct(90 + 8 * beat.speed);
+    return roundPct(80 + 16 * beat.speed);
+}
+
 export function motion(seconds, salt = 0, nearness = 0) {
     const a = wobble(seconds, 5.3, salt);
     const b = wobble(seconds, 8.7, salt + 2.2);
@@ -115,6 +190,15 @@ export function warmupShape(seconds, warmupMinutes) {
     return { speed: 0.16 + 0.84 * ease, depth: 0.28 + 0.72 * ease };
 }
 
+// A speed in whole percent that cannot round away to a stop. Only a speed
+// that really is 0 stays 0.
+export const MIN_MOVING_PERCENT = 1;
+export function roundSpeed(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return clamp(Math.max(MIN_MOVING_PERCENT, Math.round(n)), 0, 100);
+}
+
 function roundPct(value) {
     return clamp(Math.round(value), 0, 100);
 }
@@ -179,16 +263,26 @@ export function teaseFrame({
     if (mode === 'milker') {
         // Short bursts wait until the pulse is actually near the mark. The
         // cross-fade (stroker down, internal toy up) still runs the whole band.
+        // Near the mark the stroker does a few short strokes and then stops
+        // for a beat. The internal toy rests on a different phrase, so one of
+        // them is usually still moving, and neither ticks like a clock.
         const milking = sensor >= CLOSE_START;
         const beat = motion(seconds, milking ? 9.2 : 2.4, sensor);
+        const stroker = milking && !atPeak ? edgePhrase(seconds, EDGE_BOOKS.milker) : null;
+        const vibe = milking && !atPeak ? edgePhrase(seconds, EDGE_BOOKS.milker, 8) : null;
         const basePrimary = (1 - shaped) * 100;
         const baseSecondary = 20 + climb * 80;
         const primary = atPeak
             ? atCeiling(crawlPercent)
-            : roundPct(basePrimary * beat.speed);
+            : (stroker ? phraseSpeed(stroker, beat, 70) : roundPct(basePrimary * beat.speed));
         const secondaryGain = milking ? beat.secondary : (0.35 + 0.65 * beat.secondary);
-        const secondary = roundPct((atPeak ? 100 : baseSecondary) * secondaryGain);
-        const stroke = placeStroke(0, 100, beat.depth, 'low');
+        const secondary = vibe && vibe.kind === 'rest'
+            ? 0
+            : roundPct((atPeak ? 100 : baseSecondary) * secondaryGain);
+        const depth = stroker
+            ? Math.min(beat.depth, stroker.kind === 'fast' ? 0.4 : 0.55)
+            : beat.depth;
+        const stroke = placeStroke(0, 100, depth, 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }
 
@@ -196,18 +290,47 @@ export function teaseFrame({
         // Stop-go is the last chapter, right against the pullback mark.
         // Opening it at 0.72 put a 70/140 session into stops around 120 BPM,
         // and the toy would hold the pulse there instead of at the max.
+        // In that last chapter the stroker holds a long fast run, stops for
+        // a beat, then climbs back up. The internal toy stays up through
+        // the climb and only eases on the stop.
         const chapter = sensor < 0.45 ? 0 : sensor < CLOSE_START ? 1 : 2;
         const beat = motion(seconds, 4 + chapter * 3.7, sensor);
-        const nearStop = chapter === 2 && wobble(seconds, 9.2, 1.7) < 0.28;
+        const stroker = chapter === 2 && !atPeak ? edgePhrase(seconds, EDGE_BOOKS.ultimate) : null;
         const basePrimary = (1 - shaped) * 100;
         const baseSecondary = 20 + climb * 70;
         const primary = atPeak
             ? atCeiling(crawlPercent)
-            : roundPct(basePrimary * (nearStop ? 0.45 : beat.speed));
-        const secondary = roundPct((atPeak ? 100 : baseSecondary) * (nearStop ? Math.max(0.4, beat.secondary * 0.7) : beat.secondary));
+            : (stroker ? phraseSpeed(stroker, beat, 78) : roundPct(basePrimary * beat.speed));
+        let secondary = roundPct((atPeak ? 100 : baseSecondary) * beat.secondary);
+        if (stroker && stroker.kind === 'rest') secondary = roundPct(Math.max(24, secondary * 0.45));
         let depth = beat.depth;
         if (chapter === 0) depth = Math.max(depth, 0.82);
-        else if (nearStop) depth = Math.min(depth, 0.5);
+        else if (stroker && stroker.kind === 'fast') depth = Math.min(depth, 0.38);
+        else if (stroker && stroker.kind === 'climb') depth = Math.min(1, 0.45 + 0.4 * stroker.along);
+        else if (stroker) depth = Math.min(depth, 0.45);
+        const stroke = placeStroke(0, 100, depth, 'low');
+        return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
+    }
+
+    if (mode === 'bratty') {
+        // The climb is Ultimate Milker's. Close to the mark it does not
+        // stop and climb back from a crawl: a one-second dip, then the
+        // fast stroke again, and a longer stretch that still dips after.
+        // At the ceiling that pattern keeps going.
+        const chapter = sensor < 0.45 ? 0 : sensor < CLOSE_START ? 1 : 2;
+        const beat = motion(seconds, 4 + chapter * 3.7, sensor);
+        const phrase = chapter === 2 ? edgePhrase(seconds, EDGE_BOOKS.bratty) : null;
+        const basePrimary = (1 - shaped) * 100;
+        const baseSecondary = 20 + climb * 70;
+        const primary = phrase ? brattySpeed(phrase, beat) : roundPct(basePrimary * beat.speed);
+        let secondary = roundPct(baseSecondary * beat.secondary);
+        if (phrase && phrase.kind === 'dip') secondary = roundPct(Math.max(40, secondary * 0.75));
+        else if (phrase && phrase.kind === 'go') secondary = roundPct(Math.max(secondary, 78));
+        let depth = beat.depth;
+        if (chapter === 0) depth = Math.max(depth, 0.82);
+        else if (phrase && phrase.kind === 'fast') depth = Math.min(depth, 0.5);
+        else if (phrase && phrase.kind === 'dip') depth = Math.max(depth, 0.7);
+        else if (phrase && phrase.kind === 'go') depth = 1;
         const stroke = placeStroke(0, 100, depth, 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }
@@ -231,22 +354,33 @@ export function teaseFrame({
     }
 
     if (mode === 'finisher') {
-        // The climb reads the measured pulse, never the microphone boost.
-        // On the mark the stroke stays at full speed: Crawl and Full Stop
-        // are for the modes that ease off, and this one is here to carry
-        // the wearer over.
-        const beat = motion(seconds, 2.2, sensor);
-        const rising = 18 + climb * 82;
-        const primary = atPeak ? 100 : roundPct(rising * beat.speed);
-        const secondary = atPeak ? 100 : roundPct((18 + climb * 70) * beat.secondary);
-        const stroke = placeStroke(0, 100, atPeak ? 1 : beat.depth, 'low');
+        // Hold the wearer on the heart rate they set. Under that mark the
+        // stroke pushes to close the gap. As the measured pulse arrives,
+        // the push eases, and on the mark it holds well under full speed.
+        // A flat 100 at the end was carrying them through the max. Crawl
+        // and Full Stop do not replace the hold. The wave stays in the
+        // top of its range so the hold does not turn into a rest. `climb`
+        // is the measured pulse, so room noise cannot raise it.
+        const beat = motion(seconds, 2.2, 0);
+        const gap = 1 - climb;
+        const level = 46 + gap * 34;
+        const primary = roundPct(level * beat.speed);
+        const secondary = roundPct(level * (0.75 + 0.25 * beat.secondary));
+        const stroke = placeStroke(0, 100, Math.max(beat.depth, 0.85), 'low');
         return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
     }
 
     const beat = motion(seconds, 0.6, sensor);
     const falling = (1 - shaped) * 100;
-    const primary = atPeak ? atCeiling(crawlPercent) : roundPct(falling * beat.speed);
-    const secondary = atPeak ? primary : roundPct(primary * (0.5 + 0.5 * beat.secondary));
+    // A rare breath, only once the pulse is close. The stroker stops for a
+    // beat and the other toy eases; the rest of the band stays a continuous
+    // stroke, so the stop is the surprise and not the tempo.
+    const stroked = roundPct(falling * beat.speed);
+    const close = edgeClose(sensor);
+    const breath = !atPeak && close > 0.55 && phraseRest(seconds, 1.7, close) && wobble(seconds, 17.3, 4.4) < 0.18;
+    const primary = atPeak ? atCeiling(crawlPercent) : (breath ? 0 : stroked);
+    const followed = roundPct(stroked * (0.5 + 0.5 * beat.secondary));
+    const secondary = atPeak ? primary : (breath ? roundPct(followed * 0.4) : followed);
     const stroke = placeStroke(0, 100, atPeak ? 1 : beat.depth, 'low');
     return { primary, secondary, strokeMin: stroke.min, strokeMax: stroke.max };
 }

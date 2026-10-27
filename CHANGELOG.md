@@ -4,12 +4,204 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.31
+
+This build is the live release on edgeloop.app. The install uses the plain heartbeat icon. The DEV badge stays on dev.edgeloop.app only.
+
+- **The live site uses the plain icon.** The tab, the header, and a home-screen install are the heartbeat, with no DEV bar. The installed name is EdgeLoop.
+- **A session log is there when you ask for it.** History has the switch on the live site, off until you turn it on. A finished session then offers the JSON download. The file stays in this browser. EdgeLoop does not upload it.
+- **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.
+- **No Nut November does not offer an orgasm.** The mode is renamed from NNN practice. Reaching the day's edge quota eases the toys down and ends the session. The denial percent is gone.
+
+## 1.1.4.30
+
+- **A choice closes the lists.** Picking a play style or an ending rolls both lists up. The play style card keeps that mode's description. A mode with its own settings, such as NNN practice, keeps those settings in the same card.
+
+## 1.1.4.29
+
+- **Play Style and Session Endgame use the button row's frame.** The gap, padding, and corners match the buttons under them. The choice boxes are one size.
+- **A choice stays open.** Picking a play style or an ending leaves both lists up, so the other one can be set without opening it again. Tap the card to close them.
+
+## 1.1.4.28
+
+- **The video controls are one bar.** The scrub, the time, Theater, and Fullscreen sit on one line under the picture.
+- **Play Style and Session Endgame fill the width.** With Player closed they stretch across the row. Opening either one opens both, so the two lists stay side by side.
+
+## 1.1.4.27
+
+- **Session length sits with the heart rate.** Warm-up, resting, the two maxes, Calibrate, length, and the minute window are matching tiles on the heart-rate card. They stay there with Player open or closed. Play Style and Session Endgame sit side by side when Player is closed.
+
+## 1.1.4.26
+
+- **Edged stays on the row.** The button is there before a session starts, while one is running, and after a pause. A tap before the session starts does nothing.
+- **During Calibration, Edged is the edge.** It saves the heart rate you are on as the single or dual max and eases the toys down, before an orgasm. The app / Finished me is still the orgasm.
+- **Finisher holds the heart rate you set.** Under that number the stroke pushes to get you there. As your pulse arrives it eases off, and on the mark it holds instead of sitting at full speed. Crawl and Full Stop do not replace that hold. Room noise does not speed it up.
+
+## 1.1.4.25
+
+- **Edged stops the toys and counts the edge.** It pauses the same way Pause does, and it does not add a pause. The edge counts for the session and for NNN. A crossing the pulse already counted is left alone.
+- **The session buttons are one full-width row.** Pause, Stop, Edged, Came Early, and Force Orgasm sit under the player. Closing Player leaves that row and hides the picture. Edges and pauses sit on the heart-rate card. On a playing video the top readout stays up, and those buttons fade after a few seconds until the pointer moves or the screen is tapped.
+
+## 1.1.4.24
+
+- **Tap the edge count to record one the pulse missed.** It counts for the session and for NNN. A crossing that was already counted is left alone.
+- **Relube pauses without adding a pause.** Any pause already holds the timer. Relube stops the toys the same way and leaves the pause count alone.
+- **Fitbit does not pair.** Those watches do not broadcast the standard Heart Rate service. A Galaxy Watch does, through Heart for Bluetooth, and a chest strap does. A pulse that only climbs a little still works when Climax HR sits just above the highest number you actually see.
+
+## 1.1.4.23
+
+- **Crawl speed is a number.** Under Guards, Crawl is 1% to 30%. 10% is still the default. Full Stop is still a park at 0%. The intensity slider still scales the crawl.
+
+## 1.1.4.22
+
+- **Stops and pauses are logged.** When the app tells a toy to stop or pause, the dev log records that command and why. That is there so a later report can show whether the app ordered the stop.
+- **The pulse readout stays blank until a monitor is connected.** With nothing linked it shows --. 70 is the resting default, and it was reading like a live pulse. The readout stays -- until a strap sends a beat, or the simulator is on. Disconnecting the strap blanks it again.
+- **Adaptive decay still clears on Stop.** Loading the next script takes Stop, and Stop drops the decay because the decay is the session edge count. Keeping that decay across stops is still open.
+- **A marked climax can release the limiter at the mark.** Pre-Climax Ramp Up defaults to 45 seconds, which makes a cum-now mark a slow climb. Set it to 0. The hold after the mark already ignores the pulse cap for Climax Duration.
+- **Other requests are noted, and not in this build.** A noise gate that punishes volume, a spoken "close" or "edge" that drops to crawl, a separate limit per channel, and a crawl other than 10%.
+
+## 1.1.4.21
+
+- **Bratty Tease is an experimental play style.** The climb matches Ultimate Milker. Close to the edge it dips for a second and comes back, several times, then runs a longer stretch and dips again. At the ceiling that pattern keeps going.
+
+## 1.1.4.20
+
+- **NNN practice is easier to read.** The day's edge count, the dates, and the numbers are larger. Edge Training and Session Length use that same size. Nothing moved.
+
+## 1.1.4.19
+
+- **Simple Ramp is the plain stroke.** Speed starts high and ramps down as your pulse climbs, and the strokes stay the full length you set. It is the play style that was called Primary Ease.
+- **Session Endgame uses the same cards as Play Style.** Climax, Soft Landing, Strict Denial, and the games sit in one two-column list, the same size on each row. That list is the same on the main page and on the Player.
+
+## 1.1.4.18
+
+- **Session Length sits under Start and Stop.** Closing Player leaves that panel in the left column, under the controls. Play Style and Session Endgame stay together on the right.
+
+## 1.1.4.17
+
+- **The top row is split in half.** On Player, the picture and the file panel each take half the width, and the two cards meet at the same height.
+- **Session setup is one short card.** Session Length, Play Style, and Session Endgame sit together. The long descriptions stay inside the list you open.
+- **Primary Ease runs the primary toy.** It eases off as your pulse climbs. It is the play style that used to be called Classic Tease.
+- **The ending is Climax, Soft Landing, or Strict Denial.** Tease is gone from Session Endgame. Survival keeps climbing until you press Stop. Edge Training still uses those three when the timer runs out.
+
+## 1.1.4.16
+
+- **The controls stay in the left column.** Start, Stop, edges, pauses, Came Early, and Force Orgasm sit under the picture, the same width as that picture. Closing Player hides the picture and leaves that panel. Session Length, Play Style, and Session Endgame take the file panel’s place as one card. Theater, fullscreen, and the scrub bar come back with the picture.
+
+## 1.1.4.15
+
+- **The main page uses the Player layout.** Heart rate, both channels, and intensity stay wide. Start, Stop, edges, pauses, Came Early, and Force Orgasm sit in that same row on both screens. Player adds the picture above that menu, and the file panel takes Session Length’s place. Theater, fullscreen, and the scrub bar are put away.
+
+## 1.1.4.14
+
+- **Warm-up sits with the heart rate.** The switch and the minutes are to the left of Resting, above the readout, on the main page and on the Player.
+
+## 1.1.4.13
+
+- **Beat sync is in The Handy settings.** Open The Handy from the device row. Off, it follows speed and depth. On, with a funscript and firmware 4, it plays each stroke in the file. Leave it off until you want that match.
+
+## 1.1.4.12
+
+- **Each channel starts on EdgeLoop.** Primary and Secondary say Tap to configure. Inside, choose EdgeLoop or a funscript. Clear sits with the funscript you loaded.
+- **Funscript morphing stays folded.** It opens after a funscript is loaded, and closes again while a session is running. With no funscript, Tap to configure opens Play Style and Session Endgame.
+- **Stats Overlay sits on the video.** It is on, and it shows heart rate, edges, and both toys. A gold mark on a video with no funscript aims EdgeLoop at that time. The device row keeps every device showing.
+
+## 1.1.4.11
+
+- **Devices are one row.** Heart rate, The Handy, Intiface, VacuGlide, and T-Code sit across the top, on the main page and on the Player.
+- **Play and Stop are on the picture.** The left button starts and pauses the session. Stop ends it. Reset and Pop out are put away. Edges, pauses, Came Early, and Force Orgasm sit on that same bar.
+- **A marked climax sits with Funscript morphing.** Pre-Climax Ramp Up, Climax Duration, and Post Climax Ramp Down are on that panel. Heart rate and the two channel meters stay on the page. The overlay still shows them on the picture.
+
+## 1.1.4.10
+
+- **The picture matches the file panel.** On a wide window the video window is as tall as the files and Funscript morphing. Theater still widens it in the page. Fullscreen still fills the screen.
+- **Start and Stop sit on the video.** Edges, pauses, Came Early, and Force Orgasm sit with those controls while the Player is open. They go back under the heart rate when the Player closes.
+- **A marked climax has three times.** Pre-Climax Ramp Up is the climb before the mark. Climax Duration is how long it stays. Post Climax Ramp Down is the ease back into the script.
+
+## 1.1.4.09
+
+- **The Player opens as two columns.** The picture is on the left and stays a short placeholder until a video is loaded. The files and Funscript morphing are on the right. On a phone the files come first.
+- **A mild funscript opens up.** Shorten and skip makes the file's own strokes longer while your pulse is below the edge, and still shortens them as you get close. A climax mark asks for that opening, and a pulse that is already too high still pulls the file back. Keep the script still only turns the file down.
+- **The session log shows the script clock.** Each second now has the script time, the offset, how far the file was opened, how far a climax mark had taken over, the heart-rate ceiling, and whether a primary toy was connected.
+
+## 1.1.4.08
+
+- **The picture is its own panel.** Choosing the video and the funscripts, and Funscript morphing, sit in the panel under it. Session Length, Play Style, and Session Endgame stay on the normal page. The video and the file set the length.
+
+## 1.1.4.07
+
+- **Warm-up is a number of minutes.** It sits on one line with Session Length. The switch still turns it off. The slider is gone.
+
+## 1.1.4.06
+
+- **Warm-up sits with Session Length.** The switch turns it off. On, the stroke stays in the lower half and opens over the minutes you set. Session Setup no longer has a Duration tab.
+
+## 1.1.4.05
+
+- **The NNN dates are easier to hit.** The calendar mark is light and about 44 px, and the start, end, edges, denial, missed day, and clear controls match the other panels.
+
+## 1.1.4.04
+
+- **Session Length is on the dashboard.** Fixed, Mystery, and Endless sit in their own panel. Session Setup keeps the warm-up.
+- **The Player hides Play Style and Session Endgame.** Those stay on the normal page. A marked climax on the video climbs into the dot, holds at full, then eases back into the script. Ramp, hold, and ease are the three times beside the bar.
+- **[ and ] are in Keys.** Strokes earlier and Strokes later move a loaded script. The same 50 ms step as the offset buttons.
+
+## 1.1.4.03
+
+- **Select your play style, and select your ending.** Each one is a button. It shows the choice that is on, and says to tap it to change. Tap it and it asks you to pick. Tap the one you want and the list closes.
+- **The timer ending stays off The Oracle and NNN.** Climax, Soft Landing, and Strict Denial show for Tease, Survival, and Edge Training, which still end when the session timer runs out. The Oracle decides its own finish. NNN uses the denial percent on its card.
+
+## 1.1.4.02
+
+- **The video keeps its own shape.** On a desktop or in landscape the picture is 16:9. In portrait it can be taller. The controls beside it no longer stretch the black box. Session Endgame stays on the main screen, in its own card, and Play Style stays off the Player.
+- **When the timer runs out sits on Session Endgame.** Climax, Soft Landing, and Strict Denial moved out of Session Setup. The play style above them is still how the session runs until that timer.
+- **Edge Overlay only changes the picture.** Heart rate, edges, and both toys can stay on the picture while play and the bar hide. It does not change how the toys follow the file.
+- **The video link is put away.** Choose a file, or drop one. A pasted address is not on this build.
+
+## 1.1.4.01
+
+The footer shows this build number. 1.1.4 is the dev release. The fourth number goes up with each build on dev, through 1.1.4.99.
+
+- **Play Style and Session Endgame.** The dashboard shows the one that is on, and what it does. Change opens the list. Edge Training and NNN practice keep their settings, including Add a missed day and Clear, with the endgame that is on. Session Setup stays in the header. Keys moved into Session Setup.
+- **Devices tuck away.** Connect a heart-rate monitor and one toy. Once those are on, the unused device cards hide. Add a device brings them back.
+- **Ultimate Milker holds the fast part longer.** Close to the heart rate you set, the stroker runs a long fast stretch, stops for a beat, then climbs back up. Prostate Milker does the same with a shorter fast stretch, and the internal toy rests on its own timing.
+- **Pulsed is the vibrate default.** A vibrate axis ramps up and down, then rests. The 0.8, 1.6, and 2.4 second choices still only change how often the rest arrives. Constant is still there for a toy that should hold one level.
+- **The Player opens from the header.** The banner is gone. Play Style stays off that screen, because the funscript is the stroke. Session Endgame and Stroke model stay. Show the numbers keeps heart rate, edges, and both toys on the picture. The toys follow the video clock either way. Offset, Theater, and Fullscreen sit on the climax row. Continue after the video is put away for now.
+
+## 1.1.4
+
+The video and funscript player, on dev.edgeloop.app. 1.1.3 is the live release on edgeloop.app.
+
+### Player
+- **Your video and your funscript.** Nothing is uploaded. Load them from disk. The Player button is in the header. Intiface linear axes play the script stroke for stroke. (Cactus / Purple Palm)
+- **Two stroke models.** Shorten and skip and Keep the script are buttons, like the stroke and goal cards. The description under them follows the one you pick. Shorten and skip: strokes get shorter as your heart rate climbs, and at your edge the toy skips strokes while the video keeps going. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. A pause in the file is a real stop.
+- **The dev icon says DEV, including when it is installed.** The tab icon and the home-screen icon are PNGs with an amber DEV bar. The installed name is EdgeLoop DEV. edgeloop.app keeps the plain icon. Do not point the live manifest at the DEV files.
+- **A video sets the session length.** With a video and a script, the session is as long as the video. Continue after the video leaves the timer you already set in charge, and when the video ends the toys go back to Classic. A secondary toy with no script of its own follows the primary script: quiet on a hold, and busier when the script is moving, still limited by your pulse.
+- **A primary script and a secondary script.** Drop a `.funscript` for the stroker and a `.v0.funscript` for the other toy, or choose each file on its own button. The secondary plays that file. With no secondary file, the other toy still follows the primary. Under the video, a heat map shows the script as a color strip. Green is a pause, red is fast. If Play does nothing, the player says to connect a heart-rate monitor and a toy. Scrubbing still works. The scrub bar is that heat map, and the dot you grab rides on it. Each climax is a gold mark on the bar and a chip you can jump to or remove. Exit theater and Exit fullscreen sit on the overlay, and Escape leaves the picture before it stops the session. Theater grows the video inside the page until it hits the window's width or height. The controls beside it move underneath, so nothing sits on the picture. Exit is at the bottom right of the overlay. Its overlay matches fullscreen and hides after a few seconds. Fullscreen fills the screen, and its play, stop, scrub, volume, and mute controls hide after a few seconds. Space still starts and pauses the session and the video together. Climax here drives the toys up to a climax at the dot. They hold for the seconds you set, then ease back into the script. Those marks stay on this device for that script. Clear scripts sits with Primary and Secondary, the same size. Continue after the video and Beat sync are switches. The toys ramp up to each mark, hold there briefly, then follow your pulse again. A mark does not end the session. Once both scripts are loaded, Primary, Secondary, and Both switch the map. Clear scripts drops them and keeps the video. A different video drops them too.
+- **A session log, on Dev, when you ask for it.** History has a switch, off until you turn it on, even when no session is stored yet. A finished session then offers a JSON download: the pulse once a second, what the toys were sent, the settings, and the make and model of the toys that were on. The file stays in this browser. It leaves out a Handy key, a device token, a Bluetooth address, a video address, and a script file name. Download it and post it in Discord when a session needs diagnosis. edgeloop.app does not record it.
+- **Quit stops the local app.** The page listens only on this computer. Connect reaches out to VLC or the headset. Quit, or closing the terminal window, drops that connection.
+- **VLC can stand in for the headset.** In the local app, choose VLC, turn on VLC's Web interface, and play a file whose name matches a script. The same clock path is what a headset will use later.
+- **A local app for HereSphere and DeoVR, alpha.** `node app/host.mjs` (or `app/start.sh`, `app/start.bat`) serves EdgeLoop on this computer and connects to the headset timestamp server. A folder of videos and scripts loads the script whose name matches the video. The website cannot do this. Linux, Windows, and a Flatpak manifest are in this build. Android is not, yet.
+- **A script plays its own range.** The session warm-up does not shrink a funscript, and the stroke you had selected does not leave its range on the toy. The file uses the full travel. Space still pauses when a number such as Single max is focused.
+- **The overlay can keep the readout up.** Heart rate, edges, and what the primary and secondary toys are doing stay on the picture. Play, pause, and the bar still hide. The switch is in the Player, on by default.
+- **Follow the script lives in the Player.** Loading a funscript turns that switch on, and the stroker plays the file. Turning it off goes back to the stroke you had picked. The mode row no longer has a gray Script button. Overlay Mute mutes the video. With no script loaded, the note under the bar says the video is on its own.
+- **The Handy, Intiface, and T-Code follow the script.** Intiface linear toys and T-Code L0 play each stroke. The Handy, with Beat sync on and firmware 4, plays each stroke over Handy's own API. With Beat sync off, The Handy follows the script's rhythm (speed and depth). A page link from a video site cannot play here. Choose MP4, M4V, WebM, MKV, MOV, or OGV, or paste a direct file address. MP4 (H.264) and WebM play in the most browsers. T-Code used to read the script's limit as a stroke speed and run flat out.
+- **A script is not warmed up.** The session warm-up does not shrink a funscript. The primary meter is how much of the file the toy may play. 100% is the whole file, inside the travel range. Intensity can turn that down or back up to 100%. It does not open the file past the travel range.
+- **The travel range is one setting.** Hardware Travel Envelope is how far the sleeve goes. 0–100% is the whole axis. An axis Max speed changes speed, not that range. Setting both to the same reduced number does not stack two copies of the stroke.
+
+### Patterns
+- **Pulsed vibration rests, it does not tick.** A vibrate axis set to Pulsed holds the engine's level for a few beats, drops out for a beat, and comes back. The run and the rest change length. The 0.8, 1.6, and 2.4 second choices only change how often the rest arrives. The level is still the peak, and it still stays under the cap. STOP, pause, and OFF still cut it at once. (Umbra250)
+- **A beat of rest, close to the edge.** Classic sometimes stops the stroker for a beat once your pulse is close to the heart rate you set, then picks the stroke back up. Prostate Milker does a few short strokes and then that beat, and the internal toy rests on its own timing. Ultimate Milker does the same in its last chapter, and the internal toy takes the breath with it. Earlier in the band the stroke stays up. Finisher does not take the rest.
+
+### Heart rate
+- **HeartCast can pair again after a refresh.** Leaving or reloading the page drops the Bluetooth link. The next Scan reconnects a sensor this site already has permission for, and if that link is stuck the site forgets it and opens the chooser. You should not have to forget the device in the computer's Bluetooth list first.
+
 ## 1.1.3
 
 Calibration, two climax numbers, and one card for the stroke and the goal. Released on edgeloop.app after testing on dev.edgeloop.app. The footer DEV badge is the host, not a second version.
 
 - **VacuGlide 2.** The device card no longer says experimental. STOP still stops the motor and closes both valves. Keep the power button in reach.
-- **The installed app uses the plain icon.** Home-screen installs get a PNG of the heartbeat, with no DEV bar. The DEV artwork stays on dev.edgeloop.app.
+- **The installed app uses the plain icon.** Home-screen installs of edgeloop.app get a PNG of the heartbeat, with no DEV bar. The DEV artwork stays on dev.edgeloop.app.
 
 ### Calibration
 - **Two climax numbers, no offset.** Single max is the heart rate with one toy. Dual max is the heart rate with both. When both toys are live the ceiling is the dual number itself. Calibration's first run writes the single max. A later both-toys run writes the dual max. The first-run wizard asks for both numbers and can start the single-stim run. An older save that only had the 15 BPM offset becomes a dual max of single max minus that offset.

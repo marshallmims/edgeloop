@@ -8,8 +8,9 @@
  */
 import { normalizeEnvelope } from './hardware/handy-protocol.js';
 import { teaseFrame, warmupShape, placeStroke, orgasmFrame } from './patterns.js';
+import { scriptAllowance, scriptSecondary, sanitizeScriptSettings, MAX_REJOIN_SECONDS } from './player/script-governor.js';
 
-export const TEASE_MODES = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'ruin'];
+export const TEASE_MODES = ['classic', 'finisher', 'milker', 'shortener', 'headplay', 'ultimate', 'bratty', 'ruin'];
 export const GAME_MODES = ['oracle', 'survival', 'edgetrain', 'calibrate'];
 
 export function resolveTeaseMode(strokeMode, activeMode) {
@@ -25,11 +26,13 @@ export const ENGINE_MODES = [
     'shortener',
     'headplay',
     'ultimate',
+    'bratty',
     'ruin',
     'oracle',
     'survival',
     'edgetrain',
-    'calibrate'
+    'calibrate',
+    'script'
 ];
 
 function isUncappedClimb(mode) {
@@ -105,9 +108,18 @@ export function edgeReleaseHr(maxHr, triggerHr) {
 export const MIN_ZONE_WIDTH = 10;
 
 // Primary / secondary speed while parked at the ceiling in Crawl mode
-// (ceilingBehaviour 'crawl'); Full Stop ('stop') parks at 0%.
+// (ceilingBehaviour 'crawl'); Full Stop ('stop') parks at 0%. The wearer
+// can set the crawl from MIN to MAX. 10 is the factory micro-motion.
 export const CRAWL_PERCENT = 10;
+export const MIN_CRAWL_PERCENT = 1;
+export const MAX_CRAWL_PERCENT = 30;
 export const CEILING_BEHAVIOURS = ['stop', 'crawl'];
+
+export function clampCrawlPercent(value, fallback = CRAWL_PERCENT) {
+    const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(MIN_CRAWL_PERCENT, Math.min(MAX_CRAWL_PERCENT, Math.round(n)));
+}
 
 // Glans Protector: the stroke zone contracts from the full range at rest
 // toward 0-SHORTENER_TOP_PERCENT (base micro-strokes) at the ceiling.
@@ -115,6 +127,16 @@ export const SHORTENER_TOP_PERCENT = 35;
 
 export function resolveCeilingBehaviour(value) {
     return value === 'stop' ? 'stop' : 'crawl';
+}
+
+export function nextScriptRelease(releasedAt, { wasEdged = false, isEdged = false, seconds } = {}) {
+    if (!Number.isFinite(seconds)) return null;
+    let stamp = Number.isFinite(releasedAt) ? releasedAt : null;
+    if (wasEdged && !isEdged) stamp = seconds;
+    if (stamp === null) return null;
+    const since = seconds - stamp;
+    if (since < 0 || since >= MAX_REJOIN_SECONDS) return null;
+    return stamp;
 }
 
 export function resolveEngineMode(mode) {
@@ -238,6 +260,7 @@ export function calculateEngineOutputs({
     milkingWave = false,
     stallGuardEngaged = false,
     ceilingBehaviour = 'crawl',
+    crawlSpeed = CRAWL_PERCENT,
     edgeHoldPercent = DEFAULT_EDGE_HOLD_PERCENT,
     ruinHoldSeconds = 0,
     strokeMode,
@@ -256,7 +279,9 @@ export function calculateEngineOutputs({
     orgasmFromPrimary = null,
     orgasmFromSecondary = null,
     orgasmFromStrokeMin = null,
-    orgasmFromStrokeMax = null
+    orgasmFromStrokeMax = null,
+    scriptSettings = null,
+    scriptReleasedAt = null
 }) {
     const mode = resolveEngineMode(activeMode);
     const teaseMode = resolveTeaseMode(strokeMode, mode);
@@ -321,6 +346,52 @@ export function calculateEngineOutputs({
         nextIsEdged = false;
     }
 
+    // Script mode: the primary is how much of the loaded funscript the toy
+    // may play. The shaper turns that allowance into strokes. The tease
+    // curve does not run again, or the script would be scaled twice.
+    if (mode === 'script') {
+        const stamp = nextScriptRelease(scriptReleasedAt, {
+            wasEdged: Boolean(isEdged),
+            isEdged: nextIsEdged,
+            seconds
+        });
+        const governed = scriptAllowance({
+            hr,
+            triggerHr,
+            isEdged: nextIsEdged,
+            sessionStatus,
+            sessionSeconds: seconds,
+            // The file has its own timing. The session warm-up must not
+            // shrink the script, and the stroke mode's zone is not used:
+            // the range below is the whole travel envelope.
+            warmupMinutes: 0,
+            stallGuardEngaged: Boolean(stallGuardEngaged) && sessionStatus === 'RUNNING',
+            orgasmMode: Boolean(orgasmMode) && sessionStatus === 'RUNNING',
+            orgasmBoost,
+            orgasmFrom: {
+                primary: orgasmFromPrimary,
+                secondary: orgasmFromSecondary
+            },
+            rampdownSecondsLeft: rampLeft,
+            intensityValue: intensitySafe,
+            sinceReleaseSeconds: stamp === null ? null : seconds - stamp,
+            settings: sanitizeScriptSettings(scriptSettings)
+        });
+        const primary = clamp(finiteOr(governed.allowance, 0), 0, 100);
+        const script = sanitizeScriptSettings(scriptSettings);
+        return {
+            primaryPercent: primary,
+            secondaryPercent: clamp(finiteOr(scriptSecondary(primary, script.scriptSecondChannel), 0), 0, 100),
+            strokeMinPercent: env.min,
+            strokeMaxPercent: env.max,
+            isEdged: nextIsEdged,
+            newEdgeTriggered,
+            resolvedMode: 'script',
+            script: governed,
+            scriptReleasedAt: stamp
+        };
+    }
+
     // The tease band runs from the resting rate to the pullback mark, so the
     // curve reaches 0% exactly where crawl / Full Stop takes over. The mark is
     // never above the working ceiling, so neither is the band.
@@ -345,9 +416,9 @@ export function calculateEngineOutputs({
     let strokeMaxPercent = 100;
 
     const depthContractAmount = 100 - depthSafe;
-    // At the ceiling the user chooses Full Stop (0%) or Crawl (CRAWL_PERCENT).
+    // At the ceiling the user chooses Full Stop (0%) or Crawl (their speed).
     const crawl = resolveCeilingBehaviour(ceilingBehaviour) === 'crawl';
-    const crawlPercent = crawl ? CRAWL_PERCENT : 0;
+    const crawlPercent = crawl ? clampCrawlPercent(crawlSpeed) : 0;
 
     // Stall guard only ever cuts the PRIMARY stroker: the secondary
     // channel keeps whatever the mode gives it at the ceiling.

@@ -6,7 +6,7 @@
 // The one thing this file reads from the engine: the crawl level, so the
 // cockpit banner can tell a crawling motor from a running one with the same
 // number the engine sends.
-import { CRAWL_PERCENT, resolveCeilingBehaviour } from './engine.js';
+import { CRAWL_PERCENT, clampCrawlPercent, resolveCeilingBehaviour } from './engine.js';
 
 // The effective ceiling can never be pushed closer than this to the resting
 // HR, otherwise the tease band collapses into a permanent cut-off.
@@ -351,6 +351,13 @@ export function clampStallPauseSeconds(value, fallback = DEFAULT_STALL_PAUSE_SEC
 // holdTimeoutSeconds: how long you may stay edged before the primary is cut.
 // pauseTimeoutSeconds: how long that halt lasts, then crawl resumes and the
 // hold window starts over. Disarm or leaving the edge clears both clocks.
+// The stall guard only arms for Crawl, and never in Script mode: a script
+// either skips at the edge or holds a floor, and neither is a crawl to cut.
+export function stallGuardArmed({ enabled = false, ceilingBehaviour = 'crawl', activeMode = '' } = {}) {
+    if (!enabled || activeMode === 'script') return false;
+    return ceilingBehaviour === 'crawl';
+}
+
 export function tickStallGuard(
     { holdSeconds = 0, pauseSeconds = 0, engaged = false, seconds } = {},
     { armed = false, isEdged = false, holdTimeoutSeconds, pauseTimeoutSeconds, timeoutSeconds } = {}
@@ -538,11 +545,12 @@ const MAX_CRAWL_READING = Math.round(CRAWL_PERCENT * 1.5);
 
 // One channel of the cockpit's cutoff banner, named by what the engine really
 // sent it on this tick rather than by what the mode is supposed to do.
-function describeCutoffChannel(label, percent) {
+function describeCutoffChannel(label, percent, maxCrawl = MAX_CRAWL_READING) {
     if (!Number.isFinite(percent)) return `${label} UNKNOWN`;
     const pct = Math.max(0, Math.min(100, Math.round(percent)));
     if (pct === 0) return label === 'PRIMARY' ? 'PRIMARY CUT' : 'SECONDARY STOPPED';
-    if (pct <= MAX_CRAWL_READING) return `${label} CRAWLING (${pct}%)`;
+    const crawlLine = Number.isFinite(maxCrawl) ? maxCrawl : MAX_CRAWL_READING;
+    if (pct <= crawlLine) return `${label} CRAWLING (${pct}%)`;
     return label === 'PRIMARY' ? `PRIMARY RUNNING (${pct}%)` : `SECONDARY MILKING (${pct}%)`;
 }
 
@@ -563,14 +571,18 @@ export function describeCutoffNotice({
     orgasmMode = false,
     stallGuardEngaged = false,
     primaryPercent,
-    secondaryPercent
+    secondaryPercent,
+    crawlPercent
 } = {}) {
     if (sessionStatus !== 'RUNNING') return '';
     // Force Orgasm is not a cutoff, and the stall guard raises its own
     // banner for the halt it is running.
     if (!isEdged || orgasmMode || stallGuardEngaged) return '';
-    const primary = describeCutoffChannel('PRIMARY', primaryPercent);
-    const secondary = describeCutoffChannel('SECONDARY', secondaryPercent);
+    // Intensity scales the parked speed by 0.5x to 1.5x, so a crawl of N
+    // still reads as a crawl up to 1.5N.
+    const crawlLine = Math.round(clampCrawlPercent(crawlPercent) * 1.5);
+    const primary = describeCutoffChannel('PRIMARY', primaryPercent, crawlLine);
+    const secondary = describeCutoffChannel('SECONDARY', secondaryPercent, crawlLine);
     return `CLIMAX LIMIT REACHED: ${primary} \u2014 ${secondary}`;
 }
 
@@ -663,7 +675,7 @@ export function describeStallPauseNotice({ mode, ceilingBehaviour } = {}) {
     // and the "At the ceiling" setting does not govern it either - so this
     // is asked BEFORE the Full Stop rule, which would otherwise promise a
     // 0% that Survival is not going to give.
-    if (mode === 'survival' || mode === 'calibrate') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
+    if (mode === 'survival' || mode === 'calibrate' || mode === 'bratty') return `${halted} — SPEED RESUMES AFTER THE PAUSE`;
     if (resolveCeilingBehaviour(ceilingBehaviour) !== 'crawl') return `${halted} — FULL STOP HOLDS IT AT 0%`;
     return `${halted} — CRAWL RESUMES AFTER THE PAUSE`;
 }
