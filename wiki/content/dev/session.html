@@ -1,4 +1,30 @@
-<p class="lede">This page is <strong>1.1.4.31</strong> on <a href="https://dev.edgeloop.app">dev.edgeloop.app</a>. <a href="https://edgeloop.app">edgeloop.app</a> is still <strong>1.1.3</strong>. The two sites do not share a pairing. What follows is how a session is set up on the dev player, and why the controls sit where they do.</p>
+<p class="lede">This page is <strong>1.1.5</strong> on <a href="https://dev.edgeloop.app">dev.edgeloop.app</a>. The footer reads <strong>1.1.5.13</strong>. <a href="https://edgeloop.app">edgeloop.app</a> is <strong>1.1.4</strong>, and that footer reads <strong>1.1.4.31</strong>. The two sites do not share a pairing. The cockpit is the 1.1.4 page, with a new header, a debug log, and a different Share Control. Those are marked. <a href="/main/session/">Using 1.1.4</a> is the live site on its own.</p>
+
+<h2>What changed from 1.1.4</h2>
+
+<p>The header is three modes. <strong>Solo</strong> is the regular page. <strong>Video Player</strong> is the player. On 1.1.4 that button says Player. <strong>Share Control</strong> is the page of the person whose toys are connected. Solo leaves Share Control. The 1-on-1 and group popup from 1.1.4 is gone. <a href="/partner/">A partner on another device</a> is the new path.</p>
+
+<p>The purple button in the header is <strong>Advanced Session Settings</strong>. It opens the same limits 1.1.4 calls Session Setup: guards, keys, the microphone, and the backup.</p>
+
+<p>The session row is the play button, Edged, Came Early, Force Orgasm, and STOP. They use the same green-to-red ramp as the stimulation slider. The play button is green once it can start. STOP is red. Came Early and Force Orgasm are one line each. On 1.1.4, STOP is the second button, and those two have a small word above them: Accidental, and Overdrive.</p>
+
+<p>A controller link opens on <strong>Manual Control</strong>. EdgeLoop Control is one tap away and puts Play Style and Session Endgame back. The live site has no Manual Control. The section below is the whole of it.</p>
+
+<h2>Manual Control</h2>
+
+<p>Manual Control is on the controller, the person holding the link that ends in <code>?partner=</code>. The host never sends those commands. A viewer cannot either. The button says Manual Control, and while it is on it says EdgeLoop Control.</p>
+
+<p>Each connected toy is <strong>You</strong> or <strong>EdgeLoop</strong>. You drives that toy. EdgeLoop leaves it on the wearer's pulse. A new toy starts on You. EdgeLoop on a toy opens the play styles, and the line under them says another toy on EdgeLoop can use a different one. Setting one vibrator to Prostate Milker and another to Simple Ramp does not change both. On 1.1.4 one play style is the whole session.</p>
+
+<p>You opens on the dots. <strong>Slider</strong> is those dots. Higher is more. The bottom is nothing. Letting go returns the dot to nothing. <strong>Float</strong> keeps the dot where you leave it. <strong>Loop</strong> repeats the shape you draw. Picking Float or Loop again turns that one off. <strong>Traditional</strong> clears the dots and shows the sliders. A stroker's sliders are speed and a bar with two dots: the left dot is the bottom of the stroke and the right dot is the top. A vibrator gets one slider. A second vibrator gets its own.</p>
+
+<p>The Handy dot is a position. The top of the box stays the top of the stroke, the middle stays the middle, and the bottom stays the bottom. A loop plays that shape back. A long move is given time to arrive, and position mode opens the full travel window first, so the carriage is not asked to finish a full sweep in a tenth of a second. Firmware 4 is sent 0.05 to 0.95. It reads 1 as the top, so a whole-number position ran the carriage to the top and then ignored later moves. The move stops at the position you asked for. It does not coast into an end and lock there.</p>
+
+<p>A slider holds the level it shows. The pulse phrase stays with EdgeLoop, so a steady slider does not ramp, rest, and ramp again. A Lovense slider repeats the latest level at a steady pace, because a quick move was landing only once a second while the motor finished the previous command. Each toy's loop keeps its own clock. Drawing a loop on a second toy does not restart the first.</p>
+
+<p>Under Loops, Pulse, Wave, Ramp, Edge, and Climb are built-in repeats. A line under each toy is what that toy is doing. Manual Control hides the channel bars and Stimulation Intensity. Stop stops the toys and freezes a Loop. It does not switch the page back to EdgeLoop Control, and it cuts a motor that was still repeating its last speed. Stroke commands stay inside the travel limits already set on the toys. If the controller drops, or the link goes quiet, the toys stop.</p>
+
+<p>The finger message carries the next position and speed. The host does not wait on a background timer for that follow. With the controller on screen, a background timer was only allowed about once a second, and The Handy and the Lovense motors stepped once a second.</p>
 
 <h2>How the page is arranged</h2>
 
@@ -6,19 +32,19 @@
 
 <p>Edges and pauses sit on that same card, next to the pulse. Heart rate, The Handy, Intiface, VacuGlide, and T-Code stay in one row across the top, on the main page and inside the Player. On a narrow window the row scrolls. It keeps every device showing. The line above the row asks for a heart-rate monitor and one toy, and that line goes away once both are connected. Open a device to connect it. <a href="/toys/">Connect a toy</a> is that step.</p>
 
-<p>Play Style and Session Endgame share one row. The two headings sit on the same line, and the two cards start and end together. One click opens both lists, so a short card does not sit beside a tall one. Picking a play style or an ending rolls both lists up. The card keeps that choice and its description. Edge Training and No Nut November keep their settings on the endgame card.</p>
+<p>Play Style and Session Endgame share one row. The two headings sit on the same line, and the two cards start and end together. One click opens both lists, so a short card does not sit beside a tall one. Picking a play style or an ending rolls both lists up. The card keeps that choice and its description. Edge Training and No Nut November keep their settings on the endgame card. That row is Solo, and it is the whole of the live 1.1.4 site. A controller on Manual Control replaces it.</p>
 
 <p>With no game selected, the endgame is <strong>Climax</strong>, <strong>Soft Landing</strong>, or <strong>Strict Denial</strong>. That is what happens when the session timer runs out. Survival keeps going until you press Stop. A session length does not end it. The Oracle decides its own finish, and it keeps whichever of those three you had selected. No Nut November ends at the day's edge quota. The toys ease down and the session ends. There is no orgasm, and there is no denial percent. The row that says "When the timer runs out" shows on Edge Training, which still uses those three.</p>
 
-<p>Length is Fixed, Mystery, or Endless, on the heart-rate tiles. Warm-up is the switch and the minutes on that same row, 0–10, 5 by default. Session Setup, in the header, keeps the guards, the keys, the microphone, and the backup.</p>
+<p>Length is Fixed, Mystery, or Endless, on the heart-rate tiles. Warm-up is the switch and the minutes on that same row, 0–10, 5 by default. Advanced Session Settings, in the header, keeps the guards, the keys, the microphone, and the backup. On the live 1.1.4 site that button says Session Setup.</p>
 
-<p>The session buttons are one full-width row: Play or Pause, Stop, Edged, Came Early, and Force Orgasm. Closing the Player hides the picture and leaves that row. On a playing video the readout at the top of the picture stays up, and the buttons fade after a few seconds until the pointer moves or the screen is tapped.</p>
+<p>The session buttons are one full-width row: the play button, Edged, Came Early, Force Orgasm, and STOP. Closing Video Player hides the picture and leaves that row. On a playing video the readout at the top of the picture stays up, and the buttons fade after a few seconds until the pointer moves or the screen is tapped. On 1.1.4 the order is the play button, STOP, Edged, Came Early, and Force Orgasm.</p>
 
 <h2>A session on the dashboard</h2>
 
 <ol>
   <li>Connect a monitor and one toy from the row. The pulse stays <strong>--</strong> until a beat arrives.</li>
-  <li>Set resting heart rate, single max, and dual max on the tiles. Resting starts at 70 and can be typed, from 30 to 250. Dual max stays above it. On the live 1.1.3 site, resting is assumed at 70 and is not a field.</li>
+  <li>Set resting heart rate, single max, and dual max on the tiles. Resting starts at 70 and can be typed, from 30 to 250. Dual max stays above it. 1.1.4 already has this tile. 1.1.3 assumed resting at 70 and had no field for it.</li>
   <li>Choose Fixed, Mystery, or Endless, and set warm-up or switch it off. On, the stroke stays in the lower half and opens across those minutes. Off is immediate. A funscript does not use this warm-up.</li>
   <li>Tap either card. Both lists open. Leave the play style and the ending you want, and the lists close.</li>
   <li>Play starts when a monitor and a toy are connected and the pulse is fresh. Stop ends the session and clears adaptive decay for that run. Edged, Came Early, and Force Orgasm sit on that same row.</li>
@@ -30,11 +56,11 @@
 
 <h2>The Player</h2>
 
-<p>Player is in the header. On a phone the files come first. Until a video is chosen, the picture is a short placeholder that says to choose one in the file panel. Choose MP4, M4V, WEBM, MKV, MOV, or OGV, or drop the files. A pasted address is not on this build. MP4 (H.264) and WebM play in the most browsers. MKV and MOV play where this browser can decode them.</p>
+<p>Video Player is in the header. On the live 1.1.4 site the button says Player. On a phone the files come first. Until a video is chosen, the picture is a short placeholder that says to choose one in the file panel. Choose MP4, M4V, WEBM, MKV, MOV, or OGV, or drop the files. A pasted address is not on this build. MP4 (H.264) and WebM play in the most browsers. MKV and MOV play where this browser can decode them.</p>
 
 <p>On a wide window the picture and the file panel each take half the width, and the two cards meet at the same height. The scrub, the time, Theater, and Fullscreen sit on one line under the picture. Theater widens the video inside the page. Fullscreen fills the screen. Stats Overlay is on. Heart rate, edges, and both toys can stay on the picture. The overlay does not change how the toys follow a file.</p>
 
-<p>The session row stays under that picture: Pause, Stop, Edged, Came Early, and Force Orgasm. Closing the Player hides the picture and the file panel, and leaves the row. Play Style and Session Endgame then sit side by side again. The heart-rate tiles, including Length and Warm-up, do not move.</p>
+<p>The session row stays under that picture: the play button, Edged, Came Early, Force Orgasm, and STOP. Closing Video Player hides the picture and the file panel, and leaves the row. Play Style and Session Endgame then sit side by side again. The heart-rate tiles, including Length and Warm-up, do not move.</p>
 
 <p>Primary and Secondary each start on <strong>EdgeLoop</strong>. Tap to configure. Inside, choose EdgeLoop or a funscript. Clear sits with the funscript you loaded. Primary is the stroker. Secondary is the other toy. A <code>.funscript</code> is the stroker and a <code>.v0.funscript</code> is the other toy. With no funscript, that tap opens Play Style and Session Endgame, so the stroke you are about to run is the thing under the channel. Funscript morphing stays folded until a funscript is loaded, and it closes again while a session is running. The file panel stays the files. The shaping is there when you are choosing it.</p>
 
@@ -59,7 +85,7 @@
 
 <p>A mark does not end the session. Several marks: the strongest one wins. Marks for a script stay on this device for that script. A gold mark on a video with no funscript aims EdgeLoop at that time: Play Style still runs, and both channels lift toward full across the same three times.</p>
 
-<p>Offset appears once a primary funscript is loaded. Each tap, and the <kbd>[</kbd> and <kbd>]</kbd> keys, moves the strokes 50 ms earlier or later than the picture. Those keys are listed in Session Setup, on the Keys tab.</p>
+<p>Offset appears once a primary funscript is loaded. Each tap, and the <kbd>[</kbd> and <kbd>]</kbd> keys, moves the strokes 50 ms earlier or later than the picture. Those keys are listed in Advanced Session Settings, on the Keys tab.</p>
 
 <p>If Play does nothing, the player says what it is waiting for: a heart-rate monitor, a toy, a fresh pulse, a script, or the video. Scrubbing still works.</p>
 
@@ -69,7 +95,7 @@
 
 <p>Resting heart rate is a tile on the heart-rate card. It starts at 70. The curve in <a href="/control/#why-the-middle-of-a-session-stays-strong">How a toy is driven</a> runs from the resting number you set up to the pullback mark. A lower resting rate, down to 30, gives the first climb a real band when your pulse is already near 70. A pulse that only climbs a little still works when the climax number sits just above the highest reading you actually see.</p>
 
-<p>Pullback, in Session Setup on the Guards tab, is 90 to 100 percent of the working ceiling, default 100. At 100 the mark is the number you typed. At 95 the toys ease off early. The edge counter still waits for the climax number itself, and releases 5 BPM below it.</p>
+<p>Pullback, in Advanced Session Settings on the Guards tab, is 90 to 100 percent of the working ceiling, default 100. At 100 the mark is the number you typed. At 95 the toys ease off early. The edge counter still waits for the climax number itself, and releases 5 BPM below it. On 1.1.4 this tab is under Session Setup. The numbers are the same.</p>
 
 <p>Prostate-heavy sessions often edge in the 80s or 90s. A single max around 92–95 is what people have used there, in place of 140.</p>
 
@@ -139,10 +165,10 @@
 
 <h2>Guards</h2>
 
-<p>Session Setup, Guards tab. The guards are independent of the play style and the endgame, except where an endgame has said it does not use a particular guard. Calibration and Survival ignore the park. Ruin ignores it for its own ride. Finisher holds on the mark instead of parking. Decay stays off during Calibration and does not fight Survival's climb. Stop clears the decay for that run, because the decay is the session's edge count.</p>
+<p>Advanced Session Settings, Guards tab. On 1.1.4 the same tab is under Session Setup. The guards are independent of the play style and the endgame, except where an endgame has said it does not use a particular guard. Calibration and Survival ignore the park. Ruin ignores it for its own ride. Finisher holds on the mark instead of parking. Decay stays off during Calibration and does not fight Survival's climb. Stop clears the decay for that run, because the decay is the session's edge count.</p>
 
 <ul>
-  <li><strong>At the ceiling.</strong> Full Stop parks the primary at 0. Crawl is a number, 1 to 30 percent, 10 by default. The intensity slider still scales that crawl. On the live 1.1.3 site, Crawl is fixed at 10 percent.</li>
+  <li><strong>At the ceiling.</strong> Full Stop parks the primary at 0. Crawl is a number, 1 to 30 percent, 10 by default. The intensity slider still scales that crawl. 1.1.4 already made Crawl a number. 1.1.3 fixed it at 10 percent.</li>
   <li><strong>Pullback.</strong> 90–100 percent of the working ceiling, default 100. The cockpit shows a HOLD TO badge and a line on the chart when this is not 100.</li>
   <li><strong>Stall guard.</strong> Optional, and only during a crawl. Allow on the edge is 3–120 seconds, default 20: how long the pulse may sit at the mark before the primary is cut. Pause the primary is 2–60 seconds, default 8: how long that halt lasts. Then crawl resumes. Turn it off to stay on crawl until you recover, Force Orgasm, or STOP. The secondary keeps running. The banner during the halt names what the mode you are actually in will do when the pause ends. In Ruin &amp; Leak the lockout keeps the primary at 0 whatever the pause does.</li>
   <li><strong>Signal watchdog.</strong> Always on. The timing is on <a href="/heart-rate/#how-often-a-new-number-arrives">Heart-rate monitors</a>. Past the timeout, motors stop and the session pauses. Start and Resume need a usable reading younger than the timeout. The transport reads WAITING FOR PULSE rather than driving the toys on a frozen heart rate.</li>
@@ -165,15 +191,19 @@
 
 <h2>Keys</h2>
 
-<p>Keys are a tab in Session Setup. Space starts or pauses. Escape stops, and leaves theater or fullscreen before it stops the session. Left is Came Early. Right is Force Orgasm. Up and down pulse the VacuGlide valves when that toy is connected. <kbd>[</kbd> and <kbd>]</kbd> move a loaded script 50 ms. Click a binding to change it with a key or a controller button. Space still pauses when a number such as Single max is focused.</p>
+<p>Keys are a tab in Advanced Session Settings. On 1.1.4 they are a tab in Session Setup. Space starts or pauses. Escape stops, and leaves theater or fullscreen before it stops the session. Left is Came Early. Right is Force Orgasm. Up and down pulse the VacuGlide valves when that toy is connected. <kbd>[</kbd> and <kbd>]</kbd> move a loaded script 50 ms. Click a binding to change it with a key or a controller button. Space still pauses when a number such as Single max is focused.</p>
 
 <h2>What this browser remembers</h2>
 
-<p>Session Setup is saved in this browser: both climax numbers, resting heart rate, the session length and its times, the endgame, the warm-up, every guard, the cue lines, and the microphone settings. Lowering your ceiling by hand during a session is kept, so a reload does not hand the toys a limit you had already decided was too high. Climax marks for a script stay on this device for that script.</p>
+<p>Advanced Session Settings are saved in this browser: both climax numbers, resting heart rate, the session length and its times, the endgame, the warm-up, every guard, the cue lines, and the microphone settings. 1.1.4 saves the same set under Session Setup. Lowering your ceiling by hand during a session is kept, so a reload does not hand the toys a limit you had already decided was too high. Climax marks for a script stay on this device for that script.</p>
 
 <p>A backup export is the same set, plus the learned offset if you have one, the Handy role and speed cap, and your saved Intiface and T-Code maps. The Handy connection key is left out unless you tick the box. That key can drive the Handy from anywhere, with no password. The file with the key in it is named so you can see which one you wrote. Import is refused while a session is running. An import never connects a toy by itself.</p>
 
-<p>On dev.edgeloop.app, History has a session log switch. It is off until you turn it on, including when no session is stored yet. After a session, that row offers a JSON download: the pulse once a second, what the toys were sent, the settings, and the make and model of the toys that were on. The file stays in this browser. It leaves out a Handy key, a device token, a Bluetooth address, a video address, and a script file name. edgeloop.app does not record it.</p>
+<h2>A session log</h2>
+
+<p>History has a session log switch. It is off until you turn it on, including when no session is stored yet. After a session, that row offers a JSON download: the pulse once a second, what the toys were sent, the settings, and the make and model of the toys that were on. The file stays in this browser. EdgeLoop does not upload it. It leaves out a Handy key, a device token, a Bluetooth address, a video address, and a script file name. The live 1.1.4 site has this same switch. 1.1.3 did not.</p>
+
+<p><strong>Download debug log</strong> saves what The Handy was just sent, even mid-session: the Handy mode, the position commands, and the last error. It still leaves out the connection key. That button is on this build, including a GitHub Pages copy of it. It is not on edgeloop.app.</p>
 
 <p>Session history stays out of the backup. It is a record of the session, and it is the largest thing in storage. The funscript download is the way to take a recorded stroke with you.</p>
 

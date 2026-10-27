@@ -214,7 +214,7 @@ function renderPage(page, body, toc, nav, edition, editionsBar) {
     <p>
       <a href="https://edgeloop.app">edgeloop.app</a>
       <a href="https://dev.edgeloop.app">dev.edgeloop.app</a>
-      <a href="https://discord.gg/ZFrkehxAC">Discord</a>
+      <a href="https://discord.gg/ZSqmV7ctcU">Discord</a>
       <a href="https://github.com/marshallmims/edgeloop">GitHub</a>
     </p>
   </footer>

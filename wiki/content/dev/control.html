@@ -28,7 +28,7 @@
 
 <h2>Why the middle of a session stays strong</h2>
 
-<p>On <a href="https://edgeloop.app">edgeloop.app</a> (1.1.3) resting heart rate is taken as 70. It is not a field. On <a href="https://dev.edgeloop.app">dev.edgeloop.app</a> (1.1.4.31) it is a tile on the heart-rate card, starts at 70, and can be typed from 30 to 250. Dual max stays above it. The live readout stays <strong>--</strong> until a monitor sends a beat. Either way the band the curve cares about runs from that resting number up to the pullback mark. At the default settings the mark is your climax number. A pullback of 95 percent puts the mark earlier. It cannot be set above 100 percent. The typed climax number is a hard ceiling.</p>
+<p>Resting heart rate is a tile on the heart-rate card, on 1.1.5 and on the live 1.1.4 site. It starts at 70 and can be typed from 30 to 250. Dual max stays above it. 1.1.3 took resting as 70 and had no field. The live readout stays <strong>--</strong> until a monitor sends a beat. The band the curve cares about runs from that resting number up to the pullback mark. At the default settings the mark is your climax number. A pullback of 95 percent puts the mark earlier. It cannot be set above 100 percent. The typed climax number is a hard ceiling.</p>
 
 <p>Where the pulse sits in that band is then squared. The squaring is fixed at a power of 2. There is no control for it.</p>
 
@@ -40,16 +40,16 @@
   <li>The last few BPM, around 136 on this same pair, are where a weave is allowed to dip for real, including two waves lining up into a brief stop.</li>
 </ul>
 
-<p>That is the shape people feel as "it stays active, and then it gives way." The give-way is the top of the band. A session that used to die out around 120 on a max of 140 was a bug in 1.1.0, fixed in 1.1.1. The curve above is what an EdgeLoop stroke still uses, on 1.1.3 and on 1.1.4.31. A funscript is a different path, described on <a href="/session/#the-player">Using 1.1.4.31</a>.</p>
+<p>That is the shape people feel as "it stays active, and then it gives way." The give-way is the top of the band. A session that used to die out around 120 on a max of 140 was a bug in 1.1.0, fixed in 1.1.1. The curve above is what an EdgeLoop stroke uses on 1.1.5 and on the live 1.1.4 site. A funscript is a different path, described on <a href="/session/#the-player">Using 1.1.5</a>.</p>
 
 <h2>When the stroke changes shape</h2>
 
 <p>Through most of the band every stroke mode rides that same falling curve on a long stroke, inside your travel range. The mode's own shape is allowed to show only in the last fifth of the band. On a 70 to 140 max, that starts around 126 BPM.</p>
 
 <ul>
-  <li><strong>Simple Ramp</strong> is the plain stroke on 1.1.4.31. Speed starts high and ramps down. Strokes stay the full length. Close to the mark it sometimes stops for a beat, then picks the stroke back up. At the mark, Crawl or Full Stop decides the stroker. On the live 1.1.3 site this stroke is still called Classic Tease.</li>
+  <li><strong>Simple Ramp</strong> is the plain stroke on 1.1.5 and on 1.1.4. Speed starts high and ramps down. Strokes stay the full length. Close to the mark it sometimes stops for a beat, then picks the stroke back up. At the mark, Crawl or Full Stop decides the stroker. On 1.1.3 this stroke was called Classic Tease.</li>
   <li><strong>Finisher</strong> pushes under the heart rate you set, eases off as the pulse arrives, and holds on the mark. Crawl and Full Stop do not replace that hold.</li>
-  <li><strong>Bratty Tease</strong> is experimental on 1.1.4.31. The climb matches Ultimate Milker, then it dips for about a second and comes back, several times, including at the ceiling.</li>
+  <li><strong>Bratty Tease</strong> is experimental, on 1.1.5 and on 1.1.4. The climb matches Ultimate Milker, then it dips for about a second and comes back, several times, including at the ceiling.</li>
   <li><strong>Glans Protector</strong> stays quicker than Simple Ramp, so the shorter stroke does not arrive as a stall. Near the mark the window closes on the base. At the mark it is the bottom 35 percent of your range. The secondary stays low.</li>
   <li><strong>Head Play</strong> keeps a full stroke until that same point, then climbs toward the head. Speed comes down as the stroke shortens, and the stroke opens back up when the pulse drops.</li>
   <li><strong>Prostate Milker</strong> cross-fades the whole way: the stroker backs off, the internal toy takes over. Short bursts, and a secondary that pulses instead of sitting at full power, wait until you are actually near the mark.</li>
@@ -57,11 +57,11 @@
   <li><strong>Ruin &amp; Leak</strong> keeps a real stroke on the mark. Crawl and Full Stop do not govern it. After about 12 seconds continuously on the mark, the primary cuts for 18 seconds and the secondary drops to 18 percent.</li>
 </ul>
 
-<p>A game keeps its own speeds. The stroke window still comes from the play style you picked. With no game, the stroke runs on its own until the timer ending. <a href="/session/">Using 1.1.4.31</a> is the play style and the endgame.</p>
+<p>A game keeps its own speeds. The stroke window still comes from the play style you picked. With no game, the stroke runs on its own until the timer ending. <a href="/session/">Using 1.1.5</a> is the play style and the endgame. In Solo, one play style is the session's. A controller can give each toy on EdgeLoop its own. <a href="/session/#manual-control">Manual Control</a> is that path. The live 1.1.4 site has one play style for the session, and no Manual Control.</p>
 
 <h2>At the ceiling</h2>
 
-<p><strong>Full Stop</strong> parks the primary at 0. On 1.1.4.31, <strong>Crawl</strong> is 1 to 30 percent, 10 by default, so the edge stays alive. The intensity slider still scales it. On 1.1.3, Crawl is 10 percent. The secondary keeps whatever the stroke gives it at the ceiling. The stall guard, if you turned it on, can cut the primary during a crawl and only the primary. Survival and Calibration do not park. They keep climbing. Finisher holds on the mark instead. Force Orgasm overrides the park.</p>
+<p><strong>Full Stop</strong> parks the primary at 0. <strong>Crawl</strong> is 1 to 30 percent, 10 by default, so the edge stays alive. The intensity slider still scales it. 1.1.4 already made Crawl a number. 1.1.3 fixed it at 10 percent. The secondary keeps whatever the stroke gives it at the ceiling. The stall guard, if you turned it on, can cut the primary during a crawl and only the primary. Survival and Calibration do not park. They keep climbing. Finisher holds on the mark instead. Force Orgasm overrides the park.</p>
 
 <p>An edge is counted when the pulse reaches the climax number, not when it reaches an earlier pullback. The edge releases 5 BPM below that number, so a reading hovering on the line cannot flap the counter. The toys may already be parked at the pullback while the counter is still waiting for the number you typed.</p>
 
@@ -88,7 +88,7 @@
 
 <h2>Vibration and rotation</h2>
 
-<p>A vibrate axis gets the secondary number, under that axis's cap. Constant holds the number. On 1.1.4.31, Pulsed is the default: the axis holds the engine's level, then rests, then comes back. The 0.8, 1.6, and 2.4 second choices change how often that rest arrives. The level is still the peak, and it stays under the cap. On the live 1.1.3 site, Pulsed is the older square wave, on for half of that period and off for half. Stop, pause, and OFF cut the pulse at once on either build.</p>
+<p>A vibrate axis gets the secondary number, under that axis's cap. Constant holds the number. Pulsed is the default on 1.1.5 and on 1.1.4: the axis holds the engine's level, then rests, then comes back. The 0.8, 1.6, and 2.4 second choices change how often that rest arrives. The level is still the peak, and it stays under the cap. On 1.1.3, Pulsed was on for half of that period and off for half. Stop, pause, and OFF cut the pulse at once. A toy a controller is driving by hand holds the level they set. The pulse phrase stays with EdgeLoop.</p>
 
 <p>A rotator can reverse when an edge is counted, and it can alternate direction on a timer you set from 5 to 60 seconds. Rotation swings around the centre by the engine speed. The period follows the speed, not a stroke length.</p>
 

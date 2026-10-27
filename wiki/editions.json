@@ -3,19 +3,19 @@
     "id": "main",
     "label": "Main",
     "kicker": "Live",
-    "version": "1.1.3",
+    "version": "1.1.4.31",
     "app": "https://edgeloop.app",
     "appLabel": "Open edgeloop.app",
-    "footer": "These pages describe EdgeLoop 1.1.3, the live release on edgeloop.app.",
+    "footer": "These pages describe EdgeLoop 1.1.4, the live release on edgeloop.app. The footer reads 1.1.4.31.",
     "ready": true,
     "overrides": {
       "": {
-        "description": "User pages for EdgeLoop 1.1.3, the live release on edgeloop.app."
+        "description": "User pages for EdgeLoop 1.1.4, the live release on edgeloop.app. The footer reads 1.1.4.31."
       },
       "session": {
-        "title": "How a session is decided",
-        "nav": "How a session is decided",
-        "description": "Single and dual max, calibration, strokes, goals, guards, and what the live 1.1.3 app remembers."
+        "title": "Using 1.1.4",
+        "nav": "Using 1.1.4",
+        "description": "How a session is set up on edgeloop.app, build 1.1.4.31. Dev is 1.1.5."
       }
     }
   },
@@ -23,10 +23,10 @@
     "id": "dev",
     "label": "Dev",
     "kicker": "Player",
-    "version": "1.1.4.31",
+    "version": "1.1.5.13",
     "app": "https://dev.edgeloop.app",
     "appLabel": "Open dev.edgeloop.app",
-    "footer": "These pages describe EdgeLoop 1.1.4.31 on dev.edgeloop.app.",
+    "footer": "These pages describe EdgeLoop 1.1.5 on dev.edgeloop.app. The footer reads 1.1.5.13.",
     "ready": true,
     "default": true
   },
@@ -37,7 +37,7 @@
     "version": "2.0",
     "app": "",
     "appLabel": "",
-    "footer": "Desktop 2.0 is an experimental local app. It is not the live site.",
+    "footer": "Desktop 2.0 is an experimental local app. It is not the live site. The page inside it is the 1.1.5 player.",
     "ready": false,
     "overrides": {
       "": {

@@ -1,0 +1,31 @@
+<p class="lede">This is Share Control on <strong>1.1.5</strong>. The button changes the page you are on. The toys stay with the browser that paired them. The controller sends commands. It does not pair its own Handy and call that yours. On the live <strong>1.1.4</strong> site the button still opens a popup with two links. That is <a href="/main/partner/">the Main page</a>.</p>
+
+<h2>The page of the person wearing it</h2>
+
+<p>The header button is <strong>Share Control</strong>. It does not open the 1-on-1 and group popup from 1.1.4. The person whose toys are connected sees the devices, whether a controller is connected, the timer, the heart rate and its graph, and what Primary and Secondary are doing.</p>
+
+<p>Play Style, Session Endgame, and Stimulation Intensity leave this page. They are on the controller. Stop on this page still stops the toys. <strong>Solo</strong> puts those controls back and leaves Share Control. While sharing is on, the header still says Share Control.</p>
+
+<p>The controller link and <strong>Copy</strong> are on this page. The link ends in <code>?partner=</code>. The badge counts who is connected. An introduction still goes through PeerJS, loaded from a CDN, so the first visit needs that host reachable. If the script never loads, the link says the library could not be loaded and sharing does not open. After the introduction, the commands go from browser to browser. They are not stored on an EdgeLoop account. There is no EdgeLoop account.</p>
+
+<p>Every message that arrives is checked before it is acted on. A command the page does not recognise is dropped. The heart rate is sent when a reading arrives. The one-second clock still sends the rest of the session.</p>
+
+<h2>The controller</h2>
+
+<p>The controller gets the regular cockpit. They can start, pause, stop, mark an edge, and force an orgasm. They set the play style, the ending, and the intensity. The device row shows the other person's connections. A controller link opens on <strong>Manual Control</strong>. EdgeLoop Control is one tap away. <a href="/session/#manual-control">Using 1.1.5</a> is that panel: You or EdgeLoop on each toy, the dots, and Traditional.</p>
+
+<p>Stroke commands stay inside the travel limits already set on the toys. A silent link eases the toys off, and a loop stops if the controller goes quiet. If the controller drops, the toys stop.</p>
+
+<p>The single max, the dual max, the target mode, and the endgame are the wearer's. A controller page does not fill those in from its own saved settings. Edge Training's hold length and edge count, and the pullback percent, are read from the wearer's telemetry.</p>
+
+<p>The controller does not need the heart-rate monitor, and does not need the toys. Those stay on the wearer's machine. The controller needs a browser that can open the link.</p>
+
+<h2>A viewer</h2>
+
+<p>1.1.5 does not offer a viewer link in the page. The 1.1.4 popup did: a link ending in <code>?group_sub=</code>, any number of people, the pulse only. A link of that shape still opens a read-only page if you already have one. This build does not mint a new one.</p>
+
+<h2>If the link drops</h2>
+
+<p>A remote page pings every 5 seconds. A link that has been silent for 20 seconds is dropped. A dropped link is shown as disconnected. It is not left looking connected.</p>
+
+<p>If the wearer's room is gone, because the tab was closed or Share Control was reopened, the partner is told the room was not found and needs a fresh link. An old link does not attach to a new room.</p>

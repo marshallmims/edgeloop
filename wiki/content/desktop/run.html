@@ -1,4 +1,4 @@
-<p class="lede">The program is a small server on this computer. It opens the EdgeLoop page in your browser and stays running in a terminal window. Closing that window stops it.</p>
+<p class="lede">The program is a small server on this computer. It opens EdgeLoop in your browser and stays running in a terminal window. Closing that window stops it. The current program is the 2.0 window. An earlier host is still in the project.</p>
 
 <h2>What you need</h2>
 
@@ -10,21 +10,23 @@
 
 <h2>Start it</h2>
 
-<p>From the project folder:</p>
+<p>From the project folder, the 2.0 window is <code>npm run desktop</code>. That is <code>node desktop/host.mjs</code>. It serves <code>http://127.0.0.1:17321/?shell=1#/loop</code> and prints the address. Leave the window open. The page listens only on this computer. The same files without <code>?shell=1</code> are the website layout, not the tabs.</p>
+
+<p>The window is one set of tabs. Flipping a tab does not load a new page, so a session keeps running and a video keeps playing. Loop is the cockpit. Video is the player only. Session is duration, guards, voice, and backup. Library is a folder or a network share, and each video is paired with a stroker script and a secondary script. A green dot on Loop means a session is going. A green dot on Video means the picture is playing. Guide, History, and Share sit as icons on that row. The program shows 2.0. The page inside it is the 1.1.5 player, footer 1.1.5.13.</p>
+
+<p>The earlier host is still there:</p>
 
 <ul>
   <li>Mac or Linux: <code>sh app/start.sh</code></li>
   <li>Windows: <code>app\start.bat</code></li>
-  <li>Any of the three: <code>node app/host.mjs</code></li>
+  <li>Any of the three: <code>npm run app</code>, which is <code>node app/host.mjs</code></li>
 </ul>
 
-<p>The window prints <code>EdgeLoop app: http://127.0.0.1:8787/</code> and opens that address. Leave the window open while you play. It listens only on this computer, for its own page. The default port is 8787. <code>EDGELOOP_PORT</code> changes it, if you set that before you start.</p>
-
-<p>The Player clock card, the one labeled Player clock, appears only on this page. The same card stays hidden on edgeloop.app and on dev.edgeloop.app, because those sites have no local program behind them.</p>
+<p>That window prints <code>EdgeLoop app: http://127.0.0.1:8787/</code> and opens that address. It listens only on this computer. The default port is 8787. <code>EDGELOOP_PORT</code> changes it, if you set that before you start. The Player clock card appears on this host. The same card stays hidden on edgeloop.app and on dev.edgeloop.app, because those sites have no local program behind them.</p>
 
 <h2>Stop it</h2>
 
-<p>Quit, on the Player clock card, closes the program. Closing the terminal does the same thing. Either one drops the headset or VLC connection. The toys are still stopped by Stop in the page, the same as Dev. Quit is the program, not the session.</p>
+<p>Closing the terminal stops whichever host you started. Quit, on the Player clock card, closes the earlier host. Either one drops a headset or VLC connection that host was holding. The toys are still stopped by Stop in the page, the same as the 1.1.5 player. Quit is the program, not the session.</p>
 
 <h2>Building a copy</h2>
 
