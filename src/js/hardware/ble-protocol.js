@@ -52,13 +52,20 @@ export function parseHeartRateMeasurement(view) {
     return { bpm, sensorContact, energyExpended, rrIntervalsMs };
 }
 
+// The flag Chrome on Linux desktop needs before Web Bluetooth exists.
+// chrome:// cannot be opened from an https page, so the BLE modal copies it.
+export const CHROME_BLUETOOTH_FLAG = 'chrome://flags/#enable-experimental-web-platform-features';
+
+export function linuxDesktop(userAgent = '') {
+    const ua = String(userAgent || '');
+    return /Linux/i.test(ua) && !/Android/i.test(ua) && !/CrOS/i.test(ua);
+}
+
 // Human explanation of why Web Bluetooth is unavailable, for the BLE modal.
 // `userAgent` is passed in so the message can be unit-tested.
 export function describeBluetoothSupport(userAgent = '') {
     const ua = String(userAgent || '');
     const isIOS = /iPhone|iPad|iPod/i.test(ua);
-    const isAndroid = /Android/i.test(ua);
-    const isLinux = /Linux/i.test(ua) && !isAndroid && !/CrOS/i.test(ua);
     const isFirefox = /Firefox/i.test(ua);
     const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg/i.test(ua);
 
@@ -70,8 +77,8 @@ export function describeBluetoothSupport(userAgent = '') {
     } else if (isSafari) {
         message = 'Safari does not implement Web Bluetooth. Use Chrome or Edge on desktop or Android';
     }
-    if (isLinux) {
-        message += '. On Linux, Chrome also needs chrome://flags/#enable-experimental-web-platform-features switched on';
+    if (linuxDesktop(ua)) {
+        message += `. On Linux, Chrome also needs ${CHROME_BLUETOOTH_FLAG} switched on`;
     } else if (!isIOS) {
         message += ' (Bluefy on iOS)';
     }

@@ -6,7 +6,7 @@
 // offline once it has been visited. Bump CACHE_VERSION when the precache list
 // changes; old caches are removed on activate.
 
-const CACHE_VERSION = 'edgeloop-v12';
+const CACHE_VERSION = 'edgeloop-v25';
 const PRECACHE = [
     './',
     './index.html',
@@ -55,6 +55,7 @@ const PRECACHE = [
     './src/js/voice-queue.js',
     './src/js/webrtc.js',
     './src/js/peer-messages.js',
+    './src/js/manual-control.js',
     './src/js/hardware/ble.js',
     './src/js/hardware/ble-protocol.js',
     './src/js/hardware/handy.js',

@@ -4,6 +4,80 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.13
+
+- **The Handy uses the whole stroke again.** Each new position was only given about a tenth of a second, and the carriage brakes at the end of that, so a full sweep only covered a short slice. A long move now has time to arrive, and position mode opens the full travel window first.
+- **The line under each toy stays a line.** The tip was a dot that slid off the last sample and snapped back to the edge while a toy sat still.
+
+## 1.1.5.12
+
+- **Manual follow no longer waits on a background timer.** With the controller on screen, the host tab was only allowed to run a timer about once a second, so The Handy and the Lovense motors stepped once a second. Finger messages now carry the next position and speed.
+- **Stop freezes a Loop.** The toy was stopping while the drawn loop kept playing. Stop also cuts a motor that was still repeating its last speed.
+- **A controller link opens on Manual.** EdgeLoop Control is still one tap away.
+
+## 1.1.5.11
+
+- **Firmware 4 position is a fraction.** The dot was sending 5–95. That firmware reads 1 as the top, so every one of those numbers ran the carriage to the top and later moves did nothing. It now sends 0.05–0.95 and does not reset the stroke zone, which was also driving it to the top.
+- **A Lovense slider repeats the latest level.** Quick moves were landing about once a second because the motor was still finishing the previous command. The latest level is sent again at a steady pace.
+
+## 1.1.5.10
+
+- **The Handy dot uses absolute position on firmware 4.** The box is the stroke. Top stays at the top, the middle stays in the middle, and the bottom stays at the bottom. A loop plays that shape back.
+- **Each toy's loop keeps its own clock.** Drawing a loop on a second toy no longer restarts the first, and the playhead does not speed up.
+- **Stop stays in Manual Control.** The toys stop. The page does not switch back to EdgeLoop Control.
+- **Manual Control hides the channel bars and Stimulation Intensity.** The Slow and Stop buttons in that panel are gone.
+
+## 1.1.5.09
+
+- **Came Early and Force Orgasm are one line each.** The small words above them are gone.
+
+## 1.1.5.08
+
+- **Each EdgeLoop toy keeps its own play style.** Setting one vibrator to Milker and the other to Classic no longer changes both.
+- **The Handy dot is an absolute position.** Top of the box is the top of the stroke and it stays there. Middle stays in the middle. Bottom stays at the bottom. A loop plays those positions back. The move is given time to arrive, so it does not slam into an end and lock. Firmware 4 gets the position fields it expects.
+- **Start, Edged, Came Early, Force Orgasm, Stop.** The row uses the same green-to-red ramp as the stimulation slider. Start is green. Stop is red. The three between sit on the ramp.
+
+## 1.1.5.07
+
+- **A slider holds the level it shows.** The Edge was still running its pulse phrase under Manual Control, so a steady slider or Float ramped up, rested, and ramped again. The level you set is now the level the toy holds. The pulse phrase stays with EdgeLoop when it is driving.
+- **The Handy dot follows in both directions.** Middle of the dot is the middle of the stroke, the top is the top, and the bottom is the bottom. A move brakes at that spot instead of coasting into an end stop and locking there. Traditional is unchanged.
+- **Slider, Float, Loop, then Traditional.** Slider is the dots. Float and Loop turn on with it, and either one turns off if you select it again. Traditional clears all three and shows the sliders.
+
+## 1.1.5.06
+
+- **Traditional is the sliders.** Manual Control opens on the dots. Higher is more, and the bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. A line under each toy shows what it is doing. Traditional switches to the sliders and hides Float and Loop.
+- **The Handy brakes at the position you ask for.** A Loop drag was sending it through the bottom end stop, and the firmware then locked the slider there. The command now uses where your finger is when it is sent, and it stops at the target instead of coasting past the end.
+- **A session log on this build.** History has the switch and a debug download, including on the GitHub Pages copy. edgeloop.app still leaves it off. The file adds the Handy mode, the position commands, and the last error, and it leaves out the connection key.
+
+## 1.1.5.05
+
+- **The Linux Chrome flag under Scan & Pair can be copied.** When Bluetooth is hidden on Linux, the flag address sits under that button. Copy puts it on the clipboard. Paste it into the address bar. The same address in the pairing guide copies too.
+- **The Handy stroke is one bar with two dots.** The left dot is the bottom of the stroke and the right dot is the top.
+- **EdgeLoop on a toy opens the play styles.** You keeps the sliders. The play style is the session's, so every toy left on EdgeLoop follows the one you pick.
+- **Loop follows your hand, then repeats it.** Each toy you are driving gets a dot. A vibrator matches the height. The Handy moves to that height on its stroke, so a quick short drag is a quick short stroke and a slow long drag is a slow long one. Letting go repeats the movement.
+
+## 1.1.5.04
+
+- **Solo, Video Player, and Share Control are the three modes.** Solo is the regular page. Video Player is the player. Share Control is the controllee page. Solo leaves Share Control.
+- **Manual Control replaces Play Style and Session Endgame.** The button then says EdgeLoop Control and puts those choices back. A stroker gets speed and the bottom and top of the stroke. A vibrator gets one slider, and a second vibrator gets its own. You drives that toy. EdgeLoop leaves it on their pulse.
+
+## 1.1.5.03
+
+- **Share Control toggles back to regular mode.** While control is shared the header button says Regular. Regular mode on the controllee page does the same.
+- **The header button is Advanced Session Settings.** It opens the same limits as before.
+- **Session Setup titles the play style and the ending.** On the controller, Manual and EdgeLoop sit in that block.
+
+## 1.1.5.02
+
+- **Share Control opens this page.** The 1-on-1 and group popup is gone. The controller link, Copy, and who is connected are on the controllee page.
+
+## 1.1.5.01
+
+- **Share Control changes the page you are on.** The person whose toys are connected sees the devices, whether a controller is connected, the timer, the heart rate and its graph, and what Primary and Secondary are doing. Play Style, Session Endgame, and Stimulation Intensity move to the controller. Stop on this page still stops the toys. Stop sharing puts those controls back.
+- **The controller gets the regular cockpit.** They can start, pause, stop, mark an edge, and force an orgasm. They set the play style, the ending, and the intensity. The device row shows the other person's connections.
+- **Manual control is on the controller.** Each connected toy gets the controls it actually has. A stroker gets speed and a stroke range. A vibrator gets one level. Pulse, Wave, Ramp, Edge, and Climb are loops. Drag the pad to draw a loop and it repeats. Slow and Stop land immediately. A slider that is held stays there. A silent link eases the toys off, and a loop stops if the controller goes quiet. Stroke commands stay inside the travel limits already set on the toys. If the controller drops, the toys stop.
+- **The heart rate is sent when a reading arrives.** The one-second clock still sends the rest of the session.
+
 ## 1.1.4.31
 
 - **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.

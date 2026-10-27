@@ -12,6 +12,18 @@ import {
     MIN_TRAIN_EDGES,
     MAX_TRAIN_EDGES
 } from './session-rules.js';
+import {
+    parseDeviceId,
+    sanitizeDeviceCatalog,
+    sanitizeEpoch,
+    sanitizeManualFrame,
+    sanitizeManualPattern
+} from './manual-control.js';
+
+// goal-off clears a game. nnn is a session endgame the cards send by name.
+// Neither is an engine output mode, and both are legal controller commands.
+export const COMMAND_MODES = [...ENGINE_MODES, 'nnn', 'goal-off'];
+export const ENDGAME_TYPES = ['orgasm', 'rampdown', 'denial'];
 
 export const PEER_ROLES = ['controller', 'viewer'];
 
@@ -61,14 +73,47 @@ export function sanitizeCommand(raw, role = 'controller') {
         case 'ORGASM_TOGGLE':
             return { type: 'ORGASM_TOGGLE' };
         case 'MODE_CHANGE': {
-            const mode = oneOf(raw.mode, ENGINE_MODES);
+            const mode = oneOf(raw.mode, COMMAND_MODES);
             if (!mode) return null;
             const command = { type: 'MODE_CHANGE', mode };
             // Present only when the sender said so. A game click carries
             // whether that game should be on, so the host does not toggle twice.
             if (typeof raw.enabled === 'boolean') command.enabled = raw.enabled;
+            const endgame = oneOf(raw.endgame, ENDGAME_TYPES);
+            if (endgame) command.endgame = endgame;
+            // A play style for one toy. Games stay session-wide.
+            if (TEASE_MODES.includes(mode) && parseDeviceId(raw.device)) command.device = String(raw.device);
             return command;
         }
+        case 'ENDGAME': {
+            const endgame = oneOf(raw.endgame, ENDGAME_TYPES);
+            return endgame ? { type: 'ENDGAME', endgame } : null;
+        }
+        case 'EDGE_MARK':
+            return { type: 'EDGE_MARK' };
+        case 'INTENSITY': {
+            const value = clampNumber(raw.value, 0, 100, true);
+            return value === undefined ? null : { type: 'INTENSITY', value };
+        }
+        case 'SPEED_WINDOW': {
+            const slowest = clampNumber(raw.slowest, 0, 100, true);
+            const fastest = clampNumber(raw.fastest, 0, 100, true);
+            if (slowest === undefined || fastest === undefined) return null;
+            return { type: 'SPEED_WINDOW', slowest, fastest };
+        }
+        case 'MANUAL_ARM': {
+            if (typeof raw.on !== 'boolean') return null;
+            const epoch = sanitizeEpoch(raw.epoch);
+            return epoch === null ? null : { type: 'MANUAL_ARM', on: raw.on, epoch };
+        }
+        case 'MANUAL_STOP': {
+            const epoch = sanitizeEpoch(raw.epoch);
+            return epoch === null ? null : { type: 'MANUAL_STOP', epoch };
+        }
+        case 'MANUAL_FRAME':
+            return sanitizeManualFrame(raw);
+        case 'MANUAL_PATTERN':
+            return sanitizeManualPattern(raw);
         default:
             return null;
     }
@@ -107,6 +152,13 @@ export function sanitizeTelemetry(raw) {
     out.edgeHoldPercent = clampNumber(raw.edgeHoldPercent, MIN_EDGE_HOLD_PERCENT, MAX_EDGE_HOLD_PERCENT, true);
     out.orgasmMode = typeof raw.orgasmMode === 'boolean' ? raw.orgasmMode : undefined;
     out.ready = typeof raw.ready === 'boolean' ? raw.ready : undefined;
+    out.manual = typeof raw.manual === 'boolean' ? raw.manual : undefined;
+    out.intensity = clampNumber(raw.intensity, 0, 100, true);
+    out.speedSlowest = clampNumber(raw.speedSlowest, 0, 100, true);
+    out.speedFastest = clampNumber(raw.speedFastest, 0, 100, true);
+    out.strokeMin = clampNumber(raw.strokeMin, 0, 100, true);
+    out.strokeMax = clampNumber(raw.strokeMax, 0, 100, true);
+    out.devices = sanitizeDeviceCatalog(raw.devices);
 
     if (Array.isArray(raw.history)) {
         const cleaned = [];

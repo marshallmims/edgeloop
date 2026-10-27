@@ -6,6 +6,7 @@ import {
     connectHandy,
     disconnectHandy,
     dispatchHandy,
+    dispatchHandyFollow,
     stopHandy,
     stopHandyOnUnload,
     pollHandyConnected,
@@ -17,7 +18,8 @@ import {
     isHandyOfflineStopPending,
     handyConnected
 } from './handy.js';
-import { HANDY_API_BASE } from './handy-protocol.js';
+import { HANDY_API_BASE, HANDY_MODE } from './handy-protocol.js';
+import { HANDY_V3_BASE } from './handy-hsp-protocol.js';
 
 const KEY = 'test-key-123';
 
@@ -34,6 +36,7 @@ function jsonResponse(body, status = 200) {
 }
 
 function pathOf(url) {
+    if (url.startsWith(HANDY_V3_BASE)) return url.slice(HANDY_V3_BASE.length);
     assert.ok(url.startsWith(HANDY_API_BASE), `unexpected base url ${url}`);
     return url.slice(HANDY_API_BASE.length);
 }
@@ -682,5 +685,105 @@ describe('handy driver', () => {
         // Explaining a refusal is all it does: the existing offline counter
         // is still the only thing that decides when to give up on the link.
         assert.equal(offline.length, 0);
+    });
+
+    it('follows where the finger moved during the mode switch and brakes there', async () => {
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            await connectOk();
+            dispatchHandyFollow(0, 0, 100, 5);
+            dispatchHandyFollow(80, 0, 100, 5);
+            await tick(40);
+            const xpt = sent('/hdsp/xpt', 'PUT');
+            assert.equal(xpt.length, 1);
+            assert.equal(xpt[0].body.position, 77);
+            assert.equal(xpt[0].body.stopOnTarget, true);
+            assert.ok(xpt[0].body.duration >= 120);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
+    it('follows the finger back down from the top', async () => {
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            await connectOk();
+            dispatchHandyFollow(100, 0, 100, 5);
+            await tick(40);
+            calls = [];
+            dispatchHandyFollow(40, 0, 100, 5);
+            await tick(40);
+            const xpt = sent('/hdsp/xpt', 'PUT');
+            assert.equal(xpt.at(-1).body.position, 41);
+            assert.equal(xpt.at(-1).body.stopOnTarget, true);
+            assert.equal(sent('/slide', 'PUT').length, 0);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
+    it('firmware 4 moves to an absolute position on the v3 API and stays there', async () => {
+        routes['/connected'] = jsonResponse({ connected: true });
+        routes['/info'] = jsonResponse({ fwVersion: '4.2.2+44874492', model: 'Handy 2' });
+        await connectHandy(KEY);
+        calls = [];
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            dispatchHandyFollow(50, 0, 100, 5);
+            await tick(40);
+            const mode = calls.find((call) => call.path === '/mode' && call.body && call.body.mode === HANDY_MODE.HDSP);
+            assert.ok(mode, 'firmware 4 must be put in HDSP');
+            const xpt = calls.filter((call) => call.path === '/hdsp/xpt');
+            assert.equal(xpt.length, 1);
+            assert.equal(xpt[0].body.xp, 0.5);
+            assert.equal(xpt[0].body.stop_on_target, true);
+            assert.equal(xpt[0].body.position, undefined);
+            const stroke = calls.find((call) => call.path === '/slider/stroke');
+            assert.ok(stroke, 'firmware 4 opens the full travel window');
+            assert.equal(stroke.body.min, 0.05);
+            assert.equal(stroke.body.max, 0.95);
+            assert.ok(xpt[0].body.t >= 120);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
+    it('follows a finger in HDSP, then a speed command returns to HAMP', async () => {
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            await connectOk();
+            dispatchHandyFollow(0, 0, 100, 5);
+            await tick(40);
+            assert.deepEqual(sent('/slide', 'PUT')[0].body, { min: 5, max: 95 });
+            assert.equal(sent('/mode', 'PUT')[0].body.mode, HANDY_MODE.HDSP);
+            const xpt = sent('/hdsp/xpt', 'PUT');
+            assert.equal(xpt.length, 1);
+            assert.equal(xpt[0].body.position, 5);
+            assert.equal(xpt[0].body.immediateResponse, true);
+            assert.equal(xpt[0].body.stopOnTarget, true);
+            assert.ok(xpt[0].body.duration >= 120);
+            calls = [];
+            dispatchHandyFollow(100, 0, 100, 5);
+            await tick(40);
+            assert.equal(sent('/hdsp/xpt', 'PUT')[0].body.position, 95);
+            assert.equal(sent('/mode', 'PUT').length, 0);
+            calls = [];
+            dispatchHandy(40, 10, 90, true, 0, 100, 0);
+            await tick(50);
+            assert.ok(sent('/mode', 'PUT').some((call) => call.body.mode === HANDY_MODE.HAMP));
+            assert.ok(sent('/slide', 'PUT').length > 0 || sent('/hamp/start', 'PUT').length > 0);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
+    it('stops a position follow by leaving HDSP', async () => {
+        await connectOk();
+        dispatchHandyFollow(50, 0, 100, 0);
+        await tick(40);
+        calls = [];
+        assert.equal(await stopHandy(), true);
+        assert.ok(sent('/mode', 'PUT').some((call) => call.body.mode === HANDY_MODE.HAMP));
+        assert.ok(sent('/hamp/stop', 'PUT').length >= 1);
     });
 });

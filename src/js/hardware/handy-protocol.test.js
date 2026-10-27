@@ -9,6 +9,10 @@ import {
     clampVelocity,
     clampEndMargin,
     applyEndMargin,
+    followPosition,
+    firmwareMajor,
+    hdspBody,
+    hdspMove,
     normalizeSlideRange,
     normalizeEnvelope,
     classifyHandyResponse,
@@ -185,6 +189,39 @@ describe('clampEndMargin', () => {
         // A corrupt stored value protects the wearer rather than disabling
         // the guard silently; only a typed 0 turns it off.
         assert.equal(clampEndMargin(NaN), HANDY_DEFAULT_END_MARGIN);
+    });
+});
+
+describe('hdspMove', () => {
+    it('brakes at the finger, and gives a full stroke time to arrive', () => {
+        const first = hdspMove(5, -1);
+        assert.equal(first.position, 5);
+        assert.equal(first.stopOnTarget, true);
+        assert.ok(first.duration >= 800);
+        const down = hdspMove(20, 95);
+        assert.equal(down.position, 20);
+        assert.equal(down.stopOnTarget, true);
+        assert.ok(down.duration >= 700);
+        const held = hdspMove(50, 50);
+        assert.equal(held.duration, 120);
+        const body = hdspBody(down);
+        assert.equal(body.position, 20);
+        assert.equal(body.xp, 20);
+        assert.equal(body.t, body.duration);
+        assert.equal(body.stopOnTarget, true);
+        assert.equal(body.stop_on_target, true);
+        assert.equal(firmwareMajor({ fwVersion: '4.2.2+44874492' }), 4);
+        assert.equal(firmwareMajor({ fwVersion: '3.2.3' }), 3);
+    });
+});
+
+describe('followPosition', () => {
+    it('maps a finger onto the travel window', () => {
+        assert.equal(followPosition(0, 0, 100, 5), 5);
+        assert.equal(followPosition(100, 0, 100, 5), 95);
+        assert.equal(followPosition(50, 0, 100, 5), 50);
+        assert.equal(followPosition(0, 0, 100, 0), 0);
+        assert.equal(followPosition(100, 20, 80, 0), 80);
     });
 });
 

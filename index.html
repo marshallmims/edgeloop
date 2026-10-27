@@ -151,17 +151,59 @@
     #playerBody[data-player="off"] #playStylePanel > div:not(#playStyleDrawer):not(#customCardsContainer) {
       display: contents;
     }
+    /* Those panels are display:contents so they can sit in the shared grid.
+       A Tailwind `hidden` class loses to that rule, so Share Control uses
+       this one, which also covers the panels after Player moves them. */
+    body.sharing-control #sessionBundle,
+    body.sharing-control #sessionSetupBar,
+    body.sharing-control #playStylePanel,
+    body.sharing-control #endgamePanel,
+    body.sharing-control #intensityPanel,
+    body.manual-on #sessionSetupHome,
+    body.manual-on #playStylePanel,
+    body.manual-on #endgamePanel,
+    body.manual-on #intensityPanel,
+    body.manual-on #channelGauges {
+      display: none !important;
+    }
+    #sessionBundle > #manualPanel {
+      grid-column: 1 / -1;
+    }
+    #soloModeBtn[aria-pressed="true"] {
+      background: rgb(30 41 59);
+      border-color: rgb(148 163 184);
+      color: white;
+    }
+    #playerHeaderBtn[aria-pressed="true"] {
+      background: rgb(12 74 110);
+      border-color: rgb(56 189 248);
+      color: white;
+    }
+    #partnerShareBtn[aria-pressed="true"] {
+      background: rgb(126 34 206);
+      border-color: rgb(216 180 254);
+      color: white;
+    }
     #playStyleHeading,
     #endgameHeading {
       margin: 0;
       align-self: end;
     }
-    #playStyleHeading { grid-column: 1; grid-row: 1; }
-    #endgameHeading { grid-column: 2; grid-row: 1; }
-    #playStyleSelected { grid-column: 1; grid-row: 2; height: 100%; cursor: pointer; }
-    #endgameSelected { grid-column: 2; grid-row: 2; height: 100%; cursor: pointer; }
-    #playStyleDrawer { grid-column: 1; grid-row: 3; }
-    #endgameDrawer { grid-column: 2; grid-row: 3; }
+    #sessionSetupBar {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+    #playStyleHeading { grid-column: 1; grid-row: 2; }
+    #endgameHeading { grid-column: 2; grid-row: 2; }
+    #playStyleSelected { grid-column: 1; grid-row: 3; height: 100%; cursor: pointer; }
+    #endgameSelected { grid-column: 2; grid-row: 3; height: 100%; cursor: pointer; }
+    #playStyleDrawer { grid-column: 1; grid-row: 4; }
+    #endgameDrawer { grid-column: 2; grid-row: 4; }
     #playStyleSelected,
     #endgameSelected {
       display: flex;
@@ -385,6 +427,40 @@
       width: 100%;
       min-width: 0;
     }
+    /* Same green-to-red ramp as the stimulation slider: start, edge, came early, force orgasm, stop. */
+    #sessionPlayPauseBtn:not(:disabled) {
+      background-color: #10b981 !important;
+      border-color: #059669 !important;
+      color: #fff !important;
+    }
+    #sessionPlayPauseBtn:not(:disabled):hover { background-color: #34d399 !important; }
+    #edgedBtn {
+      background-color: #a3e635 !important;
+      border-color: #84cc16 !important;
+      color: #14532d !important;
+    }
+    #edgedBtn:hover { background-color: #bef264 !important; }
+    #cameEarlyBtn {
+      background-color: #f59e0b !important;
+      border-color: #d97706 !important;
+      color: #451a03 !important;
+    }
+    #cameEarlyBtn:hover { background-color: #fbbf24 !important; }
+    #cameEarlyBtn span { color: #451a03 !important; }
+    #orgasmBtn {
+      background-color: #f97316 !important;
+      border-color: #ea580c !important;
+      color: #fff !important;
+    }
+    #orgasmBtn:hover { background-color: #fb923c !important; }
+    #orgasmBtn span { color: #fff !important; }
+    #sessionStopBtn {
+      background-color: #f43f5e !important;
+      border-color: #e11d48 !important;
+      color: #fff !important;
+    }
+    #sessionStopBtn:hover { background-color: #fb7185 !important; }
+    #sessionStopBtn span, #sessionStopBtn svg { color: #fff !important; }
     /* The native date glyph is a dark mark on this dark field. Force it
        light and give it a 44 px target so a tablet and a mouse can hit it. */
     .edgeloop-date {
@@ -440,23 +516,28 @@
           <span class="hidden sm:inline">History</span>
         </button>
 
-        <!-- Session Setup Action -->
-        <button id="sessionParamsHeaderBtn" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+        <!-- Advanced Session Settings -->
+        <button id="sessionParamsHeaderBtn" aria-label="Advanced Session Settings" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
           <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          <span>Session Setup</span>
+          <span class="hidden sm:inline">Advanced Session Settings</span>
+        </button>
+
+        <button id="soloModeBtn" type="button" aria-pressed="true" aria-label="Solo" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-slate-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <span class="hidden sm:inline">Solo</span>
         </button>
 
 <!-- The player section (your own video and .funscript) -->
-        <button id="playerHeaderBtn" type="button" aria-label="Player" aria-controls="playerSection" aria-expanded="false" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-sky-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+        <button id="playerHeaderBtn" type="button" aria-label="Video Player" aria-controls="playerSection" aria-expanded="false" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-sky-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
           <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-          <span class="hidden sm:inline">Player</span>
+          <span class="hidden md:inline">Video Player</span>
         </button>
 
         <!-- Share Remote Control -->
         <div class="relative">
-          <button id="partnerShareBtn" class="bg-purple-950/60 hover:bg-purple-900 border border-purple-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+          <button id="partnerShareBtn" aria-pressed="false" aria-label="Share Control" class="bg-purple-950/60 hover:bg-purple-900 border border-purple-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
             <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
-            <span class="hidden sm:inline">Share Control</span>
+            <span id="partnerShareLabel" class="hidden sm:inline">Share Control</span>
           </button>
           <span id="shareControlBadge" class="hidden absolute -top-1 -right-1 bg-emerald-500 text-slate-950 text-[9px] font-black font-mono px-1 rounded-full shadow-lg border border-emerald-300 animate-pulse pointer-events-none">0</span>
         </div>
@@ -765,6 +846,12 @@
           </div>
         </div>
           <div id="sessionBundle" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 min-w-0">
+            <div id="sessionSetupBar">
+              <p id="sessionSetupTitle" class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Setup</p>
+              <div id="sessionSetupManual" class="hidden shrink-0">
+                <button id="manualModeBtn" type="button" aria-pressed="false" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer">Manual Control</button>
+              </div>
+            </div>
 
 <div id="sessionSetupHome" class="space-y-3">
         <div id="playStylePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
@@ -1021,6 +1108,27 @@
           </div>
         </div>
         </div>
+        <section id="manualPanel" class="hidden space-y-3">
+          <p id="manualHint" class="text-[10px] text-slate-400 leading-snug">EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.</p>
+          <div id="manualLive" class="hidden space-y-3">
+            <div id="manualModes" class="flex flex-wrap gap-1.5">
+              <button id="manualSliderBtn" type="button" aria-pressed="true" class="px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer">Slider</button>
+              <button id="manualFloatBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Float</button>
+              <button id="manualLoopBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Loop</button>
+              <button id="manualTraditionalBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Traditional</button>
+            </div>
+            <div id="manualTouch" class="space-y-1.5">
+              <div id="manualLoopStage" class="relative h-44 rounded-xl border border-slate-700 bg-slate-950 touch-none" aria-label="Drag a dot. Higher is more. The bottom is nothing."></div>
+              <div id="manualViz" class="min-h-[2.5rem]"></div>
+              <p id="manualTouchHint" class="text-[9px] text-slate-500 leading-snug">Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. The line under each toy is what it is doing.</p>
+            </div>
+            <div id="manualDevices" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+            <div id="manualPatternBlock">
+              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loops</p>
+              <div id="manualPatterns" class="flex flex-wrap gap-1.5"></div>
+            </div>
+          </div>
+        </section>
           </div>
         </div>
 </div>
@@ -1032,18 +1140,16 @@
               <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               <span id="playPauseText">WAITING FOR HR SENSOR & TOY</span>
             </button>
-            <button id="sessionStopBtn" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-300 font-bold py-3 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer">
+            <button id="edgedBtn" type="button" class="font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Stop and count an edge the pulse has not reached. Counts for NNN. Does not add a pause.">Edged</button>
+            <button id="cameEarlyBtn" class="font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Log accidental release so local learning engine tightens limits next time.">
+              <span id="cameEarlyLabel">Came Early</span>
+            </button>
+            <button id="orgasmBtn" class="font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
+              <span id="orgasmBtnText">Force Orgasm</span>
+            </button>
+            <button id="sessionStopBtn" class="font-bold py-3 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1 cursor-pointer">
               <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
               <span>STOP</span>
-            </button>
-            <button id="edgedBtn" type="button" class="bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-100 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Stop and count an edge the pulse has not reached. Counts for NNN. Does not add a pause.">Edged</button>
-            <button id="cameEarlyBtn" class="bg-amber-950/60 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer" title="Log accidental release so local learning engine tightens limits next time.">
-              <span id="cameEarlyKicker" class="text-[8px] text-amber-400 font-semibold uppercase">Accidental</span>
-              <span id="cameEarlyLabel" class="font-bold text-[10px] mt-0.5">Came Early</span>
-            </button>
-            <button id="orgasmBtn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer shadow-lg shadow-amber-950/30">
-              <span class="text-[8px] uppercase tracking-wider text-amber-200">Overdrive</span>
-              <span id="orgasmBtnText" class="font-bold text-[10px] mt-0.5">Force Orgasm</span>
             </button>
             <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">Reset</button>
             <button id="pipBtn" type="button" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable.">Pop out</button>
@@ -1058,6 +1164,20 @@
 
     <!-- Two-Column Responsive Cockpit Grid (Desktop & Landscape Tablet) -->
     <div id="cockpit" class="space-y-3">
+
+      <section id="controlleeBanner" class="hidden bg-slate-900 border border-purple-800 rounded-2xl p-3.5 space-y-2.5">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-purple-300">Controllee</p>
+            <p id="controlleeStatus" class="text-sm font-bold text-amber-300">Waiting for a controller</p>
+            <p class="text-[10px] text-slate-400 leading-snug mt-1">Your toys and heart rate stay on this screen. Play Style, Session Endgame, and Stimulation Intensity are on the controller's screen. Stop here still stops your toys. Solo puts this page back.</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <input id="controlleeShareUrl" type="text" readonly aria-label="Controller link" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 font-mono text-[10px] text-slate-300 select-all outline-none">
+          <button id="controlleeCopyBtn" type="button" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer">Copy</button>
+        </div>
+      </section>
 
       <!-- LEFT COLUMN -->
       <div id="cockpitMain" class="space-y-3">
@@ -1179,7 +1299,7 @@
         </div>
 
         <!-- Output Channel Gauges -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
+        <div id="channelGauges" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
           <div class="space-y-1">
             <div class="flex justify-between text-xs font-semibold">
               <span class="flex items-center gap-1.5 text-slate-300">
@@ -1227,7 +1347,7 @@
         </div>
 
         <!-- Stimulation Intensity Multiplier -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-1.5">
+        <div id="intensityPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-1.5">
           <div class="flex justify-between items-center text-xs">
             <span class="font-bold text-slate-200 flex items-center gap-1.5">
               <span class="text-amber-400">⚡</span> Stimulation Intensity
@@ -1269,7 +1389,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.31</span>
+        <span id="appVersion" class="font-mono">v1.1.5.13</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1321,6 +1441,13 @@
             <button id="modalBleDisconnectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-3 rounded-lg text-xs transition hidden cursor-pointer">
               Disconnect
             </button>
+          </div>
+          <div id="bleLinuxFlag" class="hidden rounded-xl border border-slate-800 bg-slate-950 p-2 space-y-1.5">
+            <p class="text-[10px] text-slate-400 leading-snug">On Linux, Chrome hides Bluetooth until this flag is on. Select the address, or Copy, then paste it into the address bar.</p>
+            <div class="flex gap-1.5 items-center">
+              <input id="bleLinuxFlagUrl" type="text" readonly value="chrome://flags/#enable-experimental-web-platform-features" aria-label="Chrome flag for Web Bluetooth on Linux" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 font-mono text-[10px] text-slate-100 cursor-text">
+              <button id="bleLinuxFlagCopy" type="button" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold px-2.5 py-1.5 rounded-lg text-[10px] cursor-pointer">Copy</button>
+            </div>
           </div>
           <div id="modalBleMsg" class="text-xs leading-snug text-slate-500">Status: Not connected</div>
           <button id="bleQuickHelpBtn" class="text-[10px] text-purple-400 hover:underline block text-center w-full pt-0.5 cursor-pointer">
@@ -1623,11 +1750,12 @@
             </span>
           </label>
           <p class="text-[9px] text-slate-400 leading-snug">
-            Off until you turn it on. The log stays in this browser. EdgeLoop does not upload it, and it has no account to attach it to. Stop a session and a JSON download appears on that row. Post it in <a href="https://discord.gg/ZFrkehxAC" target="_blank" rel="noopener noreferrer" class="underline text-amber-200/90 hover:text-white">Discord</a> if you want a hand reading what the toys did.
+            Off until you turn it on. The log stays in this browser. EdgeLoop does not upload it, and it has no account to attach it to. Stop a session and a JSON download appears on that row. Download debug log saves what The Handy was just sent, even mid-session. Post it in <a href="https://discord.gg/ZFrkehxAC" target="_blank" rel="noopener noreferrer" class="underline text-amber-200/90 hover:text-white">Discord</a> if you want a hand reading what the toys did.
           </p>
           <p class="text-[9px] text-slate-400 leading-snug">
-            The file has your heart rate once a second, the speeds sent to the toys, your session settings, and the make and model of the toys that were on. It leaves out Handy keys, device tokens, Bluetooth addresses, and the names of videos and scripts.
+            The file has your heart rate once a second, the speeds sent to the toys, your session settings, the make and model of the toys that were on, and the recent Handy position commands. It leaves out Handy keys, device tokens, Bluetooth addresses, and the names of videos and scripts. The live edgeloop.app site leaves this off.
           </p>
+          <button id="sessionLogDownload" type="button" class="px-2.5 py-1.5 rounded-lg bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-100 text-[10px] font-bold cursor-pointer">Download debug log</button>
         </div>
         <div id="historyList" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar scroll-smooth pr-0.5">
           <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 text-xs text-center italic">
@@ -1899,48 +2027,7 @@
         </button>
       </div>
 
-      <!-- 6. Share Control Modal (1-on-1 vs Group Tabs) -->
-      <div id="modalBodyPartner" class="space-y-3 hidden">
-        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
-          <button id="partnerTab1on1Btn" class="flex-1 py-1.5 rounded-lg bg-purple-600 text-white transition cursor-pointer">1-on-1 Control</button>
-          <button id="partnerTabGroupBtn" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer">Group Control</button>
-        </div>
-
-        <div id="partner1on1Section" class="space-y-2.5">
-          <p class="text-xs text-slate-400">Share this direct WebRTC link with a single controller. A second controller replaces the first.</p>
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">1-on-1 Session URL</div>
-            <div class="flex gap-2">
-              <input id="partnerShareUrl" type="text" readonly class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 font-mono text-[10px] text-slate-300 select-all outline-none">
-              <button id="copyShareUrlBtn" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-lg transition cursor-pointer">Copy</button>
-            </div>
-          </div>
-          <div class="flex items-center justify-between text-xs text-slate-400 p-2 bg-slate-950 rounded-xl border border-slate-800">
-            <span>Controller Status:</span>
-            <span id="partnerStatusText" class="font-bold text-amber-400">Waiting for controller...</span>
-          </div>
-        </div>
-
-        <div id="partnerGroupSection" class="space-y-2.5 hidden">
-          <p class="text-xs text-slate-400">Share this link with any number of read-only viewers. They see the live telemetry exactly as the controller does, but every control is disabled. Only the 1-on-1 link can control the session.</p>
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <div class="text-[9px] text-slate-500 uppercase font-semibold">Viewer Join Link</div>
-            <div class="flex gap-2">
-              <input id="groupShareUrl" type="text" readonly class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 font-mono text-[10px] text-slate-300 select-all outline-none">
-              <button id="copyGroupUrlBtn" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-lg transition cursor-pointer">Copy</button>
-            </div>
-          </div>
-          <div class="p-2 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
-            <div class="flex justify-between items-center text-xs">
-              <span class="font-bold text-slate-300">Connected Viewers</span>
-              <span id="groupViewerCountBadge" class="font-mono text-purple-400 font-bold">0 Watching</span>
-            </div>
-            <div id="groupViewersList" class="space-y-1 text-[10px] text-slate-500 italic">No viewers currently connected.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 7. Changelog -->
+      <!-- 6. Changelog -->
       <div id="modalBodyChangelog" class="space-y-2.5 hidden">
         <div id="changelogBody" class="text-xs text-slate-400 space-y-2 max-h-[60vh] overflow-y-auto pr-1 leading-relaxed"></div>
         <p class="text-[10px] text-slate-500 leading-snug">Same list as <a id="changelogGithubLink" href="https://github.com/marshallmims/edgeloop/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-300">CHANGELOG.md on GitHub</a>. A published <a id="changelogReleasesLink" href="https://github.com/marshallmims/edgeloop/releases" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-300">Release</a> is what posts that version to Discord.</p>
@@ -1982,7 +2069,7 @@
           <div class="font-bold text-teal-400 text-sm">Browsers</div>
           <ul class="list-disc list-inside space-y-0.5 text-slate-400 leading-relaxed">
             <li><strong>Chrome / Edge</strong> on Windows, macOS, Android and ChromeOS: works out of the box. iPhone / iPad: use <strong>Bluefy</strong>.</li>
-            <li><strong>Linux Chrome:</strong> enable <span class="font-mono text-slate-300">chrome://flags/#enable-experimental-web-platform-features</span> and use a native (non-Flatpak / non-Snap) browser, or Bluetooth stays hidden.</li>
+            <li><strong>Linux Chrome:</strong> enable <button type="button" id="guideLinuxFlagBtn" class="font-mono text-slate-300 underline cursor-pointer" title="Copy the flag address">chrome://flags/#enable-experimental-web-platform-features</button> and use a native (non-Flatpak / non-Snap) browser, or Bluetooth stays hidden. The address copies when you click it.</li>
             <li><strong>Firefox and Safari</strong> do not support Web Bluetooth.</li>
           </ul>
         </div>
@@ -2019,7 +2106,7 @@
       <div id="wizardStep2" class="wizard-pane space-y-2 text-center hidden">
         <p class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Step 3 of 3</p>
         <h3 class="text-base font-bold text-white">Set your ceiling and start</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">Set your resting heart rate, the heart rate where you climax with one toy, and the heart rate where you climax with both. Resting starts at 70. Open <strong class="text-slate-200">Session Setup</strong> for duration, warm-up, and guards.</p>
+        <p class="text-xs text-slate-400 leading-relaxed">Set your resting heart rate, the heart rate where you climax with one toy, and the heart rate where you climax with both. Resting starts at 70. Open <strong class="text-slate-200">Advanced Session Settings</strong> for duration, warm-up, and guards.</p>
         <div class="flex justify-center gap-3 text-xs flex-wrap">
           <label class="flex items-center gap-1 text-slate-300 font-semibold">Resting
             <input id="wizardMinHr" type="number" min="30" max="250" value="70" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400">
@@ -2031,7 +2118,7 @@
             <input id="wizardDualMax" type="number" min="31" max="250" value="125" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500">
           </label>
         </div>
-        <p class="text-[10px] text-slate-500 leading-relaxed">If you do not know those numbers, start <strong class="text-slate-200">Calibration</strong>. The first run is your primary stimulation device alone. Tap <strong>Edged</strong> when you are on the edge. That saves the heart rate you are on and eases the toys down. When you orgasm, tap <strong>The app / Finished me</strong>. After a rest, a second run with both devices sets the dual max. You can change either number by hand.</p>
+        <p class="text-[10px] text-slate-500 leading-relaxed">If you do not know those numbers, start <strong class="text-slate-200">Calibration</strong>. The first run is your primary stimulation device alone. Tap <strong>Edged</strong> when you are on the edge. That saves the heart rate you are on and eases the toys down. When you orgasm, tap <strong>Finished me</strong>. After a rest, a second run with both devices sets the dual max. You can change either number by hand.</p>
         <button type="button" id="wizardCalibrateBtn" class="w-full bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold py-2.5 rounded-xl text-xs cursor-pointer">Start primary calibration</button>
       </div>
 

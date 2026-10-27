@@ -649,7 +649,21 @@ function speedForRole(role, primary, secondary) {
     return 0;
 }
 
+// Axes the controller is driving. The engine tick must not overwrite them.
+export function setTCodeManualHold(axisIds) {
+    const next = new Set(axisIds || []);
+    if (!device || !Array.isArray(device.axes)) return;
+    for (const axis of device.axes) {
+        const hold = next.has(axis.id);
+        if (hold === Boolean(axis.manualHold)) continue;
+        axis.manualHold = hold;
+        if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+        if (hold && axis.planner) axis.planner.setInput({ enabled: false });
+    }
+}
+
 function applyAxis(axis, primary, secondary, zone, now) {
+    if (axis.manualHold) return;
     const speed = speedForRole(axis.role, primary, secondary);
     const enabled = axis.role !== 'off';
     if (axis.kind === 'linear' && !axis.centred) {
@@ -707,6 +721,65 @@ export function dispatchTCode(primarySpeed, secondarySpeed, strokeMin = 0, strok
         applyLastSpeeds(Date.now());
     } catch (e) {
         // A driver bug must never take the engine tick down with it.
+    }
+}
+
+// Manual control drives one axis at a time. `entries` are
+// { axisId, speed, strokeMin, strokeMax, level }. Caps and the travel
+// envelope still apply. `stopAll` cuts every axis on one line.
+export function applyManualTCode(entries, envMin = 0, envMax = 100, { stopAll = false } = {}) {
+    try {
+        if (!isTCodeConnected() || !device) return;
+        const mapped = zoneFromPercent(0, 100, envMin, envMax);
+        lastEnvelope = mapped.envelope;
+        if (stopAll) {
+            stopTCode();
+            return;
+        }
+        const now = Date.now();
+        for (const entry of entries || []) {
+            const axis = device.axes.find((item) => item.id === entry.axisId);
+            if (!axis || axis.role === 'off') continue;
+            const stroke = axis.kind === 'linear' && !axis.centred;
+            const speed = stroke || axis.kind === 'rotate' ? entry.speed : entry.level;
+            if (stroke && Number.isFinite(Number(entry.position))) {
+                const pos = zoneFromPercent(entry.position, entry.position, envMin, envMax).zone.min;
+                axis.planner.setInput({ enabled: false, speed: 0 });
+                if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+                if (axis.lastFollow !== pos) {
+                    axis.lastFollow = pos;
+                    writeCommands([formatAxisCommand(axis.id, physicalPosition(axis, pos), { intervalMs: 250 })]);
+                }
+                continue;
+            }
+            axis.lastFollow = null;
+            if (stroke) {
+                const zone = zoneFromPercent(entry.strokeMin, entry.strokeMax, envMin, envMax).zone;
+                axis.planner.setInput({
+                    speed,
+                    cap: axis.maxCap,
+                    zoneMin: zone.min,
+                    zoneMax: zone.max,
+                    enabled: speed > 0
+                });
+                pumpPlanner(axis, now);
+            } else if (axis.planner) {
+                const amp = speed > 0 ? rotationAmplitude(speed, axis.maxCap) : 0;
+                axis.planner.setInput({
+                    speed,
+                    cap: axis.maxCap,
+                    zoneMin: 0.5 - amp,
+                    zoneMax: 0.5 + amp,
+                    enabled: amp > 0,
+                    legTravel: 1
+                });
+                pumpPlanner(axis, now);
+            } else {
+                sendScalar(axis, speed > 0 ? scalarLevel(speed, axis.maxCap) : 0);
+            }
+        }
+    } catch (e) {
+        // A manual frame must not take the session tick down with it.
     }
 }
 
