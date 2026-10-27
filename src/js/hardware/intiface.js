@@ -1006,6 +1006,17 @@ export function applyManualIntiface(entries, envMin = 0, envMax = 100, { stopAll
         const axis = dev.axes.find((item) => item.key === entry.axisKey);
         if (!axis || axis.inert || axis.role === 'off') continue;
         const speed = axis.kind === 'linear' || axis.kind === 'rotate' ? entry.speed : entry.level;
+        if (axis.kind === 'linear' && Number.isFinite(Number(entry.position))) {
+            const pos = zoneFromPercent(entry.position, entry.position, envMin, envMax).zone.min;
+            axis.planner.setInput({ enabled: false, speed: 0 });
+            if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+            if (axis.lastFollow !== pos) {
+                axis.lastFollow = pos;
+                sendLinear(dev, axis, physicalPosition(axis, pos), 250);
+            }
+            continue;
+        }
+        axis.lastFollow = null;
         if (axis.kind === 'linear') {
             const zone = zoneFromPercent(entry.strokeMin, entry.strokeMax, envMin, envMax).zone;
             axis.planner.setInput({

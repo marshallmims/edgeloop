@@ -6,6 +6,7 @@ import {
     connectHandy,
     disconnectHandy,
     dispatchHandy,
+    dispatchHandyFollow,
     stopHandy,
     stopHandyOnUnload,
     pollHandyConnected,
@@ -17,7 +18,7 @@ import {
     isHandyOfflineStopPending,
     handyConnected
 } from './handy.js';
-import { HANDY_API_BASE } from './handy-protocol.js';
+import { HANDY_API_BASE, HANDY_MODE } from './handy-protocol.js';
 
 const KEY = 'test-key-123';
 
@@ -682,5 +683,43 @@ describe('handy driver', () => {
         // Explaining a refusal is all it does: the existing offline counter
         // is still the only thing that decides when to give up on the link.
         assert.equal(offline.length, 0);
+    });
+
+    it('follows a finger in HDSP, then a speed command returns to HAMP', async () => {
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            await connectOk();
+            dispatchHandyFollow(0, 0, 100, 5);
+            await tick(40);
+            assert.deepEqual(sent('/slide', 'PUT')[0].body, { min: 5, max: 95 });
+            assert.equal(sent('/mode', 'PUT')[0].body.mode, HANDY_MODE.HDSP);
+            const xpt = sent('/hdsp/xpt', 'PUT');
+            assert.equal(xpt.length, 1);
+            assert.equal(xpt[0].body.position, 5);
+            assert.equal(xpt[0].body.immediateResponse, true);
+            assert.equal(xpt[0].body.stopOnTarget, false);
+            calls = [];
+            dispatchHandyFollow(100, 0, 100, 5);
+            await tick(40);
+            assert.equal(sent('/hdsp/xpt', 'PUT')[0].body.position, 95);
+            assert.equal(sent('/mode', 'PUT').length, 0);
+            calls = [];
+            dispatchHandy(40, 10, 90, true, 0, 100, 0);
+            await tick(50);
+            assert.ok(sent('/mode', 'PUT').some((call) => call.body.mode === HANDY_MODE.HAMP));
+            assert.ok(sent('/slide', 'PUT').length > 0 || sent('/hamp/start', 'PUT').length > 0);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
+    it('stops a position follow by leaving HDSP', async () => {
+        await connectOk();
+        dispatchHandyFollow(50, 0, 100, 0);
+        await tick(40);
+        calls = [];
+        assert.equal(await stopHandy(), true);
+        assert.ok(sent('/mode', 'PUT').some((call) => call.body.mode === HANDY_MODE.HAMP));
+        assert.ok(sent('/hamp/stop', 'PUT').length >= 1);
     });
 });

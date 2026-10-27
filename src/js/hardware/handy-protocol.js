@@ -128,8 +128,19 @@ export function applyEndMargin(range, margin = HANDY_DEFAULT_END_MARGIN, minGap 
     return { min: lo, max: hi };
 }
 
+// Where a 0–100 finger position lands inside the wearer's travel, pulled
+// off the mechanical ends by the end margin. 0 is the bottom of that
+// window and 100 is the top. HDSP position commands use the result.
+export function followPosition(percent, envMin = 0, envMax = 100, margin = HANDY_DEFAULT_END_MARGIN) {
+    const bounds = endMarginWindow(envMin, envMax, margin);
+    const span = bounds.max - bounds.min;
+    const p = clampPercent(percent, 0);
+    return Math.round(bounds.min + (p / 100) * span);
+}
+
 // The slide window HSP uses: the travel envelope, pulled off the mechanical
 // ends by the end margin, never narrower than the minimum stroke.
+
 export function endMarginWindow(envMin = 0, envMax = 100, margin = HANDY_DEFAULT_END_MARGIN, minGap = HANDY_MIN_SLIDE_GAP) {
     const gap = Math.max(0, toInt(minGap, HANDY_MIN_SLIDE_GAP));
     const env = normalizeEnvelope(envMin, envMax, 'max', gap);

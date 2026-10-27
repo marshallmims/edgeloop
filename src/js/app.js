@@ -70,9 +70,9 @@ import { isDevTelemetryHost, createSessionLog, buildSessionExport, pauseReasonFr
 import { formatLiveHr } from './hr-readout.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
-import { describeBluetoothSupport, describeBleError } from './hardware/ble-protocol.js';
+import { describeBluetoothSupport, describeBleError, linuxDesktop, CHROME_BLUETOOTH_FLAG } from './hardware/ble-protocol.js';
 import { createHrWatchdog, clampStaleSeconds } from './hr-watchdog.js';
-import { connectHandy, disconnectHandy, dispatchHandy, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey, getHandyInfo } from './hardware/handy.js';
+import { connectHandy, disconnectHandy, dispatchHandy, dispatchHandyFollow, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey, getHandyInfo } from './hardware/handy.js';
 import { createHandyHsp } from './hardware/handy-hsp.js';
 import { handyScriptRoute, resolveApplicationId, HANDY_APP_ID_STORAGE_KEY } from './hardware/handy-hsp-protocol.js';
 import { normalizeEnvelope, applyEndMargin, clampEndMargin } from './hardware/handy-protocol.js';
@@ -84,8 +84,9 @@ import {
     decayFrame,
     frameFromPattern,
     frameIsStopped,
-    loopFromGesture,
+    loopFromTracks,
     manualSplit,
+    orderStroke,
     MANUAL_LINK_MS,
     parseDeviceId,
     PATTERN_CHOICES,
@@ -1634,7 +1635,21 @@ function summarizeManual(outputs) {
     return { primary, secondary, strokeMin, strokeMax };
 }
 
+let handyFollow = false;
+
+function queueHandyFollow(position) {
+    handyFollow = true;
+    handyManualHold = null;
+    if (handyManualTimer) {
+        clearTimeout(handyManualTimer);
+        handyManualTimer = null;
+    }
+    const env = normalizeEnvelope(advancedSettings.handyHwMin, advancedSettings.handyHwMax);
+    dispatchHandyFollow(position, env.min, env.max, advancedSettings.handyEndMargin);
+}
+
 function queueHandyManual(speed, strokeMin, strokeMax, urgent) {
+    handyFollow = false;
     const env = normalizeEnvelope(advancedSettings.handyHwMin, advancedSettings.handyHwMax);
     // The driver clamps this into the wearer's travel envelope, so a slider
     // at 0–100 is the full stroke they allowed and cannot pass the end stops.
@@ -1687,7 +1702,11 @@ function applyManualHardware(frame, { urgent = false } = {}) {
     const handy = devices.find((item) => item.id === 'handy');
     const handyInfo = deviceCatalog.find((item) => item.id === 'handy');
     if (handy && handyInfo && handyInfo.connected && handyInfo.role !== 'off') {
-        queueHandyManual(handy.speed, handy.strokeMin, handy.strokeMax, urgent);
+        if (Number.isFinite(Number(handy.position))) queueHandyFollow(handy.position);
+        else queueHandyManual(handy.speed, handy.strokeMin, handy.strokeMax, urgent);
+    } else if (handyFollow) {
+        handyFollow = false;
+        dispatchHandy(0, handy ? handy.strokeMin : 0, handy ? handy.strokeMax : 100, true, env.min, env.max, advancedSettings.handyEndMargin);
     }
     const intiface = [];
     const tcode = [];
@@ -1702,7 +1721,8 @@ function applyManualHardware(frame, { urgent = false } = {}) {
                 speed: output.speed,
                 strokeMin: output.strokeMin,
                 strokeMax: output.strokeMax,
-                level: output.level
+                level: output.level,
+                position: output.position
             });
         } else if (parsed.family === 'tcode' && parsed.axisId) {
             tcode.push({
@@ -1710,7 +1730,8 @@ function applyManualHardware(frame, { urgent = false } = {}) {
                 speed: output.speed,
                 strokeMin: output.strokeMin,
                 strokeMax: output.strokeMax,
-                level: output.level
+                level: output.level,
+                position: output.position
             });
         } else if (parsed.family === 'vacuglide') {
             dispatchVacuglide(output.speed, output.speed === 0);
@@ -1719,13 +1740,15 @@ function applyManualHardware(frame, { urgent = false } = {}) {
     const releasedIntiface = plan.released.some((id) => id.startsWith('intiface'));
     const releasedTcode = plan.released.some((id) => id.startsWith('tcode'));
     if (intiface.length) {
+        const held = (item) => item.speed > 0 || item.level > 0 || Number.isFinite(Number(item.position));
         applyManualIntiface(intiface, env.min, env.max, {
-            stopAll: !releasedIntiface && intiface.every((item) => item.speed === 0 && item.level === 0)
+            stopAll: !releasedIntiface && intiface.every((item) => !held(item))
         });
     }
     if (tcode.length) {
+        const held = (item) => item.speed > 0 || item.level > 0 || Number.isFinite(Number(item.position));
         applyManualTCode(tcode, env.min, env.max, {
-            stopAll: !releasedTcode && tcode.every((item) => item.speed === 0 && item.level === 0)
+            stopAll: !releasedTcode && tcode.every((item) => !held(item))
         });
     }
 }
@@ -3553,6 +3576,17 @@ const MODE_NAMES = {
     calibrate: 'Calibration'
 };
 
+const PLAY_STYLE_CHOICES = [
+    ['classic', 'Simple Ramp'],
+    ['finisher', 'Finisher'],
+    ['milker', 'Prostate Milker'],
+    ['shortener', 'Glans Protector'],
+    ['headplay', 'Head Play'],
+    ['ultimate', 'Ultimate Milker'],
+    ['bratty', 'Bratty Tease'],
+    ['ruin', 'Ruin & Leak']
+];
+
 const ENDING_NAMES = {
     orgasm: 'Climax',
     rampdown: 'Soft Landing',
@@ -3663,6 +3697,7 @@ function highlightModeCard() {
         }
     });
     syncFollowScript();
+    paintManualStyleButtons();
 }
 
 function applyModeSelection(mode, enabled) {
@@ -5370,8 +5405,36 @@ function bleBadgeName() {
     return state.hrDeviceName ? state.hrDeviceName.split(' ')[0] : 'HR Monitor';
 }
 
+function paintBleLinuxFlag() {
+    const box = document.getElementById('bleLinuxFlag');
+    if (!box) return;
+    const show = linuxDesktop(navigator.userAgent) && !navigator.bluetooth;
+    box.classList.toggle('hidden', !show);
+}
+
+function copyChromeFlag(button) {
+    const input = document.getElementById('bleLinuxFlagUrl');
+    const text = input && input.value ? input.value : CHROME_BLUETOOTH_FLAG;
+    if (input) {
+        input.focus();
+        input.select();
+    }
+    const showCopied = () => {
+        if (!button) return;
+        const previous = button.textContent;
+        button.textContent = 'Copied';
+        setTimeout(() => { button.textContent = previous; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(showCopied);
+        return;
+    }
+    showCopied();
+}
+
 // Tell the user why Web Bluetooth is missing instead of a silent failure.
 function warnBluetoothUnsupported() {
+    paintBleLinuxFlag();
     if (navigator.bluetooth) return false;
     setBleStatus(describeBluetoothSupport(navigator.userAgent), 'error');
     // The modal status line explains it; the card keeps the source in use.
@@ -5380,6 +5443,11 @@ function warnBluetoothUnsupported() {
 }
 
 // BLE Hardware Scanning
+document.getElementById('bleLinuxFlagUrl')?.addEventListener('click', (event) => event.currentTarget.select());
+document.getElementById('bleLinuxFlagCopy')?.addEventListener('click', (event) => copyChromeFlag(event.currentTarget));
+document.getElementById('guideLinuxFlagBtn')?.addEventListener('click', (event) => copyChromeFlag(event.currentTarget));
+paintBleLinuxFlag();
+
 document.getElementById('modalBleScanBtn')?.addEventListener('click', async () => {
     if (warnBluetoothUnsupported()) return;
     try {
@@ -6623,7 +6691,7 @@ function setManualModeUi(on, fromHost = false) {
     live?.classList.toggle('hidden', !manualDriving);
     if (hint) {
         hint.textContent = manualDriving
-            ? 'You have the toys in this block. EdgeLoop Control puts Play Style and Session Endgame back. On a toy, You drives it and EdgeLoop leaves it on their pulse. Slow and Stop are immediate.'
+            ? 'You has the sliders. EdgeLoop on a toy opens the play styles. Loop follows your hand, then repeats it. Slow and Stop are immediate.'
             : 'EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.';
     }
 }
@@ -6642,6 +6710,8 @@ function ensureDraft(device) {
     return draft;
 }
 
+const strokePainters = new Map();
+
 function writeDraftInputs() {
     document.querySelectorAll('[data-manual-id]').forEach((input) => {
         const draft = manualDraft.get(input.getAttribute('data-manual-id'));
@@ -6651,6 +6721,7 @@ function writeDraftInputs() {
         const readout = input.parentElement?.querySelector('[data-manual-readout]');
         if (readout) readout.textContent = `${draft[field]}%`;
     });
+    for (const paint of strokePainters.values()) paint();
 }
 
 function setManualKeepalive(on) {
@@ -6677,7 +6748,7 @@ function refreshManualHold() {
     }
     let moving = false;
     for (const draft of ownedDrafts()) {
-        if (draft.speed > 0 || draft.level > 0) moving = true;
+        if (draft.speed > 0 || draft.level > 0 || Number.isFinite(draft.position)) moving = true;
     }
     if (moving) scheduleManualFrame(false);
 }
@@ -6734,15 +6805,123 @@ function addManualSlider(parent, device, field, label) {
     input.addEventListener('input', () => {
         const value = Number(input.value);
         const dropping = value < draft[field];
+        delete draft.position;
         draft[field] = value;
-        if (field === 'strokeMin' && value > draft.strokeMax) draft.strokeMax = value;
-        if (field === 'strokeMax' && value < draft.strokeMin) draft.strokeMin = value;
         readout.textContent = `${value}%`;
         writeDraftInputs();
         scheduleManualFrame(dropping || value === 0);
     });
     row.append(head, input);
     parent.append(row);
+}
+
+function addStrokeRange(parent, device) {
+    const draft = ensureDraft(device);
+    const wrap = document.createElement('div');
+    wrap.className = 'space-y-1';
+    const head = document.createElement('span');
+    head.className = 'flex justify-between text-[10px] font-semibold text-slate-300';
+    const name = document.createElement('span');
+    name.textContent = 'Stroke';
+    const readout = document.createElement('span');
+    readout.className = 'font-mono text-purple-300';
+    readout.setAttribute('data-manual-readout', 'stroke');
+    head.append(name, readout);
+    const track = document.createElement('div');
+    track.className = 'relative h-10 touch-none';
+    track.setAttribute('data-stroke-range', device.id);
+    const rail = document.createElement('div');
+    rail.className = 'absolute left-3 right-3 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-slate-800';
+    const fill = document.createElement('div');
+    fill.className = 'absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-purple-400';
+    fill.setAttribute('data-stroke-fill', '');
+    const place = () => {
+        readout.textContent = `${draft.strokeMin}–${draft.strokeMax}%`;
+        fill.style.left = `calc(0.75rem + (100% - 1.5rem) * ${draft.strokeMin / 100})`;
+        fill.style.width = `calc((100% - 1.5rem) * ${(draft.strokeMax - draft.strokeMin) / 100})`;
+        for (const thumb of track.querySelectorAll('[data-stroke-thumb]')) {
+            const which = thumb.getAttribute('data-stroke-thumb');
+            const value = which === 'min' ? draft.strokeMin : draft.strokeMax;
+            thumb.style.left = `calc(0.75rem + (100% - 1.5rem) * ${value / 100})`;
+            thumb.setAttribute('aria-valuenow', String(value));
+        }
+    };
+    const thumb = (which) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white border-2 border-purple-400 shadow cursor-grab';
+        btn.style.zIndex = which === 'max' ? '2' : '1';
+        btn.setAttribute('data-stroke-thumb', which);
+        btn.setAttribute('role', 'slider');
+        btn.setAttribute('aria-label', which === 'min' ? 'Stroke from' : 'Stroke to');
+        btn.setAttribute('aria-valuemin', '0');
+        btn.setAttribute('aria-valuemax', '100');
+        const apply = (value, urgent) => {
+            const before = draft.strokeMax - draft.strokeMin;
+            const ordered = orderStroke(draft.strokeMin, draft.strokeMax, which, value);
+            delete draft.position;
+            draft.strokeMin = ordered.strokeMin;
+            draft.strokeMax = ordered.strokeMax;
+            place();
+            const shrinking = (draft.strokeMax - draft.strokeMin) < before;
+            scheduleManualFrame(urgent || shrinking);
+        };
+        const valueFromEvent = (event) => {
+            const rect = track.getBoundingClientRect();
+            const span = Math.max(1, rect.width - 24);
+            const x = event.clientX - rect.left - 12;
+            return Math.round(Math.max(0, Math.min(100, (x / span) * 100)));
+        };
+        btn.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            btn.setPointerCapture(event.pointerId);
+            const move = (ev) => apply(valueFromEvent(ev), false);
+            const up = () => {
+                btn.removeEventListener('pointermove', move);
+                btn.removeEventListener('pointerup', up);
+                btn.removeEventListener('pointercancel', up);
+            };
+            btn.addEventListener('pointermove', move);
+            btn.addEventListener('pointerup', up);
+            btn.addEventListener('pointercancel', up);
+        });
+        btn.addEventListener('keydown', (event) => {
+            const step = event.shiftKey ? 10 : 1;
+            const current = which === 'min' ? draft.strokeMin : draft.strokeMax;
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                apply(current - step, true);
+            } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                apply(current + step, true);
+            }
+        });
+        return btn;
+    };
+    track.append(rail, fill, thumb('min'), thumb('max'));
+    wrap.append(head, track);
+    parent.append(wrap);
+    strokePainters.set(device.id, place);
+    place();
+}
+
+function paintManualStyleButtons() {
+    const mode = state.teaseMode || 'classic';
+    document.querySelectorAll('[data-style]').forEach((btn) => {
+        const on = btn.getAttribute('data-style') === mode;
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.className = on
+            ? 'px-2 py-1 rounded-lg bg-purple-600 text-white text-[10px] font-bold cursor-pointer'
+            : 'px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 text-[10px] font-bold cursor-pointer';
+    });
+}
+
+function pickPlayStyle(mode) {
+    if (isRemoteViewer) return;
+    applyModeSelection(mode, true);
+    if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled: true });
+    else syncTelemetry();
+    paintManualStyleButtons();
 }
 
 function setDeviceOwner(device, you) {
@@ -6752,6 +6931,7 @@ function setDeviceOwner(device, you) {
         const draft = ensureDraft(device);
         draft.speed = 0;
         draft.level = 0;
+        delete draft.position;
     } else {
         manualOwned.delete(device.id);
         manualReleased.add(device.id);
@@ -6770,6 +6950,9 @@ function setDeviceOwner(device, you) {
     controls?.classList.toggle('hidden', !you);
     const note = document.querySelector(`[data-own-note="${CSS.escape(device.id)}"]`);
     note?.classList.toggle('hidden', you);
+    const stage = document.getElementById('manualLoopStage');
+    if (stage) delete stage.dataset.key;
+    renderLoopLanes();
     scheduleManualFrame(true);
 }
 
@@ -6787,15 +6970,18 @@ function renderManualDevices(devices) {
     const key = manualDevices.map((item) => `${item.id}:${item.kind}:${item.role}`).join('|');
     if (root.dataset.key === key) {
         if (claimNew && manualDriving) scheduleManualFrame(true);
+        renderLoopLanes();
         return;
     }
     root.dataset.key = key;
+    strokePainters.clear();
     root.replaceChildren();
     if (manualDevices.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'text-[10px] text-slate-400';
-        empty.textContent = 'No toy is connected on their side yet. A stroker gets speed and stroke length. A vibrator gets one slider. Two vibrators get one slider each.';
+        empty.textContent = 'No toy is connected on their side yet. A stroker gets speed and one stroke bar. A vibrator gets one slider.';
         root.append(empty);
+        renderLoopLanes();
         return;
     }
     for (const device of manualDevices) {
@@ -6828,10 +7014,23 @@ function renderManualDevices(devices) {
         }
         title.append(name, role, modes);
         card.append(title);
-        const note = document.createElement('p');
-        note.className = 'text-[10px] text-slate-400 leading-snug' + (you ? ' hidden' : '');
+        const note = document.createElement('div');
+        note.className = 'space-y-1.5' + (you ? ' hidden' : '');
         note.setAttribute('data-own-note', device.id);
-        note.textContent = 'EdgeLoop is driving this from their pulse.';
+        const noteText = document.createElement('p');
+        noteText.className = 'text-[10px] text-slate-400 leading-snug';
+        noteText.textContent = 'Pick a play style. EdgeLoop drives this toy from their pulse.';
+        const styles = document.createElement('div');
+        styles.className = 'flex flex-wrap gap-1';
+        for (const [mode, label] of PLAY_STYLE_CHOICES) {
+            const styleBtn = document.createElement('button');
+            styleBtn.type = 'button';
+            styleBtn.textContent = label;
+            styleBtn.setAttribute('data-style', mode);
+            styleBtn.addEventListener('click', () => pickPlayStyle(mode));
+            styles.append(styleBtn);
+        }
+        note.append(noteText, styles);
         const controls = document.createElement('div');
         controls.className = 'space-y-2' + (you ? '' : ' hidden');
         controls.setAttribute('data-own-controls', device.id);
@@ -6839,16 +7038,17 @@ function renderManualDevices(devices) {
         if (device.kind === 'stroke') {
             const caption = document.createElement('p');
             caption.className = 'text-[10px] text-slate-500 leading-snug';
-            caption.textContent = 'Speed is how fast it moves. Stroke from is the bottom. Stroke to is the top.';
+            caption.textContent = 'Speed is how fast it moves. The two dots are the bottom and the top of the stroke.';
             controls.append(caption);
         }
-        if (fields.includes('speed')) addManualSlider(controls, device, 'speed', device.kind === 'stroke' ? 'Speed' : 'Speed');
+        if (fields.includes('speed')) addManualSlider(controls, device, 'speed', 'Speed');
         if (fields.includes('level')) addManualSlider(controls, device, 'level', controlLabel(device.kind));
-        if (fields.includes('strokeMin')) addManualSlider(controls, device, 'strokeMin', 'Stroke from');
-        if (fields.includes('strokeMax')) addManualSlider(controls, device, 'strokeMax', 'Stroke to');
+        if (fields.includes('strokeMin') && fields.includes('strokeMax')) addStrokeRange(controls, device);
         card.append(note, controls);
         root.append(card);
     }
+    paintManualStyleButtons();
+    renderLoopLanes();
     if (claimNew && manualDriving) scheduleManualFrame(true);
 }
 
@@ -6857,7 +7057,8 @@ function patternPeaks() {
 }
 
 function startManualPattern(id, extra = {}) {
-    if (!manualDriving || patternPeaks().length === 0) return;
+    const devices = extra.devices || patternPeaks();
+    if (!manualDriving || devices.length === 0) return;
     if (manualSendTimer) {
         clearTimeout(manualSendTimer);
         manualSendTimer = null;
@@ -6869,33 +7070,160 @@ function startManualPattern(id, extra = {}) {
         epoch: manualEpoch,
         id,
         periodMs: extra.periodMs || 2000,
-        devices: patternPeaks()
+        devices
     };
     if (extra.drawn) manualPatternCmd.drawn = extra.drawn;
+    if (extra.tracks) manualPatternCmd.tracks = extra.tracks;
     sendPeerCommand(manualPatternCmd);
 }
 
-function paintManualDraw(points) {
-    const canvas = document.getElementById('manualDraw');
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const width = Math.max(1, Math.round(rect.width));
-    const height = Math.max(1, Math.round(rect.height));
-    if (canvas.width !== width) canvas.width = width;
-    if (canvas.height !== height) canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.clearRect(0, 0, width, height);
-    ctx.strokeStyle = '#c4b5fd';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    points.forEach((point, index) => {
-        const x = point.x * width;
-        const y = point.y * height;
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+function loopDevices() {
+    return manualDevices.filter((device) => manualOwned.has(device.id));
+}
+
+function loopMagnitude(device) {
+    const draft = ensureDraft(device);
+    if (device.kind === 'stroke' && Number.isFinite(draft.position)) return draft.position;
+    if (controlsForKind(device.kind).includes('level')) return draft.level;
+    return draft.speed;
+}
+
+function placeLoopDot(id, value) {
+    const dot = document.querySelector(`[data-loop-dot="${CSS.escape(id)}"]`);
+    if (!dot) return;
+    const v = Math.max(0, Math.min(100, Number(value) || 0));
+    dot.style.top = `calc(${(100 - v) * 0.78}% + 6px)`;
+}
+
+function renderLoopLanes() {
+    const stage = document.getElementById('manualLoopStage');
+    if (!stage || stage.classList.contains('hidden')) return;
+    const devices = loopDevices();
+    const key = devices.map((item) => item.id).join('|');
+    if (stage.dataset.key === key && stage.childElementCount) {
+        for (const device of devices) placeLoopDot(device.id, loopMagnitude(device));
+        return;
+    }
+    stage.dataset.key = key;
+    stage.replaceChildren();
+    if (!devices.length) {
+        const empty = document.createElement('p');
+        empty.className = 'absolute inset-0 flex items-center justify-center text-center text-[10px] text-slate-500 px-3';
+        empty.textContent = 'Set a toy to You. Each one gets a dot here.';
+        stage.append(empty);
+        return;
+    }
+    const row = document.createElement('div');
+    row.className = 'absolute inset-0 flex';
+    for (const device of devices) {
+        const lane = document.createElement('div');
+        lane.className = 'relative flex-1 min-w-0 border-l border-slate-800 first:border-l-0 cursor-ns-resize';
+        lane.setAttribute('data-loop-lane', device.id);
+        const dot = document.createElement('div');
+        dot.className = 'absolute left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-purple-400 border-2 border-white shadow pointer-events-none';
+        dot.setAttribute('data-loop-dot', device.id);
+        const label = document.createElement('div');
+        label.className = 'absolute bottom-1 left-0 right-0 px-0.5 text-center text-[8px] text-slate-400 truncate pointer-events-none';
+        label.textContent = device.name;
+        lane.append(dot, label);
+        lane.addEventListener('pointerdown', (event) => startLoopDrag(device, lane, event));
+        row.append(lane);
+    }
+    stage.append(row);
+    for (const device of devices) placeLoopDot(device.id, loopMagnitude(device));
+}
+
+function loopSnapshot(t) {
+    return {
+        t,
+        devices: loopDevices().map((device) => {
+            const draft = ensureDraft(device);
+            const point = { id: draft.id };
+            if (device.kind === 'stroke' && Number.isFinite(draft.position)) point.position = draft.position;
+            else if (controlsForKind(device.kind).includes('level')) point.level = draft.level;
+            else point.speed = draft.speed;
+            return point;
+        })
+    };
+}
+
+function applyLoopValue(device, value) {
+    const draft = ensureDraft(device);
+    if (device.kind === 'stroke') {
+        draft.position = value;
+        draft.speed = 0;
+        draft.level = 0;
+    } else if (controlsForKind(device.kind).includes('level')) {
+        delete draft.position;
+        draft.level = value;
+    } else {
+        delete draft.position;
+        draft.speed = value;
+    }
+    placeLoopDot(device.id, value);
+}
+
+function startLoopDrag(device, lane, event) {
+    if (!manualDriving) return;
+    event.preventDefault();
+    lane.setPointerCapture(event.pointerId);
+    const valueOf = (ev) => {
+        const rect = lane.getBoundingClientRect();
+        const y = rect.height ? (ev.clientY - rect.top) / rect.height : 1;
+        return Math.round(Math.max(0, Math.min(100, (1 - Math.max(0, Math.min(1, y))) * 100)));
+    };
+    const started = Date.now();
+    applyLoopValue(device, valueOf(event));
+    manualGesture = { started, samples: [loopSnapshot(0)] };
+    scheduleManualFrame(true);
+    const move = (ev) => {
+        if (!manualGesture) return;
+        applyLoopValue(device, valueOf(ev));
+        manualGesture.samples.push(loopSnapshot(Date.now() - started));
+        scheduleManualFrame(false);
+    };
+    const finish = () => {
+        lane.removeEventListener('pointermove', move);
+        lane.removeEventListener('pointerup', finish);
+        lane.removeEventListener('pointercancel', finish);
+        if (!manualGesture) return;
+        const samples = manualGesture.samples;
+        const elapsed = Date.now() - manualGesture.started;
+        manualGesture = null;
+        const moved = samples.some((sample) => {
+            const first = samples[0].devices.find((item) => item.id === device.id);
+            const current = sample.devices.find((item) => item.id === device.id);
+            if (!first || !current) return false;
+            const a = first.position ?? first.level ?? first.speed ?? 0;
+            const b = current.position ?? current.level ?? current.speed ?? 0;
+            return Math.abs(a - b) >= 3;
+        });
+        const loop = moved ? loopFromTracks(samples, elapsed) : null;
+        for (const draft of ownedDrafts()) delete draft.position;
+        if (loop) {
+            startManualPattern('drawn', {
+                periodMs: loop.periodMs,
+                tracks: loop.tracks,
+                devices: ownedDrafts().map((draft) => ({ ...draft }))
+            });
+            return;
+        }
+        scheduleManualFrame(true);
+    };
+    lane.addEventListener('pointermove', move);
+    lane.addEventListener('pointerup', finish);
+    lane.addEventListener('pointercancel', finish);
+}
+
+function setLoopOpen(on) {
+    const stage = document.getElementById('manualLoopStage');
+    const btn = document.getElementById('manualLoopBtn');
+    stage?.classList.toggle('hidden', !on);
+    btn?.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (btn) btn.className = on
+        ? 'px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer'
+        : 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer';
+    if (on) renderLoopLanes();
 }
 
 function initManualPanel() {
@@ -6925,6 +7253,7 @@ function initManualPanel() {
         for (const draft of ownedDrafts()) {
             draft.speed = Math.min(draft.speed, 12);
             draft.level = Math.min(draft.level, 12);
+            delete draft.position;
         }
         writeDraftInputs();
         scheduleManualFrame(true);
@@ -6936,6 +7265,7 @@ function initManualPanel() {
         for (const draft of manualDraft.values()) {
             draft.speed = 0;
             draft.level = 0;
+            delete draft.position;
         }
         writeDraftInputs();
         if (manualSendTimer) {
@@ -6944,34 +7274,17 @@ function initManualPanel() {
         }
         sendPeerCommand({ type: 'MANUAL_STOP', epoch: manualEpoch });
     });
-    const canvas = document.getElementById('manualDraw');
-    if (!canvas) return;
-    const pointOf = (event) => {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            x: rect.width ? (event.clientX - rect.left) / rect.width : 0,
-            y: rect.height ? (event.clientY - rect.top) / rect.height : 0
-        };
-    };
-    canvas.addEventListener('pointerdown', (event) => {
-        if (!manualDriving) return;
-        canvas.setPointerCapture(event.pointerId);
-        manualGesture = { started: Date.now(), points: [pointOf(event)] };
-        paintManualDraw(manualGesture.points);
+    document.getElementById('manualLoopBtn')?.addEventListener('click', () => {
+        const stage = document.getElementById('manualLoopStage');
+        const open = stage ? stage.classList.contains('hidden') : false;
+        if (!open) {
+            manualPatternOn = false;
+            manualPatternCmd = null;
+            for (const draft of ownedDrafts()) delete draft.position;
+            scheduleManualFrame(true);
+        }
+        setLoopOpen(open);
     });
-    canvas.addEventListener('pointermove', (event) => {
-        if (!manualGesture) return;
-        manualGesture.points.push(pointOf(event));
-        paintManualDraw(manualGesture.points);
-    });
-    const finishGesture = () => {
-        if (!manualGesture) return;
-        const loop = loopFromGesture(manualGesture.points, Date.now() - manualGesture.started);
-        manualGesture = null;
-        if (loop) startManualPattern('drawn', loop);
-    };
-    canvas.addEventListener('pointerup', finishGesture);
-    canvas.addEventListener('pointercancel', finishGesture);
 }
 
 function applyRemoteTelemetry(data) {

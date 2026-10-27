@@ -4,6 +4,13 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.05
+
+- **The Linux Chrome flag under Scan & Pair can be copied.** When Bluetooth is hidden on Linux, the flag address sits under that button. Copy puts it on the clipboard. Paste it into the address bar. The same address in the pairing guide copies too.
+- **The Handy stroke is one bar with two dots.** The left dot is the bottom of the stroke and the right dot is the top.
+- **EdgeLoop on a toy opens the play styles.** You keeps the sliders. The play style is the session's, so every toy left on EdgeLoop follows the one you pick.
+- **Loop follows your hand, then repeats it.** Each toy you are driving gets a dot. A vibrator matches the height. The Handy moves to that height on its stroke, so a quick short drag is a quick short stroke and a slow long drag is a slow long one. Letting go repeats the movement.
+
 ## 1.1.5.04
 
 - **Solo, Video Player, and Share Control are the three modes.** Solo is the regular page. Video Player is the player. Share Control is the controllee page. Solo leaves Share Control.

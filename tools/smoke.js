@@ -332,6 +332,31 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     }
     await page.locator('#gameModesGrid [data-mode="goal-off"][data-endgame="orgasm"]').click(); await sleep(150);
   });
+  await step('Linux Chrome flag sits under Scan and Pair', async () => {
+    await page.locator('#cardBle').click(); await sleep(200);
+    await page.locator('#bleTabRealBtn').click(); await sleep(200);
+    const flag = await page.evaluate(() => {
+      const ua = navigator.userAgent;
+      const linux = /Linux/i.test(ua) && !/Android/i.test(ua) && !/CrOS/i.test(ua);
+      const box = document.getElementById('bleLinuxFlag');
+      const input = document.getElementById('bleLinuxFlagUrl');
+      return {
+        expect: linux && !navigator.bluetooth,
+        hidden: !box || box.classList.contains('hidden'),
+        value: input ? input.value : '',
+        readonly: input ? input.readOnly === true : false
+      };
+    });
+    if (flag.expect) {
+      if (flag.hidden) throw new Error('Linux flag hint is hidden');
+      if (flag.value !== 'chrome://flags/#enable-experimental-web-platform-features') throw new Error('flag address: ' + flag.value);
+      if (!flag.readonly) throw new Error('flag address is not read-only');
+      await page.screenshot({ path: path.join(OUT, '13-linux-flag.png') });
+    } else if (!flag.hidden) {
+      throw new Error('flag hint is showing without a Linux browser that lacks Web Bluetooth');
+    }
+    await closeModal();
+  });
   await step('connect the mocked Handy', async () => {
     await page.locator('#cardHandy').click(); await sleep(300);
     handyCalls.length = 0;
@@ -460,7 +485,11 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame stayed up during Manual Control');
     if (!(await page.locator('#manualLive').isVisible())) throw new Error('manual controls stayed hidden');
     if (!(await page.locator('#manualSlowBtn').isVisible())) throw new Error('Slow missing from manual control');
+    if (!(await page.locator('#manualLoopBtn').isVisible())) throw new Error('Loop missing from manual control');
+    await page.locator('#manualLoopBtn').click(); await sleep(150);
+    if (!(await page.locator('#manualLoopStage').isVisible())) throw new Error('Loop stage stayed hidden');
     await page.screenshot({ path: path.join(OUT, '12-controller-manual.png'), fullPage: true });
+    await page.screenshot({ path: path.join(OUT, '12-controller-loop.png'), fullPage: true });
     await manualBtn.click(); await sleep(200);
     if (await page.locator('#manualLive').isVisible()) throw new Error('EdgeLoop Control left the manual controls open');
     if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after EdgeLoop Control');

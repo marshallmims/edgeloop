@@ -156,13 +156,30 @@ function sanitizeOutput(raw) {
         strokeMin = strokeMax;
         strokeMax = swap;
     }
-    return {
+    const output = {
         id: raw.id,
         speed: clampPct(raw.speed, 0),
         strokeMin,
         strokeMax,
         level: clampPct(raw.level, 0)
     };
+    // Present only while a finger is placing the toy. Absent means the
+    // stroker keeps oscillating its stroke window.
+    if (raw.position !== undefined && raw.position !== null && raw.position !== '') {
+        output.position = clampPct(raw.position, 0);
+    }
+    return output;
+}
+
+// Keep the two stroke dots ordered. `which` is 'min' or 'max'.
+export function orderStroke(min, max, which, value) {
+    let lo = clampPct(min, 0);
+    let hi = clampPct(max, 100);
+    if (lo > hi) [lo, hi] = [hi, lo];
+    const next = clampPct(value, which === 'min' ? lo : hi);
+    if (which === 'min') lo = Math.min(next, hi);
+    else hi = Math.max(next, lo);
+    return { strokeMin: lo, strokeMax: hi };
 }
 
 function sanitizeOutputs(raw) {
@@ -226,28 +243,143 @@ export function clampPatternPeriod(value) {
     return Math.round(clamp(n, MIN_PATTERN_MS, MAX_PATTERN_MS));
 }
 
+// A finger loop can be a short stroke. The built-in patterns stay on the
+// longer floor so a pulse cannot buzz.
+const MIN_TRACK_MS = 120;
+
+export function clampTrackPeriod(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return DEFAULT_PATTERN_MS;
+    return Math.round(clamp(n, MIN_TRACK_MS, MAX_PATTERN_MS));
+}
+
 export function sanitizeManualPattern(raw) {
     if (!isPlainObject(raw) || raw.type !== 'MANUAL_PATTERN') return null;
     const epoch = sanitizeEpoch(raw.epoch);
     const devices = sanitizeOutputs(raw.devices);
     if (epoch === null || !devices) return null;
     if (!PATTERN_IDS.includes(raw.id)) return null;
+    const tracks = raw.id === 'drawn' ? sanitizeTracks(raw.tracks) : null;
     const pattern = {
         type: 'MANUAL_PATTERN',
         epoch,
         id: raw.id,
-        periodMs: clampPatternPeriod(raw.periodMs),
+        periodMs: tracks ? clampTrackPeriod(raw.periodMs) : clampPatternPeriod(raw.periodMs),
         // A refresh says the controller is still there. It must not restart
         // the loop the host is already playing.
         refresh: raw.refresh === true,
         devices
     };
     if (raw.id === 'drawn') {
-        const drawn = sanitizeDrawn(raw.drawn);
-        if (!drawn) return null;
-        pattern.drawn = drawn;
+        const drawn = raw.drawn === undefined ? null : sanitizeDrawn(raw.drawn);
+        if (!tracks && !drawn) return null;
+        if (drawn) pattern.drawn = drawn;
+        if (tracks) pattern.tracks = tracks;
     }
     return pattern;
+}
+
+function trackPoint(raw) {
+    if (!isPlainObject(raw)) return null;
+    const t = Number(raw.t);
+    if (!Number.isFinite(t)) return null;
+    const point = { t: clamp(t, 0, 1) };
+    if (Number.isFinite(Number(raw.position))) point.position = clampPct(raw.position, 0);
+    if (Number.isFinite(Number(raw.level))) point.level = clampPct(raw.level, 0);
+    if (Number.isFinite(Number(raw.speed))) point.speed = clampPct(raw.speed, 0);
+    if (point.position === undefined && point.level === undefined && point.speed === undefined) return null;
+    return point;
+}
+
+function sanitizeTracks(raw) {
+    if (!Array.isArray(raw)) return null;
+    const tracks = [];
+    const seen = new Set();
+    for (const item of raw) {
+        if (!isPlainObject(item) || !parseDeviceId(item.id) || seen.has(item.id) || !Array.isArray(item.points)) continue;
+        const points = [];
+        for (const entry of item.points) {
+            const point = trackPoint(entry);
+            if (!point) continue;
+            points.push(point);
+            if (points.length >= MAX_DRAWN_POINTS) break;
+        }
+        if (points.length < 2) continue;
+        points.sort((a, b) => a.t - b.t);
+        seen.add(item.id);
+        tracks.push({ id: item.id, points });
+        if (tracks.length >= MAX_DEVICES) break;
+    }
+    return tracks.length ? tracks : null;
+}
+
+function pointMagnitude(point) {
+    if (!point) return null;
+    if (Number.isFinite(point.position)) return point.position;
+    if (Number.isFinite(point.level)) return point.level;
+    if (Number.isFinite(point.speed)) return point.speed;
+    return null;
+}
+
+function thinPoints(points, max) {
+    if (points.length <= max) return points.slice();
+    const keep = new Set([0, points.length - 1]);
+    for (let i = 1; i < points.length - 1; i += 1) {
+        const prev = pointMagnitude(points[i - 1]);
+        const cur = pointMagnitude(points[i]);
+        const next = pointMagnitude(points[i + 1]);
+        if (prev === null || cur === null || next === null) continue;
+        if ((cur >= prev && cur >= next) || (cur <= prev && cur <= next)) keep.add(i);
+    }
+    let indexes = [...keep].sort((a, b) => a - b);
+    if (indexes.length > max) {
+        const picked = [indexes[0]];
+        const step = (indexes.length - 1) / (max - 1);
+        for (let i = 1; i < max - 1; i += 1) picked.push(indexes[Math.round(i * step)]);
+        picked.push(indexes[indexes.length - 1]);
+        indexes = [...new Set(picked)].sort((a, b) => a - b);
+    }
+    return indexes.map((index) => points[index]);
+}
+
+// Samples taken while a finger held a dot. `samples` is
+// [{ t: milliseconds from the start, devices: [{ id, position|level|speed }] }].
+// The time it took becomes the loop length. Each toy gets its own track.
+export function loopFromTracks(samples, elapsedMs) {
+    if (!Array.isArray(samples) || samples.length < 2) return null;
+    const span = Math.max(1, Number(elapsedMs) || 0);
+    const byId = new Map();
+    for (const sample of samples) {
+        if (!isPlainObject(sample) || !Array.isArray(sample.devices)) continue;
+        const t = Number(sample.t);
+        if (!Number.isFinite(t)) continue;
+        for (const device of sample.devices) {
+            if (!isPlainObject(device) || !parseDeviceId(device.id)) continue;
+            const point = { t };
+            if (Number.isFinite(Number(device.position))) point.position = clampPct(device.position, 0);
+            if (Number.isFinite(Number(device.level))) point.level = clampPct(device.level, 0);
+            if (Number.isFinite(Number(device.speed))) point.speed = clampPct(device.speed, 0);
+            if (point.position === undefined && point.level === undefined && point.speed === undefined) continue;
+            if (!byId.has(device.id)) byId.set(device.id, []);
+            byId.get(device.id).push(point);
+        }
+    }
+    const tracks = [];
+    for (const [id, points] of byId) {
+        const thinned = thinPoints(points, MAX_DRAWN_POINTS);
+        if (thinned.length < 2) continue;
+        tracks.push({
+            id,
+            points: thinned.map((point) => ({ ...point, t: clamp(point.t / span, 0, 1) }))
+        });
+        if (tracks.length >= MAX_DEVICES) break;
+    }
+    if (!tracks.length) return null;
+    return {
+        id: 'drawn',
+        periodMs: clampTrackPeriod(elapsedMs),
+        tracks
+    };
 }
 
 export function patternLevel(id, elapsedMs, periodMs = DEFAULT_PATTERN_MS, drawn = null) {
@@ -284,16 +416,59 @@ function drawnLevel(drawn, t) {
 
 export function scaleDevice(device, level) {
     const k = clamp01(level, 0);
-    return {
+    const output = {
         id: device.id,
         speed: Math.round(clampPct(device.speed, 0) * k),
         strokeMin: clampPct(device.strokeMin, 0),
         strokeMax: clampPct(device.strokeMax, 100),
         level: Math.round(clampPct(device.level, 0) * k)
     };
+    if (Number.isFinite(Number(device.position))) output.position = clampPct(device.position, 0);
+    return output;
+}
+
+function interpolateField(points, t, field) {
+    let seen = false;
+    let last = 0;
+    if (t <= points[0].t && Number.isFinite(points[0][field])) return points[0][field];
+    for (let i = 1; i < points.length; i += 1) {
+        const b = points[i];
+        const a = points[i - 1];
+        if (!Number.isFinite(a[field]) || !Number.isFinite(b[field])) continue;
+        seen = true;
+        last = b[field];
+        if (t <= b.t) {
+            const span = b.t - a.t;
+            const k = span <= 0 ? 1 : (t - a.t) / span;
+            return Math.round(a[field] + (b[field] - a[field]) * k);
+        }
+    }
+    return seen ? last : null;
+}
+
+function frameFromTracks(pattern, elapsedMs) {
+    const period = clampTrackPeriod(pattern.periodMs);
+    const elapsed = Number(elapsedMs);
+    const t = (Number.isFinite(elapsed) && elapsed > 0 ? elapsed % period : 0) / period;
+    const byId = new Map(pattern.tracks.map((track) => [track.id, track]));
+    return {
+        devices: (pattern.devices || []).map((device) => {
+            const track = byId.get(device.id);
+            const output = scaleDevice(device, 1);
+            if (!track) return output;
+            const position = interpolateField(track.points, t, 'position');
+            const level = interpolateField(track.points, t, 'level');
+            const speed = interpolateField(track.points, t, 'speed');
+            if (position !== null) output.position = position;
+            if (level !== null) output.level = level;
+            if (speed !== null) output.speed = speed;
+            return output;
+        })
+    };
 }
 
 export function frameFromPattern(pattern, elapsedMs) {
+    if (pattern && Array.isArray(pattern.tracks) && pattern.tracks.length) return frameFromTracks(pattern, elapsedMs);
     const level = patternLevel(pattern.id, elapsedMs, pattern.periodMs, pattern.drawn);
     return {
         devices: (pattern.devices || []).map((device) => scaleDevice(device, level))
@@ -306,12 +481,21 @@ export function decayFrame(frame, ageMs, holdMs = MANUAL_HOLD_MS, fadeMs = MANUA
     if (!Number.isFinite(age) || age <= holdMs) return { devices };
     const span = fadeMs > 0 ? fadeMs : 1;
     const scale = Math.max(0, 1 - (age - holdMs) / span);
-    return { devices: devices.map((device) => scaleDevice(device, scale)) };
+    return {
+        devices: devices.map((device) => {
+            const scaled = scaleDevice(device, scale);
+            delete scaled.position;
+            return scaled;
+        })
+    };
 }
 
 export function frameIsStopped(frame) {
     const devices = frame && Array.isArray(frame.devices) ? frame.devices : [];
-    return devices.every((device) => clampPct(device.speed, 0) === 0 && clampPct(device.level, 0) === 0);
+    return devices.every((device) => {
+        if (Number.isFinite(Number(device.position))) return false;
+        return clampPct(device.speed, 0) === 0 && clampPct(device.level, 0) === 0;
+    });
 }
 
 // Toys named in `ownedIds` are the controller's. The rest stay on the pulse.

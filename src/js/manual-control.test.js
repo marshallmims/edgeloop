@@ -8,7 +8,9 @@ import {
     frameFromPattern,
     frameIsStopped,
     loopFromGesture,
+    loopFromTracks,
     mapStrokeIntoEnvelope,
+    orderStroke,
     parseDeviceId,
     patternLevel,
     peaksFromValues,
@@ -139,6 +141,50 @@ describe('patterns', () => {
         assert.equal(loop.periodMs, 1500);
         assert.equal(loop.drawn[0].level, 0);
         assert.equal(loop.drawn[1].level, 1);
+    });
+
+    it('keeps the two stroke dots ordered', () => {
+        assert.deepEqual(orderStroke(20, 80, 'max', 10), { strokeMin: 20, strokeMax: 20 });
+        assert.deepEqual(orderStroke(20, 80, 'min', 90), { strokeMin: 80, strokeMax: 80 });
+        assert.deepEqual(orderStroke(20, 80, 'min', 30), { strokeMin: 30, strokeMax: 80 });
+    });
+
+    it('loops a position track and a vibration track from the same drag', () => {
+        const loop = loopFromTracks([
+            { t: 0, devices: [{ id: 'handy', position: 30 }, { id: 'intiface:0:scalar:0', level: 10 }] },
+            { t: 200, devices: [{ id: 'handy', position: 70 }, { id: 'intiface:0:scalar:0', level: 80 }] },
+            { t: 400, devices: [{ id: 'handy', position: 30 }, { id: 'intiface:0:scalar:0', level: 10 }] }
+        ], 400);
+        assert.equal(loop.periodMs, 400);
+        assert.equal(loop.tracks[0].id, 'handy');
+        assert.equal(loop.tracks[0].points[1].position, 70);
+        const handy = frameFromPattern({
+            id: 'drawn',
+            periodMs: 400,
+            tracks: loop.tracks,
+            devices: [
+                { id: 'handy', speed: 0, strokeMin: 0, strokeMax: 100, level: 0 },
+                { id: 'intiface:0:scalar:0', speed: 0, strokeMin: 0, strokeMax: 100, level: 0 }
+            ]
+        }, 200);
+        assert.equal(handy.devices[0].position, 70);
+        assert.equal(handy.devices[1].level, 80);
+        assert.equal(frameIsStopped(handy), false);
+        const saved = sanitizeManualPattern({
+            type: 'MANUAL_PATTERN',
+            epoch: 3,
+            id: 'drawn',
+            periodMs: 400,
+            tracks: loop.tracks,
+            devices: [{ id: 'handy', speed: 0, strokeMin: 0, strokeMax: 100, level: 0 }]
+        });
+        assert.equal(saved.tracks[0].points[0].position, 30);
+        const placed = sanitizeManualFrame({
+            type: 'MANUAL_FRAME',
+            epoch: 4,
+            devices: [{ id: 'handy', speed: 0, strokeMin: 0, strokeMax: 100, level: 0, position: 140 }]
+        });
+        assert.equal(placed.devices[0].position, 100);
         const peaks = peaksFromValues([{ id: 'handy', kind: 'stroke', speed: 0, strokeMin: 0, strokeMax: 100, level: 0 }]);
         assert.equal(peaks[0].speed, 70);
         assert.deepEqual(controlsForKind('vibrate'), ['level']);

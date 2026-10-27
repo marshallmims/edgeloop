@@ -28,6 +28,8 @@ import {
     clampVelocity,
     describeDeviceStop,
     describeSlideAdjustment,
+    endMarginWindow,
+    followPosition,
     isHampModeError,
     normalizeSlideRange,
     parseBatteryLevel,
@@ -53,12 +55,25 @@ export const HANDY_TIMINGS = {
     // PUT /hamp/stop backoff between the four attempts of one verified stop.
     stopRetryDelaysMs: [250, 500, 1000],
     // Pause between rounds of the background stop sent to an offline device.
-    offlineStopRetryMs: 5000
+    offlineStopRetryMs: 5000,
+    // HDSP position updates. The v2 API allows 240 requests a minute, so a
+    // stream stays at about four a second and leaves room for the mode switch.
+    hdspIntervalMs: 250
 };
 
 let handyKey = '';
 let handyInfo = null;
 let handyIsHampRunning = false;
+// 'hamp' oscillates a stroke window. 'hdsp' moves to a position (Loop).
+let handyDrive = 'hamp';
+let hdspPending = null;
+let hdspTimer = null;
+let hdspBusy = false;
+let hdspLastSend = 0;
+let hdspLastPosition = -1;
+let hdspSlide = { min: -1, max: -1 };
+let hdspSettled = false;
+let hdspFailed = false;
 let handyStartInFlight = false;
 // True while the driver cannot tell whether the device is moving (a start
 // timed out on our side but may still have reached the device): the next
@@ -134,7 +149,7 @@ export function getHandyInfo() {
 }
 
 export function isHandyMoving() {
-    return handyIsHampRunning;
+    return handyIsHampRunning || handyDrive === 'hdsp';
 }
 
 // True while the driver cannot vouch for the device being stopped.
@@ -146,6 +161,17 @@ export function isHandyMotionUnknown() {
 function resetDeviceNotices() {
     hampFaultNotified = false;
     slideAdjustNotified = false;
+    hdspFailed = false;
+}
+
+function clearHdspQueue() {
+    hdspPending = null;
+    hdspBusy = false;
+    hdspSettled = false;
+    if (hdspTimer) {
+        clearTimeout(hdspTimer);
+        hdspTimer = null;
+    }
 }
 
 function callHandler(name, ...args) {
@@ -257,9 +283,17 @@ function noteHampFault(code) {
 // The retry loop behind every verified stop: PUT /hamp/stop for `key`, up
 // to four attempts with backoff. Pure I/O, touches no driver state, never
 // throws. Resolves { ok, error }.
-async function attemptStop(key, { countFailure = true } = {}) {
+async function attemptStop(key, { countFailure = true, fromHdsp = false } = {}) {
     const delays = HANDY_TIMINGS.stopRetryDelaysMs;
     let lastErr = null;
+    // HAMP stop is refused while the device is in HDSP. Put it back first.
+    if (fromHdsp) {
+        try {
+            await handyRequest('/mode', { method: 'PUT', body: { mode: HANDY_MODE.HAMP }, key, countFailure });
+        } catch (e) {
+            lastErr = e;
+        }
+    }
     for (let attempt = 0; attempt <= delays.length; attempt++) {
         try {
             await handyRequest('/hamp/stop', { method: 'PUT', key, countFailure });
@@ -274,8 +308,8 @@ async function attemptStop(key, { countFailure = true } = {}) {
 
 // Verified stop for a device this driver no longer owns (the key of a
 // disconnected, replaced or stale link). Reports when it is never confirmed.
-async function stopForeignDevice(key) {
-    const result = await attemptStop(key);
+async function stopForeignDevice(key, fromHdsp = false) {
+    const result = await attemptStop(key, { fromHdsp });
     if (!result.ok) reportStopUnconfirmed('/hamp/stop', result.error);
     return result.ok;
 }
@@ -286,14 +320,17 @@ async function stopForeignDevice(key) {
 function markOffline(reason) {
     if (!handyConnected) return;
     const key = handyKey;
+    const fromHdsp = handyDrive === 'hdsp';
     handyConnected = false;
     handyIsHampRunning = false;
+    handyDrive = 'hamp';
+    clearHdspQueue();
     handyStartInFlight = false;
     handyMotionUnknown = false;
     handySwitching = false;
     commandGeneration += 1;
     stopOfflinePolling();
-    if (key) beginOfflineStop(key);
+    if (key) beginOfflineStop(key, fromHdsp);
     callHandler('onOffline', reason);
 }
 
@@ -302,14 +339,14 @@ function markOffline(reason) {
 // is cancelled by Connect / Disconnect, or the round cap is reached. A device
 // that was merely slow, or comes back after a Wi-Fi blip, is brought to rest
 // by this even though the app already gave up on it.
-function beginOfflineStop(key) {
+function beginOfflineStop(key, fromHdsp = false) {
     cancelOfflineStop();
-    const job = { key, timer: null, rounds: 0, active: true };
+    const job = { key, timer: null, rounds: 0, active: true, fromHdsp };
     offlineStop = job;
     const round = async () => {
         if (!job.active) return;
         job.rounds += 1;
-        const result = await attemptStop(key, { countFailure: false });
+        const result = await attemptStop(key, { countFailure: false, fromHdsp: job.fromHdsp && job.rounds === 1 });
         if (!job.active) return;
         if (result.ok || job.rounds >= OFFLINE_STOP_MAX_ROUNDS) {
             job.active = false;
@@ -406,7 +443,7 @@ export async function connectHandy(key) {
 
     if (handyConnected && handyKey) {
         const oldKey = handyKey;
-        const oldMayMove = handyIsHampRunning || handyStartInFlight || handyMotionUnknown;
+        const oldMayMove = handyIsHampRunning || handyStartInFlight || handyMotionUnknown || handyDrive === 'hdsp';
         if (oldMayMove) {
             // Freeze the engine's motion commands to the old device while it
             // is stopped; zero-speed dispatches still go through.
@@ -429,6 +466,11 @@ export async function connectHandy(key) {
     handyInfo = info;
     handyConnected = true;
     handyIsHampRunning = false;
+    handyDrive = 'hamp';
+    clearHdspQueue();
+    hdspLastSend = 0;
+    hdspLastPosition = -1;
+    hdspSlide = { min: -1, max: -1 };
     handyStartInFlight = false;
     handyMotionUnknown = false;
     handySwitching = false;
@@ -458,6 +500,7 @@ export async function connectHandy(key) {
 export function disconnectHandy() {
     const wasConnected = handyConnected;
     const key = handyKey;
+    const fromHdsp = handyDrive === 'hdsp';
     cancelOfflineStop();
     stopOfflinePolling();
     handyConnected = false;
@@ -467,13 +510,15 @@ export function disconnectHandy() {
     commandGeneration += 1;
     startSequence += 1;
     handyIsHampRunning = false;
+    handyDrive = 'hamp';
+    clearHdspQueue();
     handyKey = '';
     handyInfo = null;
     handyLastStrokeSent = { min: -1, max: -1 };
     handyLastVelocitySent = -1;
     resetDeviceNotices();
     if (!wasConnected || !key) return Promise.resolve(true);
-    return stopForeignDevice(key);
+    return stopForeignDevice(key, fromHdsp);
 }
 
 // PUT /hamp/stop with up to three retries (250 / 500 / 1000 ms backoff).
@@ -484,9 +529,12 @@ function stopWithRetry(key = handyKey) {
     if (stopInFlight && stopInFlight.key === key && stopInFlight.generation === commandGeneration) {
         return stopInFlight.promise;
     }
+    const fromHdsp = handyDrive === 'hdsp';
+    handyDrive = 'hamp';
+    clearHdspQueue();
     const generation = ++commandGeneration;
     const promise = (async () => {
-        const result = await attemptStop(key);
+        const result = await attemptStop(key, { fromHdsp });
         if (result.ok) {
             if (generation === commandGeneration) {
                 handyIsHampRunning = false;
@@ -611,8 +659,107 @@ function sendSlide(range) {
 // `endMargin` is the wearer's end-stop margin in percent of travel (0 = off):
 // it can only inset the normalised range, never widen it, so the envelope
 // still bounds everything that reaches the device.
+// Move the slider to a finger position. `percent` is 0 at the bottom of the
+// wearer's travel window and 100 at the top. The v2 HDSP command is
+// PUT /hdsp/xpt { position, duration } after PUT /mode { mode: HDSP }.
+// position is a percent of the full stroke. The slide is opened to that
+// same window first so a firmware that still clips to the slide stays
+// inside the travel the wearer allowed.
+export function dispatchHandyFollow(percent, envMin = 0, envMax = 100, endMargin = HANDY_DEFAULT_END_MARGIN) {
+    if (!handyConnected || !handyKey || handySwitching) return;
+    const bounds = endMarginWindow(envMin, envMax, endMargin);
+    const position = followPosition(percent, envMin, envMax, endMargin);
+    const now = Date.now();
+    const origin = hdspLastPosition >= 0 ? hdspLastPosition : position;
+    if (!hdspPending) {
+        hdspPending = { position, slide: bounds, at: now };
+    } else if (Math.abs(position - origin) >= Math.abs(hdspPending.position - origin)) {
+        // Keep the farthest point since the last command, so a quick
+        // up-and-down inside the rate-limit window is not flattened.
+        hdspPending.position = position;
+        hdspPending.at = now;
+        hdspPending.slide = bounds;
+    }
+    pumpHdsp();
+}
+
+function pumpHdsp() {
+    if (hdspBusy || !hdspPending || !handyConnected || !handyKey || handySwitching) return;
+    const now = Date.now();
+    const wait = HANDY_TIMINGS.hdspIntervalMs - (now - hdspLastSend);
+    if (hdspLastSend && wait > 0) {
+        if (!hdspTimer) {
+            hdspTimer = setTimeout(() => {
+                hdspTimer = null;
+                pumpHdsp();
+            }, wait);
+            unref(hdspTimer);
+        }
+        return;
+    }
+    const pending = hdspPending;
+    const position = pending.position;
+    const same = hdspLastPosition >= 0 && Math.abs(position - hdspLastPosition) < 1;
+    if (same && hdspSettled) return;
+    const movedFor = hdspLastSend ? pending.at - hdspLastSend : 0;
+    const duration = Math.max(40, Math.min(400, movedFor || HANDY_TIMINGS.hdspIntervalMs));
+    hdspLastSend = now;
+    hdspLastPosition = position;
+    hdspSettled = same;
+    hdspBusy = true;
+    const key = handyKey;
+    const generation = commandGeneration;
+    const slide = pending.slide;
+    const run = async () => {
+        if (handyDrive !== 'hdsp' || slide.min !== hdspSlide.min || slide.max !== hdspSlide.max) {
+            await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
+            hdspSlide = { min: slide.min, max: slide.max };
+            handyLastStrokeSent = { min: slide.min, max: slide.max };
+        }
+        if (generation !== commandGeneration || !handyConnected) return;
+        if (handyDrive !== 'hdsp') {
+            await handyRequest('/mode', { method: 'PUT', body: { mode: HANDY_MODE.HDSP }, key });
+            if (generation !== commandGeneration || !handyConnected) return;
+            handyDrive = 'hdsp';
+            handyIsHampRunning = false;
+            handyLastVelocitySent = -1;
+        }
+        await handyRequest('/hdsp/xpt', {
+            method: 'PUT',
+            key,
+            body: {
+                position,
+                duration,
+                stopOnTarget: same,
+                immediateResponse: true
+            }
+        });
+    };
+    run().catch(() => {
+        if (!hdspFailed) {
+            hdspFailed = true;
+            callHandler('onNotice', 'The Handy did not accept a position command. Loop needs the HDSP mode in its firmware.');
+        }
+        if (handyDrive === 'hdsp') handyDrive = 'hamp';
+    }).finally(() => {
+        hdspBusy = false;
+        if (generation !== commandGeneration || !hdspPending) return;
+        if (hdspPending.position !== position || handyDrive !== 'hdsp') pumpHdsp();
+    });
+}
+
 export function dispatchHandy(primarySpeed, strokeMin, strokeMax, force = false, envMin = 0, envMax = 100, endMargin = HANDY_DEFAULT_END_MARGIN) {
     if (!handyConnected || !handyKey) return;
+    if (handyDrive === 'hdsp') {
+        const generation = ++commandGeneration;
+        handyDrive = 'hamp';
+        clearHdspQueue();
+        handyRequest('/mode', { method: 'PUT', body: { mode: HANDY_MODE.HAMP } }).catch(() => {}).then(() => {
+            if (generation !== commandGeneration || !handyConnected || handyDrive !== 'hamp') return;
+            dispatchHandy(primarySpeed, strokeMin, strokeMax, true, envMin, envMax, endMargin);
+        });
+        return;
+    }
     const now = Date.now();
     if (!force && (now - handyLastSend < VELOCITY_THROTTLE_MS)) return;
     handyLastSend = now;
@@ -653,14 +800,26 @@ export function dispatchHandy(primarySpeed, strokeMin, strokeMax, force = false,
 // sent. Never throws.
 export function stopHandyOnUnload() {
     if (!handyConnected || !handyKey) return false;
-    if (!(handyIsHampRunning || handyStartInFlight || handyMotionUnknown)) return false;
+    const fromHdsp = handyDrive === 'hdsp';
+    if (!(handyIsHampRunning || handyStartInFlight || handyMotionUnknown || fromHdsp)) return false;
     const key = handyKey;
     commandGeneration += 1;
     handyIsHampRunning = false;
+    handyDrive = 'hamp';
+    clearHdspQueue();
     handyMotionUnknown = false;
     handyLastVelocitySent = -1;
     handyLastStrokeSent = { min: -1, max: -1 };
     try {
+        if (fromHdsp) {
+            const mode = fetch(`${HANDY_API_BASE}/mode`, {
+                method: 'PUT',
+                headers: { 'X-Connection-Key': key, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: HANDY_MODE.HAMP }),
+                keepalive: true
+            });
+            if (mode && typeof mode.catch === 'function') mode.catch(() => {});
+        }
         const pending = fetch(`${HANDY_API_BASE}/hamp/stop`, {
             method: 'PUT',
             headers: { 'X-Connection-Key': key },

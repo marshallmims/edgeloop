@@ -5,6 +5,8 @@ import {
     reconnectDelayMs,
     parseHeartRateMeasurement,
     describeBluetoothSupport,
+    linuxDesktop,
+    CHROME_BLUETOOTH_FLAG,
     describeBleError
 } from './ble-protocol.js';
 
@@ -71,6 +73,16 @@ describe('parseHeartRateMeasurement', () => {
         assert.equal(parseHeartRateMeasurement(view([0x01, 0x50])), null);
         assert.equal(parseHeartRateMeasurement(null), null);
         assert.equal(parseHeartRateMeasurement({}), null);
+    });
+});
+
+describe('linuxDesktop', () => {
+    it('is Linux desktop only', () => {
+        assert.equal(linuxDesktop('Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0'), true);
+        assert.equal(linuxDesktop('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0'), false);
+        assert.equal(linuxDesktop('Mozilla/5.0 (X11; CrOS x86_64) Chrome/120.0'), false);
+        assert.equal(linuxDesktop('Mozilla/5.0 (Windows NT 10.0) Chrome/120.0'), false);
+        assert.equal(CHROME_BLUETOOTH_FLAG, 'chrome://flags/#enable-experimental-web-platform-features');
     });
 });
 

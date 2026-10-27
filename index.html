@@ -1085,9 +1085,12 @@
               <div id="manualPatterns" class="flex flex-wrap gap-1.5"></div>
             </div>
             <div class="space-y-1.5">
-              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Draw a loop</p>
-              <canvas id="manualDraw" height="96" class="block w-full h-24 bg-slate-950 rounded-xl border border-slate-700 touch-none cursor-crosshair" aria-label="Draw a loop. The height is the power and the width is the time."></canvas>
-              <p class="text-[9px] text-slate-500 leading-snug">Drag across the pad. Up is stronger. The shape repeats until you tap Stop, Slow, or a slider.</p>
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Loop</p>
+                <button id="manualLoopBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Loop</button>
+              </div>
+              <div id="manualLoopStage" class="hidden relative h-40 rounded-xl border border-slate-700 bg-slate-950 touch-none" aria-label="Loop. Drag a dot up and down. The toy follows, then repeats when you let go."></div>
+              <p class="text-[9px] text-slate-500 leading-snug">Loop gives each toy you are driving a dot. Up is stronger on a vibrator. Up is the top of the stroke on The Handy. It follows your hand. Letting go repeats that movement.</p>
             </div>
           </div>
         </section>
@@ -1353,7 +1356,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.04</span>
+        <span id="appVersion" class="font-mono">v1.1.5.05</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1405,6 +1408,13 @@
             <button id="modalBleDisconnectBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-3 rounded-lg text-xs transition hidden cursor-pointer">
               Disconnect
             </button>
+          </div>
+          <div id="bleLinuxFlag" class="hidden rounded-xl border border-slate-800 bg-slate-950 p-2 space-y-1.5">
+            <p class="text-[10px] text-slate-400 leading-snug">On Linux, Chrome hides Bluetooth until this flag is on. Select the address, or Copy, then paste it into the address bar.</p>
+            <div class="flex gap-1.5 items-center">
+              <input id="bleLinuxFlagUrl" type="text" readonly value="chrome://flags/#enable-experimental-web-platform-features" aria-label="Chrome flag for Web Bluetooth on Linux" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 font-mono text-[10px] text-slate-100 cursor-text">
+              <button id="bleLinuxFlagCopy" type="button" class="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold px-2.5 py-1.5 rounded-lg text-[10px] cursor-pointer">Copy</button>
+            </div>
           </div>
           <div id="modalBleMsg" class="text-xs leading-snug text-slate-500">Status: Not connected</div>
           <button id="bleQuickHelpBtn" class="text-[10px] text-purple-400 hover:underline block text-center w-full pt-0.5 cursor-pointer">
@@ -2025,7 +2035,7 @@
           <div class="font-bold text-teal-400 text-sm">Browsers</div>
           <ul class="list-disc list-inside space-y-0.5 text-slate-400 leading-relaxed">
             <li><strong>Chrome / Edge</strong> on Windows, macOS, Android and ChromeOS: works out of the box. iPhone / iPad: use <strong>Bluefy</strong>.</li>
-            <li><strong>Linux Chrome:</strong> enable <span class="font-mono text-slate-300">chrome://flags/#enable-experimental-web-platform-features</span> and use a native (non-Flatpak / non-Snap) browser, or Bluetooth stays hidden.</li>
+            <li><strong>Linux Chrome:</strong> enable <button type="button" id="guideLinuxFlagBtn" class="font-mono text-slate-300 underline cursor-pointer" title="Copy the flag address">chrome://flags/#enable-experimental-web-platform-features</button> and use a native (non-Flatpak / non-Snap) browser, or Bluetooth stays hidden. The address copies when you click it.</li>
             <li><strong>Firefox and Safari</strong> do not support Web Bluetooth.</li>
           </ul>
         </div>

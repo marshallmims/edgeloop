@@ -478,6 +478,13 @@ describe('player markup', () => {
         assert.ok(bundle < setupBar && setupBar < manualBtn && manualBtn < style, 'Manual sits in the Session Setup title');
         assert.equal((html.match(/id="manualModeBtn"/g) || []).length, 1);
         assert.match(html, /id="sessionSetupTitle"[^>]*>Session Setup</);
+        assert.match(html, /id="bleLinuxFlag"/);
+        assert.match(html, /id="bleLinuxFlagUrl"[^>]*readonly/);
+        assert.match(html, /id="bleLinuxFlagCopy"/);
+        assert.match(html, /chrome:\/\/flags\/#enable-experimental-web-platform-features/);
+        assert.match(html, /id="manualLoopBtn"/);
+        assert.match(html, /id="manualLoopStage"/);
+        assert.doesNotMatch(html, /id="manualDraw"/);
         assert.match(html, /id="sessionParamsHeaderBtn"[\s\S]*Advanced Session Settings/);
         assert.match(html, /id="soloModeBtn"[\s\S]*Solo[\s\S]*id="playerHeaderBtn"[\s\S]*Video Player[\s\S]*id="partnerShareBtn"/);
         assert.doesNotMatch(html, /id="controlleeStopBtn"/);

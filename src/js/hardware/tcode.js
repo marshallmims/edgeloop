@@ -742,6 +742,17 @@ export function applyManualTCode(entries, envMin = 0, envMax = 100, { stopAll = 
             if (!axis || axis.role === 'off') continue;
             const stroke = axis.kind === 'linear' && !axis.centred;
             const speed = stroke || axis.kind === 'rotate' ? entry.speed : entry.level;
+            if (stroke && Number.isFinite(Number(entry.position))) {
+                const pos = zoneFromPercent(entry.position, entry.position, envMin, envMax).zone.min;
+                axis.planner.setInput({ enabled: false, speed: 0 });
+                if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+                if (axis.lastFollow !== pos) {
+                    axis.lastFollow = pos;
+                    writeCommands([formatAxisCommand(axis.id, physicalPosition(axis, pos), { intervalMs: 250 })]);
+                }
+                continue;
+            }
+            axis.lastFollow = null;
             if (stroke) {
                 const zone = zoneFromPercent(entry.strokeMin, entry.strokeMax, envMin, envMax).zone;
                 axis.planner.setInput({

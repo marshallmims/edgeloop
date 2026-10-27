@@ -9,6 +9,7 @@ import {
     clampVelocity,
     clampEndMargin,
     applyEndMargin,
+    followPosition,
     normalizeSlideRange,
     normalizeEnvelope,
     classifyHandyResponse,
@@ -185,6 +186,16 @@ describe('clampEndMargin', () => {
         // A corrupt stored value protects the wearer rather than disabling
         // the guard silently; only a typed 0 turns it off.
         assert.equal(clampEndMargin(NaN), HANDY_DEFAULT_END_MARGIN);
+    });
+});
+
+describe('followPosition', () => {
+    it('maps a finger onto the travel window', () => {
+        assert.equal(followPosition(0, 0, 100, 5), 5);
+        assert.equal(followPosition(100, 0, 100, 5), 95);
+        assert.equal(followPosition(50, 0, 100, 5), 50);
+        assert.equal(followPosition(0, 0, 100, 0), 0);
+        assert.equal(followPosition(100, 20, 80, 0), 80);
     });
 });
 
