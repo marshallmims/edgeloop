@@ -1,0 +1,83 @@
+<p class="lede">EdgeLoop hears a heart-rate monitor through the browser's Bluetooth, not through a pairing you made in the system settings. The browser has to be one that implements Web Bluetooth, the page has to be https, and the operating system has to let that browser scan.</p>
+
+<div class="note">
+  <p>The browsers that can do this are <strong>Chrome and Edge</strong> on Windows, Mac, Linux, and Android, and <strong>Bluefy</strong> on an iPhone or iPad. Firefox has no Web Bluetooth. Safari has no Web Bluetooth. Chrome on an iPhone is still Safari's engine, so it has no Web Bluetooth either.</p>
+</div>
+
+<h2>On every machine</h2>
+
+<ol>
+  <li>Open <a href="https://edgeloop.app">edgeloop.app</a>, or <a href="https://dev.edgeloop.app">dev.edgeloop.app</a> if you are on the test build. A page served as plain <code>http://</code> is refused. Localhost is the only exception, and that is for someone running a copy on their own machine.</li>
+  <li>Turn Bluetooth on in the system settings before you ask the page to scan.</li>
+  <li>On the heart-rate card, open the Bluetooth control and pick the monitor in the <strong>browser's</strong> chooser. That chooser is the pairing. A device already connected to the system Bluetooth menu, a phone app, or a watch is often invisible, because something else is holding it.</li>
+  <li>The chooser lists devices advertising the Heart Rate service at that moment. A strap that is off, dry and asleep, or speaking a private protocol is absent. Cancelling the chooser leaves the status line "No sensor selected." That is the chooser closing, not a failed strap.</li>
+  <li>If you blocked the site once, the lock icon in the address bar opens site settings. Set Bluetooth to Allow.</li>
+</ol>
+
+<h2>Windows</h2>
+
+<ol>
+  <li>Settings, Bluetooth &amp; devices, Bluetooth on.</li>
+  <li>If a scan still fails with a permission error: Settings, Privacy &amp; security, Bluetooth, and allow apps to use Bluetooth.</li>
+  <li>Use Chrome or Edge. Open the site and use the chooser on the heart-rate card.</li>
+  <li>If the strap was paired in Windows itself, disconnect it there. Windows holding the connection is a connection the page cannot take. Then pick the strap from EdgeLoop.</li>
+  <li>A site you previously denied: the lock icon, Site settings, Bluetooth, Allow. The same list lives at <code>chrome://settings/content/bluetooth</code> and at the Edge equivalent.</li>
+</ol>
+
+<h2>Mac</h2>
+
+<ol>
+  <li>System Settings, Bluetooth, on.</li>
+  <li>System Settings, Privacy &amp; Security, Bluetooth. Allow Chrome or Edge. A browser that is missing from that list cannot scan, even when Bluetooth is on.</li>
+  <li>Use Chrome or Edge. Safari will not show the chooser.</li>
+  <li>Same site setting as Windows if the page was blocked: the lock icon, Bluetooth, Allow.</li>
+  <li>Disconnect the strap from any menu bar app that already connected to it, then pick it in EdgeLoop.</li>
+</ol>
+
+<h2>Linux</h2>
+
+<p>The app was written and used on Fedora. The message the page itself shows on Linux is the flag below. Two other things decide whether the chooser can see the adapter.</p>
+
+<ol>
+  <li>Use Chrome, Chromium, or Edge installed as a normal package. A Flatpak build does not see the Bluetooth adapter. A sandbox with the same restriction has the same result.</li>
+  <li>Open <code>chrome://flags/#enable-experimental-web-platform-features</code> and set it to Enabled. Relaunch the browser. Edge has the same flag page at <code>edge://flags/#enable-experimental-web-platform-features</code>.</li>
+  <li>Bluetooth on, and the adapter visible to the system. If the desktop's own Bluetooth panel cannot see the adapter, the browser will not either.</li>
+  <li>Then the same chooser as everywhere else. Pair from the page, not by leaving the strap connected in the desktop's Bluetooth list.</li>
+</ol>
+
+<p>A T-Code stroker on a USB serial port is a different permission. That one needs your user in the <code>dialout</code> group, and it is covered on <a href="/toys/#t-code-over-usb">Connect a toy</a>.</p>
+
+<h2>iPhone</h2>
+
+<ol>
+  <li>Install <strong>Bluefy</strong> from the App Store. Open EdgeLoop in Bluefy. Safari cannot pair. Neither can Chrome, Firefox, or Edge installed on the phone, because iOS gives every browser the same engine, and that engine has no Web Bluetooth.</li>
+  <li>Bluetooth on. The first scan asks Bluefy for permission. Allow it.</li>
+  <li>An Apple Watch broadcast app running on this same iPhone is invisible to Bluefy. iOS does not let a browser on a phone see a Bluetooth advertisement coming from another app on that phone. Run EdgeLoop on a second device (a computer, a Mac, or a tablet), or pair a chest strap to Bluefy instead. HeartCast and Echo are the broadcast apps people have used. The limit is the phone, not the name of the app.</li>
+</ol>
+
+<h2>iPad</h2>
+
+<p>Same as the iPhone: Bluefy, Bluetooth allowed, Safari left out of it.</p>
+
+<p>An iPad is a good second screen when the watch broadcast is coming from an iPhone. Bluefy on the iPad can see a broadcast that Bluefy on the broadcasting iPhone cannot. A chest strap pairs to Bluefy on the iPad directly.</p>
+
+<p>Web Serial is not on an iPad. A T-Code cable needs a desktop browser. The Handy over Wi-Fi, and toys reached through Intiface, are the paths that work on a tablet. <a href="/toys/">Connect a toy</a>.</p>
+
+<h2>Android phone</h2>
+
+<ol>
+  <li>Use Chrome or Edge. Firefox will not show the chooser.</li>
+  <li>Bluetooth on, and the phone's location services on if a scan comes back empty. Android treats a Bluetooth scan as location. On Android 12 and newer the prompt is Nearby devices. On older Android it is Location. Denying it leaves the chooser empty.</li>
+  <li>If the site was blocked: the lock icon, Permissions, and allow Bluetooth (and Nearby devices, if it is listed).</li>
+  <li>Disconnect the strap from a foreground app that already holds it. Galaxy Wearable, Polar Beat, and the like keep the connection. The page needs the strap advertising.</li>
+</ol>
+
+<p>One report, for a Galaxy Watch rebroadcasting through the Heart for Bluetooth app: it showed up when EdgeLoop was on a phone, and not when EdgeLoop was on a desktop. If the desktop chooser stays empty, try the phone.</p>
+
+<h2>Android tablet</h2>
+
+<p>The same permissions as the phone. Chrome, Bluetooth on, Nearby devices (or Location on an older tablet) allowed.</p>
+
+<p>A tablet is a normal way to run the page. The author's own setup is a Pixel Tablet in landscape, Chrome, with Intiface Central on the tablet, The Handy on the Wi-Fi, and a Pixel Watch 2 broadcasting heart rate. The tablet is the browser. The watch is the pulse. The Handy never uses the tablet's Bluetooth.</p>
+
+<p>A USB serial stroker still needs a desktop. The tablet can run Intiface for Bluetooth toys, and it can run The Handy over Wi-Fi.</p>

@@ -1,0 +1,67 @@
+<p class="lede">The words on the cockpit are the diagnosis. Match the badge or the banner to a section below. The fixes are the same facts as the other pages, gathered by symptom.</p>
+
+<h2>The chooser never lists the strap</h2>
+
+<ol>
+  <li>The page is https. <a href="https://edgeloop.app">edgeloop.app</a> is. A file you opened from disk, or a plain http address, is refused before a scan.</li>
+  <li>The browser is Chrome or Edge, or Bluefy on an iPhone or iPad. <a href="/bluetooth/">Bluetooth in the browser</a> is the per-platform permission, including the Linux flag and the Flatpak limitation.</li>
+  <li>Bluetooth is on, and the site is allowed to use it. A previous denial lives behind the lock icon.</li>
+  <li>On Android, Nearby devices was allowed. On older Android, Location was allowed. A denied scan permission opens an empty chooser.</li>
+  <li>The monitor is advertising the Heart Rate service, and nothing else is holding it. Quit the vendor app. Disconnect it in the system Bluetooth list. Then open the chooser again. <a href="/heart-rate/#make-it-advertise">Make it advertise</a> is the per-device version.</li>
+  <li>A GloryFit or Da Fit watch will never be listed. It does not speak the service. A Garmin strap that is ANT+ only will never be listed either.</li>
+  <li>An Apple Watch broadcast app and Bluefy on the same iPhone cannot see each other. Use a second device, or a chest strap.</li>
+</ol>
+
+<p>"No sensor selected" means the chooser was closed without a pick. "Web Bluetooth is blocked here" means https or the site permission. "Could not connect" means the device was chosen and the connection failed: move closer, and make sure no other app still holds it.</p>
+
+<h2>NO SKIN CONTACT</h2>
+
+<p>Packets are arriving. They do not contain a usable pulse, or the sensor's own contact flag says it is off the skin. Wet the electrodes. Tighten the strap or the watch band. A number under 35 BPM is treated the same way: ignored, not displayed as a heart rate of zero.</p>
+
+<h2>HOLDING LAST READING</h2>
+
+<p>The last usable pulse is older than 5 seconds and younger than the signal-loss timeout. Watches and relay apps often update every 2 to 5 seconds, so this badge is normal for them. Leave the timeout at 8 seconds or more. The toys are still moving, on that last number. <a href="/heart-rate/#how-often-a-new-number-arrives">How often a new number arrives</a> is the full timing.</p>
+
+<h2>Motors stopped, session paused</h2>
+
+<p>The banner names the device and the reason. The usual heart-rate reasons are: no packets, packets with no pulse, or the Bluetooth link lost after three retries (1 second, 2 seconds, 4 seconds).</p>
+
+<p>Past the timeout, every motor is stopped. With auto-resume on, a good reading starts the session again. With it off, the badge reads that the signal is back and waits for RESUME. The simulator does not count as that signal. If you engage it during a watchdog pause, press RESUME yourself.</p>
+
+<p>Start and Resume refuse to move the toys until a usable reading is younger than the timeout. The transport shows <strong>WAITING FOR PULSE</strong> instead.</p>
+
+<h2>The Handy will not move</h2>
+
+<ul>
+  <li>The status line on the Handy card is the error. A wrong key, a sleeping Handy, and an API error are written there. They are not silent.</li>
+  <li>The Handy and the browser have to be on a network that can reach HandyFeeling's API. The key is checked against that API.</li>
+  <li>The role has to be Primary or Secondary. OFF is connected and still.</li>
+  <li>The travel envelope has to be wide enough for a stroke. A sleeve jammed at an end, on a Handy 2 in particular, can look to the firmware like a blocked slider. Raise the end-stop margin, or narrow the envelope so the carriage is not driven into the stop. The default margin is 5 percent.</li>
+  <li>If it drops mid-session, the session pauses. Stops keep going out until one is confirmed. Pressing Connect again does not abandon a Handy that might still be moving. It confirms a stop first.</li>
+</ul>
+
+<h2>Intiface stays on Connecting</h2>
+
+<ol>
+  <li>Intiface Central is open, and its server is started. The toy is already connected inside Intiface.</li>
+  <li>The address is <code>ws://localhost:12345</code>, with <code>ws://</code>. <code>wss://</code> is the wrong scheme for a server on the same machine.</li>
+  <li>EdgeLoop and Intiface are on the same machine. <code>localhost</code> is that machine. A tablet running EdgeLoop cannot see Intiface running on a different computer at that address.</li>
+  <li>The toy's role is Primary or Secondary, and you pressed Save &amp; Apply.</li>
+</ol>
+
+<p>An OSSM that stops itself the moment it moves is often Position and Oscillate both enabled. They are one motor. Leave Position on. <a href="/toys/#an-ossm-through-intiface">Connect a toy</a>.</p>
+
+<h2>The serial port is missing or busy</h2>
+
+<ul>
+  <li>The browser is desktop Chrome or Edge. A phone, a tablet, Firefox, and Safari have no Web Serial, and the card says so.</li>
+  <li>Close Intiface, MultiFunPlayer, and any serial monitor that already opened the port. Then press Connect and pick the port again.</li>
+  <li>On Linux, the user is in the <code>dialout</code> group, and you have logged out and back in since that was granted.</li>
+  <li>Unplugging the device mid-session pauses the session. Plug it back in and connect again. The page does not keep sending strokes at a port that stopped accepting them.</li>
+</ul>
+
+<h2>A session feels like it gives up too early</h2>
+
+<p>On a max of 140 the toys are supposed to stay up through the middle and give way in the last part of the band, around 126 and above. If they are parking at 120, check the pullback percent. Anything under 100 moves the park down on purpose, and the HOLD TO badge shows the number. Check that both toys are not live on a dual max you set lower than you remember. The DUAL MAX badge is that case.</p>
+
+<p>A watch updating every few seconds will also feel late. The toys move when the notification arrives, on a number that is already a few seconds old. A chest strap is the tighter loop. The comparison is <a href="/heart-rate/#accuracy">Accuracy</a>.</p>

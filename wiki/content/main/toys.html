@@ -1,0 +1,74 @@
+<p class="lede">Every toy has a card. Open the card to connect it. A toy also needs a role before a session can start. The role is what the engine's numbers mean for that toy.</p>
+
+<h2>A toy needs a role</h2>
+
+<ul>
+  <li><strong>Primary</strong> follows the stroke: the speed of the stroker, and the stroke window inside the travel range you set.</li>
+  <li><strong>Secondary</strong> follows the other channel. On a vibrator that is the vibration. On a second stroker it is still that channel's speed, not a second copy of the stroke pattern.</li>
+  <li><strong>OFF</strong> is ignored. The toy can stay connected and still be left out of the session.</li>
+</ul>
+
+<p>Any number of toys can share a role. When a primary and a secondary are both live, the ceiling becomes the dual max. One toy live, and the ceiling is the single max. <a href="/session/#two-climax-numbers">How a session is decided</a> covers those two numbers.</p>
+
+<p>The Handy, an Intiface stroker, and a T-Code stroker can each be the primary. A vibrator on Intiface is usually the secondary. The assignments are remembered per toy, in this browser.</p>
+
+<h2>The Handy</h2>
+
+<p>The Handy is Wi-Fi. It does not use the browser's Bluetooth. The page talks to HandyFeeling's API, version 2, in HAMP mode, which is the mode where EdgeLoop sends a speed and a stroke range rather than a script.</p>
+
+<ol>
+  <li>Put the Handy on the same network as the browser, and wake it.</li>
+  <li>Copy the connection key from handyfeeling.com into the Handy card and press <strong>Connect Handy</strong>. A wrong key, a sleeping Handy, or an API error shows on the card. The page checks the reply.</li>
+  <li>Set the travel envelope. Min can be 0–90, max 10–100. Every stroke the engine asks for is scaled inside those two numbers, in every mode, including warm-up and Force Orgasm. This is the range your sleeve can physically take. Set it so the sleeve cannot slip off or jam at the base.</li>
+  <li>Set the end-stop margin, 0–10, default 5. The Handy's own firmware stops the slider when it decides the carriage is blocked, and a carriage driven into the mechanical end can look exactly like a block. The margin keeps a stroke that would have touched 0 or 100 a little off those ends. An envelope you already narrowed is left alone. Full travel leaves as 5–95 with the default margin. Set the margin to 0 to send the range exactly as the engine asked. The card shows what a full-length stroke is really sent as.</li>
+  <li>Pick the role and the max speed cap.</li>
+</ol>
+
+<p>A stop is retried until the API confirms it. If the Handy drops off the network mid-session, the session pauses, and stops keep being sent in the background until one is confirmed. Closing the tab sends a last stop. Pressing Connect again checks the new key and brings the current device to a confirmed stop before the link switches. If that check fails, the connection you already had is left as it was.</p>
+
+<p>The margin applies to The Handy only. A T-Code or Intiface stroker treats a wider zone as a longer, slower stroke, rather than as a faster one, and it has no end-stop margin of its own.</p>
+
+<h2>Intiface Central</h2>
+
+<p>Intiface Central is the bridge for Bluetooth vibrators, rotators, reciprocating machines, and, through its own serial support, T-Code strokers. EdgeLoop never pairs those toys itself. Intiface does. EdgeLoop connects to Intiface.</p>
+
+<ol>
+  <li>Put the toy into the pairing mode its own manual describes. The light pattern is the toy's, and it differs by brand. EdgeLoop does not know it.</li>
+  <li>Start Intiface Central, start its server, and connect the toy there first. Confirm the toy is listed in Intiface before you touch EdgeLoop.</li>
+  <li>In the EdgeLoop Intiface card, leave the address at <code>ws://localhost:12345</code>. That is a local socket, plain <code>ws://</code>, not <code>wss://</code>. Press Connect. The status walks Offline, Connecting, Handshake, Connected, and then names the server and how many devices it has. A bad address, a stopped server, or a handshake that never finishes is reported on that same line.</li>
+  <li>Each actuator gets a role, a cap, and a Test button. A stroke axis is a Linear axis and wants Primary. Twist and roll are Rotate axes. Anything left over is Secondary or OFF. A linear axis has an invert switch.</li>
+  <li>A vibrate axis is <strong>Constant</strong> or <strong>Pulsed</strong>. Pulsed is on for half of 0.8, 1.6, or 2.4 seconds, and off for the other half. The intensity the engine already computed is the peak of the on half, and it stays under the cap. Stop cuts the pulse immediately.</li>
+  <li>A rotator can reverse each time an edge is counted, and it can flip direction on a timer from 5 to 60 seconds. Either, both, or neither.</li>
+  <li>Press <strong>Save &amp; Apply</strong>. Roles, caps, invert, the pulse choice, and the rotation settings are remembered for that toy. A reconnect restores them.</li>
+</ol>
+
+<h3>An OSSM through Intiface</h3>
+
+<p>Intiface lists Position and Oscillate as two axes. They are one motor. Driving both has tripped the machine's emergency stop. Leave Position on. It strokes inside the travel range you set, and a stop holds the carriage where it is, within about a fifth of a second. Oscillate runs the whole rail, so it turns on only when the travel range is 0–100. The first stroke after connecting still runs out to its end, up to about 2 seconds.</p>
+
+<h2>T-Code over USB</h2>
+
+<p>The T-Code card drives an OSR2, SR6, or OSSM straight over its USB serial port, without Intiface. You get every axis, rather than the single linear axis Intiface exposes.</p>
+
+<ul>
+  <li>Chrome or Edge, on a desktop. Windows, Mac, or Linux. Web Serial does not exist on a phone or a tablet, and it does not exist in Firefox or Safari. A browser without it gets a plain message saying so.</li>
+  <li>Close anything else that holds the port. Intiface, MultiFunPlayer, a serial monitor. Then press Connect and pick the port in the browser's dialog.</li>
+  <li>On Linux, your user has to be in the <code>dialout</code> group: <code>sudo usermod -aG dialout $USER</code>, then log out and back in.</li>
+  <li>The port is 115200 8N1. The page asks the device what it is. A firmware that stays silent falls back to the usual set of axes: stroke, rotation, and vibration. <code>L0</code> (stroke) starts as Primary and <code>V0</code> as Secondary. Everything else starts OFF. You can change each one. Linear axes have an invert switch, and each axis has Test.</li>
+</ul>
+
+<p>Stop, pause, Reset, and a disconnect bring every axis to rest on one line. Unplugging the device, or a write that fails, pauses the session.</p>
+
+<h2>Autoblow VacuGlide 2</h2>
+
+<p>Experimental. Speed follows the role you assign, under a speed cap. The valves are not part of the curve.</p>
+
+<ul>
+  <li><strong>Valve +</strong> and <strong>Valve −</strong> are buttons. Each press opens that valve for the time you set, 0.3 to 2 seconds, default 1, then closes it. The app does not move the valves on its own.</li>
+  <li>Stop stops the motor and closes both valves.</li>
+  <li>The device token stays in this browser. If the tab closes mid-session, the next time EdgeLoop opens it finishes a stop the closed tab could not confirm.</li>
+  <li>A stop issued from Autoblow's own app during a session pauses EdgeLoop, instead of the page starting the toy again.</li>
+  <li>A connected VacuGlide counts as the toy, so Start is not left waiting for some other device.</li>
+</ul>
+
+<p>Keep the power button in reach.</p>
