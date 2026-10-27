@@ -11,6 +11,19 @@ describe('the version has one number', () => {
         assert.match(html, new RegExp(`id="appVersion"[^>]*>v${APP_VERSION}<`));
         assert.match(html, /id="footerChangelogBtn"/);
     });
+
+    it('the dev page and the install manifest use the DEV icon', () => {
+        const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+        const manifest = JSON.parse(readFileSync(new URL('../../manifest.json', import.meta.url), 'utf8'));
+        const worker = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
+        assert.match(html, /icon-dev\.svg/);
+        assert.match(html, /id="devHostBadge"/);
+        assert.equal(manifest.name, 'EdgeLoop DEV');
+        assert.equal(manifest.short_name, 'EL DEV');
+        assert.ok(manifest.icons.every((icon) => String(icon.src).includes('icon-dev')));
+        assert.match(worker, /icon-dev/);
+        assert.match(worker, /manifest-dev\.json/);
+    });
 });
 
 describe('parseChangelog', () => {
@@ -68,6 +81,8 @@ describe('parseChangelog', () => {
         assert.ok(sections[11].blocks.some((block) => /Share Control opens this page/.test(block.text)));
         assert.ok(sections[12].blocks.some((block) => /Share Control changes the page/.test(block.text)));
         assert.ok(sections[13].blocks.some((block) => /No Nut November/.test(block.text)));
+        assert.ok(sections[13].blocks.some((block) => /plain icon/.test(block.text)));
+        assert.ok(sections[13].blocks.some((block) => /session log is there/.test(block.text)));
         assert.ok(sections[14].blocks.some((block) => /A choice closes the lists/.test(block.text)));
         assert.ok(sections[15].blocks.some((block) => /A choice stays open/.test(block.text)));
         assert.ok(sections[16].blocks.some((block) => /The video controls are one bar/.test(block.text)));

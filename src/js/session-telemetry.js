@@ -52,8 +52,8 @@ const MAC = /(?:[0-9a-f]{2}:){5}[0-9a-f]{2}/i;
 
 const PRODUCTION_LOG_HOSTS = new Set(['edgeloop.app', 'www.edgeloop.app']);
 
-// The live site does not offer a session log. Every other host this build
-// runs on does, including GitHub Pages and a local preview.
+// True on dev.edgeloop.app and on a local or Pages preview. False on the
+// public site. The session log itself is the History switch, not this check.
 export function isDevTelemetryHost(hostname) {
     const host = String(hostname || '').toLowerCase();
     if (!host) return false;

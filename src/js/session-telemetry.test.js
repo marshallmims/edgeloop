@@ -219,5 +219,6 @@ describe('the history opt-in', () => {
         assert.match(html, /id="sessionLogDownload"/);
         assert.match(html, /id="manualTraditionalBtn"/);
         assert.match(html, /id="manualFloatBtn"/);
+        assert.match(app, /return !isRemotePage && sessionLogOptIn/);
     });
 });
