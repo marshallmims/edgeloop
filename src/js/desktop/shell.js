@@ -69,10 +69,10 @@ function unmountSession() {
 // session controls onto it. The shell calls that same button. It does not
 // replace it.
 function setPlayerOpen(open) {
-    const section = document.getElementById('playerSection');
+    const body = document.getElementById('playerBody');
     const button = document.getElementById('playerHeaderBtn');
-    if (!section || !button) return;
-    const isOpen = !section.classList.contains('hidden');
+    if (!body || !button) return;
+    const isOpen = body.dataset.player === 'on';
     if (isOpen !== open) button.click();
 }
 

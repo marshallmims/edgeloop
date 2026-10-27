@@ -436,13 +436,24 @@ describe('survival climb', () => {
         assert.ok(handler, 'Finished me has no handler on the Came Early button');
         assert.match(handler[0], /activeMode === 'calibrate'/);
         assert.match(handler[0], /activeMode === 'survival'/);
-        assert.match(handler[0], /saveDualClimax/);
-        assert.match(handler[0], /savePrimaryClimax/);
-        assert.match(handler[0], /confirm\(/);
+        assert.match(handler[0], /commitCalibrationReading\(hr, \{ edge: false \}\)/);
+        assert.match(handler[0], /finishHr\(\)/);
         const calibrateBranch = handler[0].split("activeMode === 'survival'")[0];
         assert.equal(calibrateBranch.includes('suggestedMaxHrOffset'), false);
         assert.match(handler[0], /isRemotePage/);
         assert.match(src, /suggestedMaxHrOffset/);
+        const save = src.match(/function commitCalibrationReading[\s\S]*?function markCalibrationEdge/);
+        assert.ok(save, 'calibration save left the Came Early button');
+        assert.match(save[0], /saveDualClimax/);
+        assert.match(save[0], /savePrimaryClimax/);
+        assert.match(save[0], /confirm\(/);
+        assert.match(save[0], /countManualEdge\(\)/);
+        const mark = src.match(/function markCalibrationEdge[\s\S]*?function savePrimaryClimax/);
+        assert.ok(mark, 'Edged has no calibration path');
+        assert.match(mark[0], /liveCalibrationHr\(\)/);
+        assert.match(mark[0], /commitCalibrationReading\(hr, \{ edge: true \}\)/);
+        assert.equal(mark[0].includes('finishHr'), false);
+        assert.equal(mark[0].includes('suggestedMaxHrOffset'), false);
     });
 });
 

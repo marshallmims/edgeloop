@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
     isDevTelemetryHost,
     publicDeviceName,
+    pauseReasonFromSource,
     createSessionLog,
     buildSessionExport
 } from './session-telemetry.js';
@@ -45,6 +46,53 @@ describe('the one-second series', () => {
         assert.equal(snap.events[1].edges, 1);
         log.reset();
         assert.equal(log.snapshot().series.length, 0);
+    });
+
+    it('records why a pause happened, and the intensity, and drops anything else', () => {
+        const log = createSessionLog();
+        log.observe({ t: 0, hr: 90, speed: 40, status: 'RUNNING', mode: 'classic', intensity: 19, pauseReason: 'button' });
+        log.observe({ t: 1000, hr: 92, speed: 0, status: 'PAUSED', mode: 'classic', intensity: 19, pauseReason: 'hrSignal' });
+        log.observe({ t: 2000, hr: 95, speed: 0, status: 'PAUSED', mode: 'classic', intensity: 100, pauseReason: 'https://handy.local/key' });
+        const snap = log.snapshot();
+        assert.equal(snap.series[0].intensity, 19);
+        assert.equal(snap.series[0].pauseReason, '');
+        assert.equal(snap.series[1].pauseReason, 'hr-signal');
+        assert.equal(snap.series[1].intensity, 19);
+        assert.equal(snap.series[2].pauseReason, '');
+        assert.equal(snap.series[2].intensity, 100);
+        assert.equal(snap.events[1].pauseReason, 'hr-signal');
+        assert.equal(snap.events[1].intensity, 19);
+        assert.equal(JSON.stringify(snap).includes('handy.local'), false);
+        const exported = buildSessionExport({ trace: snap });
+        assert.equal(exported.events[1].pauseReason, 'hr-signal');
+        assert.equal(exported.series[2].intensity, 100);
+        assert.equal(exported.telemetryVersion, 3);
+    });
+});
+
+describe('pause reasons', () => {
+    it('keeps a known reason and maps the banner sources', () => {
+        assert.equal(pauseReasonFromSource('button'), 'button');
+        assert.equal(pauseReasonFromSource('hrSignal'), 'hr-signal');
+        assert.equal(pauseReasonFromSource('vacuglideStop'), 'vacuglide');
+        assert.equal(pauseReasonFromSource('handy-stop'), 'handy-stop');
+        assert.equal(pauseReasonFromSource('The Handy connection key'), '');
+        assert.equal(pauseReasonFromSource('edged'), 'edged');
+        assert.equal(pauseReasonFromSource(''), '');
+    });
+
+    it('names a reason on every safety pause in the app', () => {
+        const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+        assert.match(app, /pauseSession\(null, reason\)/);
+        assert.match(app, /pauseSession\('Paused\.', pendingPauseReason \|\| 'button'\)/);
+        assert.match(app, /pauseSession\('Paused\.', 'player'\)/);
+        assert.match(app, /function countManualEdge/);
+        assert.match(app, /function markCalibrationEdge/);
+        assert.doesNotMatch(app, /classList\.toggle\('hidden', !live\)/);
+        assert.match(app, /state\.pauseReason !== 'edged'/);
+        for (const source of ["'hr-link'", "'handy'", "'handy-stop'", "'beat-sync'", "'intiface'", "'tcode'", "'video'", "'remote'", "'edged'"]) {
+            assert.ok(app.includes(source), `missing pause source ${source}`);
+        }
     });
 });
 

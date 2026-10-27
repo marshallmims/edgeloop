@@ -2,7 +2,7 @@
 
 This is the full application, and it is its own project. The version is tentative: 2.0.
 
-Its base is the 1.1.4.13 code that runs on dev.edgeloop.app, including that build's player, device row, and session panels. That site, and edgeloop.app, stay the one-page cockpit. They never load this application, and 2.0 is not their version. The site footer keeps 1.1.4.13. This application shows 2.0 once it is open.
+Its base is the 1.1.4.31 code that runs on dev.edgeloop.app, including that build's player, device row, and session panels. That site, and edgeloop.app, stay the one-page cockpit. They never load this application, and 2.0 is not their version. The site footer keeps 1.1.4.31. This application shows 2.0 once it is open.
 
 Open it with:
 

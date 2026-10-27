@@ -281,7 +281,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (!(await page.locator('#gameModesGrid').isVisible())) throw new Error('goal row hidden');
     await page.getByText(/prostate milker/i).first().click().catch(() => {}); await sleep(200);
     await page.locator('#playStyleToggle').click(); await sleep(150);
-    await page.getByText(/classic tease/i).first().click().catch(() => {}); await sleep(200);
+    await page.getByText(/simple ramp/i).first().click().catch(() => {}); await sleep(200);
     if (!(await page.locator('[data-mode="goal-off"]').count())) throw new Error('tease goal missing');
     if (!(await page.locator('[data-mode="edgetrain"]').count())) throw new Error('edge training game missing');
     await page.locator('[data-mode="edgetrain"]').click(); await sleep(150);

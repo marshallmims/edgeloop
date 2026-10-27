@@ -23,8 +23,8 @@ describe('the desktop shell stays off the website', () => {
         assert.match(html, /data-live="video"/);
         assert.match(html, /id="shellLibrary" data-shell="library" class="hidden /);
         assert.match(html, /id="shellSession" data-shell="session" class="hidden"/);
-        assert.match(html, /id="playerSection" data-shell="video"/);
-        assert.match(html, /data-shell="loop"/);
+        assert.match(html, /id="playerSection" aria-label="Player" class="space-y-3"/);
+        assert.match(html, /id="cockpit" class="space-y-3"/);
         assert.match(html, /id="deviceBar"/);
     });
 });

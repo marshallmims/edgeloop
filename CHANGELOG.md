@@ -4,6 +4,94 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.31
+
+- **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.
+- **No Nut November does not offer an orgasm.** The mode is renamed from NNN practice. Reaching the day's edge quota eases the toys down and ends the session. The denial percent is gone.
+
+## 1.1.4.30
+
+- **A choice closes the lists.** Picking a play style or an ending rolls both lists up. The play style card keeps that mode's description. A mode with its own settings, such as NNN practice, keeps those settings in the same card.
+
+## 1.1.4.29
+
+- **Play Style and Session Endgame use the button row's frame.** The gap, padding, and corners match the buttons under them. The choice boxes are one size.
+- **A choice stays open.** Picking a play style or an ending leaves both lists up, so the other one can be set without opening it again. Tap the card to close them.
+
+## 1.1.4.28
+
+- **The video controls are one bar.** The scrub, the time, Theater, and Fullscreen sit on one line under the picture.
+- **Play Style and Session Endgame fill the width.** With Player closed they stretch across the row. Opening either one opens both, so the two lists stay side by side.
+
+## 1.1.4.27
+
+- **Session length sits with the heart rate.** Warm-up, resting, the two maxes, Calibrate, length, and the minute window are matching tiles on the heart-rate card. They stay there with Player open or closed. Play Style and Session Endgame sit side by side when Player is closed.
+
+## 1.1.4.26
+
+- **Edged stays on the row.** The button is there before a session starts, while one is running, and after a pause. A tap before the session starts does nothing.
+- **During Calibration, Edged is the edge.** It saves the heart rate you are on as the single or dual max and eases the toys down, before an orgasm. The app / Finished me is still the orgasm.
+- **Finisher holds the heart rate you set.** Under that number the stroke pushes to get you there. As your pulse arrives it eases off, and on the mark it holds instead of sitting at full speed. Crawl and Full Stop do not replace that hold. Room noise does not speed it up.
+
+## 1.1.4.25
+
+- **Edged stops the toys and counts the edge.** It pauses the same way Pause does, and it does not add a pause. The edge counts for the session and for NNN. A crossing the pulse already counted is left alone.
+- **The session buttons are one full-width row.** Pause, Stop, Edged, Came Early, and Force Orgasm sit under the player. Closing Player leaves that row and hides the picture. Edges and pauses sit on the heart-rate card. On a playing video the top readout stays up, and those buttons fade after a few seconds until the pointer moves or the screen is tapped.
+
+## 1.1.4.24
+
+- **Tap the edge count to record one the pulse missed.** It counts for the session and for NNN. A crossing that was already counted is left alone.
+- **Relube pauses without adding a pause.** Any pause already holds the timer. Relube stops the toys the same way and leaves the pause count alone.
+- **Fitbit does not pair.** Those watches do not broadcast the standard Heart Rate service. A Galaxy Watch does, through Heart for Bluetooth, and a chest strap does. A pulse that only climbs a little still works when Climax HR sits just above the highest number you actually see.
+
+## 1.1.4.23
+
+- **Crawl speed is a number.** Under Guards, Crawl is 1% to 30%. 10% is still the default. Full Stop is still a park at 0%. The intensity slider still scales the crawl.
+
+## 1.1.4.22
+
+- **Stops and pauses are logged.** When the app tells a toy to stop or pause, the dev log records that command and why. That is there so a later report can show whether the app ordered the stop.
+- **The pulse readout stays blank until a monitor is connected.** With nothing linked it shows --. 70 is the resting default, and it was reading like a live pulse. The readout stays -- until a strap sends a beat, or the simulator is on. Disconnecting the strap blanks it again.
+- **Adaptive decay still clears on Stop.** Loading the next script takes Stop, and Stop drops the decay because the decay is the session edge count. Keeping that decay across stops is still open.
+- **A marked climax can release the limiter at the mark.** Pre-Climax Ramp Up defaults to 45 seconds, which makes a cum-now mark a slow climb. Set it to 0. The hold after the mark already ignores the pulse cap for Climax Duration.
+- **Other requests are noted, and not in this build.** A noise gate that punishes volume, a spoken "close" or "edge" that drops to crawl, a separate limit per channel, and a crawl other than 10%.
+
+## 1.1.4.21
+
+- **Bratty Tease is an experimental play style.** The climb matches Ultimate Milker. Close to the edge it dips for a second and comes back, several times, then runs a longer stretch and dips again. At the ceiling that pattern keeps going.
+
+## 1.1.4.20
+
+- **NNN practice is easier to read.** The day's edge count, the dates, and the numbers are larger. Edge Training and Session Length use that same size. Nothing moved.
+
+## 1.1.4.19
+
+- **Simple Ramp is the plain stroke.** Speed starts high and ramps down as your pulse climbs, and the strokes stay the full length you set. It is the play style that was called Primary Ease.
+- **Session Endgame uses the same cards as Play Style.** Climax, Soft Landing, Strict Denial, and the games sit in one two-column list, the same size on each row. That list is the same on the main page and on the Player.
+
+## 1.1.4.18
+
+- **Session Length sits under Start and Stop.** Closing Player leaves that panel in the left column, under the controls. Play Style and Session Endgame stay together on the right.
+
+## 1.1.4.17
+
+- **The top row is split in half.** On Player, the picture and the file panel each take half the width, and the two cards meet at the same height.
+- **Session setup is one short card.** Session Length, Play Style, and Session Endgame sit together. The long descriptions stay inside the list you open.
+- **Primary Ease runs the primary toy.** It eases off as your pulse climbs. It is the play style that used to be called Classic Tease.
+- **The ending is Climax, Soft Landing, or Strict Denial.** Tease is gone from Session Endgame. Survival keeps climbing until you press Stop. Edge Training still uses those three when the timer runs out.
+
+## 1.1.4.16
+
+- **The controls stay in the left column.** Start, Stop, edges, pauses, Came Early, and Force Orgasm sit under the picture, the same width as that picture. Closing Player hides the picture and leaves that panel. Session Length, Play Style, and Session Endgame take the file panel’s place as one card. Theater, fullscreen, and the scrub bar come back with the picture.
+
+## 1.1.4.15
+
+- **The main page uses the Player layout.** Heart rate, both channels, and intensity stay wide. Start, Stop, edges, pauses, Came Early, and Force Orgasm sit in that same row on both screens. Player adds the picture above that menu, and the file panel takes Session Length’s place. Theater, fullscreen, and the scrub bar are put away.
+
+## 1.1.4.14
+
+- **Warm-up sits with the heart rate.** The switch and the minutes are to the left of Resting, above the readout, on the main page and on the Player.
+
 ## 1.1.4.13
 
 - **Beat sync is in The Handy settings.** Open The Handy from the device row. Off, it follows speed and depth. On, with a funscript and firmware 4, it plays each stroke in the file. Leave it off until you want that match.

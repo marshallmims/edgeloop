@@ -18,6 +18,11 @@ export const state = {
     endgameType: 'orgasm',
     rampdownSecondsLeft: 45,
     hrCurrent: 70,
+    // True once a monitor or the simulator has delivered a usable reading.
+    // The cockpit stays "--" until then, so the resting default is not a pulse.
+    hrReadingSeen: false,
+    // Short reason for the pause in progress. Empty while the session runs.
+    pauseReason: '',
     edges: 0,
     pauses: 0,
     peakHr: 70,
@@ -101,7 +106,7 @@ export const state = {
     stallPauseElapsed: 0,
     stallGuardEngaged: false,
     intensityValue: 50,
-    history: [70],
+    history: [],
     bleBattery: null,
     handyBattery: null,
     intifaceBattery: null,
@@ -195,8 +200,11 @@ export const advancedSettings = {
     stallGuardSeconds: 20,
     stallPauseSeconds: 8,
     // What the primary does while parked at the pullback trigger: 'stop'
-    // (0%) or 'crawl' (CRAWL_PERCENT). The stall guard only matters in crawl.
+    // (0%) or 'crawl' (crawlPercent). The stall guard only matters in crawl.
     ceilingBehaviour: 'crawl',
+    // Speed parked at the ceiling while Crawl is selected, 1-30. 10 is the
+    // factory micro-motion. The intensity slider still scales it.
+    crawlPercent: 10,
     // Pullback as a percent of typed Climax HR (90-100, default 100).
     edgeHoldPercent: 100,
     trainHoldSeconds: 15,
