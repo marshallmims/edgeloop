@@ -60,9 +60,10 @@ export const HANDY_TIMINGS = {
     stopRetryDelaysMs: [250, 500, 1000],
     // Pause between rounds of the background stop sent to an offline device.
     offlineStopRetryMs: 5000,
-    // HDSP position updates. The v2 API allows 240 requests a minute, so a
-    // stream stays at about four a second and leaves room for the mode switch.
-    hdspIntervalMs: 250
+    // How soon the next finger position may go out. A background host tab
+    // clamps timers to about a second, so the stream is driven by the
+    // controller's messages. This is only the gap between those sends.
+    hdspIntervalMs: 70
 };
 
 let handyKey = '';
@@ -78,6 +79,7 @@ let hdspLastPosition = -1;
 let hdspSlide = { min: -1, max: -1 };
 let hdspSettled = false;
 let hdspFailed = false;
+let hdspGapMs = 70;
 let handyMotionError = '';
 const handyTrace = [];
 let handyStartInFlight = false;
@@ -205,6 +207,7 @@ function resetDeviceNotices() {
     hampFaultNotified = false;
     slideAdjustNotified = false;
     hdspFailed = false;
+    hdspGapMs = HANDY_TIMINGS.hdspIntervalMs;
 }
 
 function clearHdspQueue() {
@@ -753,7 +756,11 @@ export function dispatchHandyFollow(percent, envMin = 0, envMax = 100, endMargin
 function pumpHdsp() {
     if (hdspBusy || !hdspPending || !handyConnected || !handyKey || handySwitching) return;
     const now = Date.now();
-    const wait = HANDY_TIMINGS.hdspIntervalMs - (now - hdspLastSend);
+    const wait = hdspGapMs - (now - hdspLastSend);
+    // A timer in a background tab is clamped to about a second, which is
+    // why a smooth drag arrived as one position per second. The next finger
+    // message sends as soon as the gap has passed. The timer only covers a
+    // finger that has already stopped.
     if (hdspLastSend && wait > 0) {
         if (!hdspTimer) {
             hdspTimer = setTimeout(() => {
@@ -763,6 +770,10 @@ function pumpHdsp() {
             unref(hdspTimer);
         }
         return;
+    }
+    if (hdspTimer) {
+        clearTimeout(hdspTimer);
+        hdspTimer = null;
     }
     const pending = hdspPending;
     const slide = pending.slide;
@@ -810,8 +821,18 @@ function pumpHdsp() {
         hdspSettled = same || move.stopOnTarget;
         handyMotionError = '';
         row.error = '';
+        if (hdspGapMs > HANDY_TIMINGS.hdspIntervalMs) {
+            hdspGapMs = Math.max(HANDY_TIMINGS.hdspIntervalMs, hdspGapMs - 10);
+        }
     };
     run().catch((err) => {
+        // A rate limit is a reason to wait, not to abandon position mode.
+        if (err && (err.code === 429 || /rate limit/i.test(String(err.message || '')))) {
+            hdspGapMs = Math.min(1000, hdspGapMs + 40);
+            hdspLastPosition = -1;
+            hdspSettled = false;
+            return;
+        }
         hdspLastPosition = -1;
         hdspSettled = false;
         handyMotionError = handyFaultLabel(err);

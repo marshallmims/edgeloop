@@ -558,6 +558,20 @@ describe('pulsed vibration', () => {
         const after = levels(ws, 0).slice(atHold - 1);
         assert.ok(after.length > 1, 'the same level is sent again so the motor does not wait a second');
         assert.ok(after.every((value) => value === 0.6));
+        applyManualIntiface([{
+            deviceIndex: 0,
+            axisKey: axis.key,
+            level: 20,
+            speed: 0,
+            strokeMin: 0,
+            strokeMax: 100
+        }], 0, 100);
+        assert.equal(levels(ws, 0).at(-1), 0.2);
+        dispatchIntiface(0, 0, 0, 100, 0, 100, true);
+        assert.equal(levels(ws, 0).at(-1), 0);
+        const stopped = levels(ws, 0).length;
+        await sleep(200);
+        assert.equal(levels(ws, 0).length, stopped, 'a stop is not undone by the held level');
     });
 });
 

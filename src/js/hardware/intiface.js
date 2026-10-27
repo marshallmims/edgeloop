@@ -709,9 +709,13 @@ function applyScalar(dev, axis, speed, now, { steady = false } = {}) {
         // finishing, so a burst of slider moves lands about once a second.
         // Hold the latest level and repeat it until the finger changes it.
         cutPulse(axis);
+        const changed = axis.lastSent !== level;
         axis.steadyLevel = level;
+        // Send the new level from this call. Waiting for the repeat timer
+        // made a fast drag land about once a second, because a background
+        // host tab clamps that timer.
+        if (changed || !axis.steadyTimer) sendScalar(dev, axis, level, { force: true });
         if (!axis.steadyTimer) {
-            sendScalar(dev, axis, level, { force: true });
             const pump = () => {
                 if (axis.steadyLevel == null || !isIntifaceConnected()) {
                     axis.steadyTimer = null;
@@ -999,6 +1003,22 @@ function zoneFromPercent(strokeMin, strokeMax, envMin, envMax) {
 // already mapped into the hardware envelope by engine.js; the envelope is
 // used only to clamp (and to mirror inverted axes) so no position can ever
 // leave the user's bounds.
+function silenceManualDrive() {
+    intifaceDevices.forEach((dev) => {
+        for (const axis of dev.axes || []) {
+            const repeating = Boolean(axis.steadyTimer) || axis.steadyLevel != null || axis.manualHold;
+            axis.steadyLevel = null;
+            if (axis.steadyTimer) { clearTimeout(axis.steadyTimer); axis.steadyTimer = null; }
+            if (!repeating) continue;
+            cutPulse(axis);
+            if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+            if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+            if (axis.kind === 'rotate') sendRotate(dev, axis, 0);
+            else if (axis.kind !== 'linear') sendScalar(dev, axis, 0, { force: true });
+        }
+    });
+}
+
 export function dispatchIntiface(primarySpeed, secondarySpeed, strokeMin = 0, strokeMax = 100, envMin = 0, envMax = 100, force = false) {
     const mapped = zoneFromPercent(strokeMin, strokeMax, envMin, envMax);
     lastZone = mapped.zone;
@@ -1009,9 +1029,9 @@ export function dispatchIntiface(primarySpeed, secondarySpeed, strokeMin = 0, st
     };
     if (!isIntifaceConnected() || intifaceDevices.size === 0) return;
     if (force && lastSpeeds.primary === 0 && lastSpeeds.secondary === 0) {
-        // STOP / pause: the server-side stop first, then the per-axis rest
-        // moves and zeros (the planner finishes the leg in flight instead of
-        // snapping the sleeve).
+        // STOP / pause: cut a slider that was repeating its last level,
+        // then the server-side stop, then the per-axis rest moves.
+        silenceManualDrive();
         send(buildStopAllDevices(nextId()));
     }
     applyLastSpeeds(Date.now());
@@ -1068,7 +1088,7 @@ export function applyManualIntiface(entries, envMin = 0, envMax = 100, { stopAll
             if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
             if (axis.lastFollow !== pos) {
                 axis.lastFollow = pos;
-                sendLinear(dev, axis, physicalPosition(axis, pos), 250);
+                sendLinear(dev, axis, physicalPosition(axis, pos), 90);
             }
             continue;
         }

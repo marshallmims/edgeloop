@@ -1956,6 +1956,10 @@ function handleManualCommand(cmd) {
     if (cmd.type === 'MANUAL_PATTERN' && cmd.refresh) {
         if (!manualLatch || cmd.epoch !== manualLatch.epoch || !manualLatch.pattern) return;
         manualLatch.heardAt = Date.now();
+        // The host tab is usually in the background while the controller is
+        // on screen, and its own timer is then clamped to about a second.
+        // This message is what moves the toys.
+        if (manualSessionLive()) tickManual();
         return;
     }
     if (!manualLatch && !acceptManualCommand(cmd)) return;
@@ -3052,6 +3056,8 @@ playPauseBtn?.addEventListener('click', async () => {
     if (isRemoteController) {
         // Ask the host; the button re-renders from the telemetry it sends back.
         const wants = (state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED') ? 'RUNNING' : 'PAUSED';
+        manualVizFrozen = wants !== 'RUNNING';
+        state.sessionStatus = wants;
         sendPeerCommand({ type: 'SESSION_STATE', status: wants });
         return;
     }
@@ -3078,6 +3084,8 @@ playPauseBtn?.addEventListener('click', async () => {
 stopBtn?.addEventListener('click', () => {
     if (isRemoteViewer) return;
     if (isRemoteController) {
+        manualVizFrozen = true;
+        state.sessionStatus = 'IDLE';
         sendPeerCommand({ type: 'SESSION_STATE', status: 'IDLE' });
         return;
     }
@@ -6774,7 +6782,18 @@ let manualTouchMode = 'spring';
 let manualReturnTimer = null;
 let manualVizRaf = 0;
 let manualVizStarted = 0;
+let manualVizFrozen = false;
+let manualDeclined = false;
 const vizTrail = new Map();
+
+function armManualDefault() {
+    if (!isRemoteController || manualDeclined || manualDriving) return;
+    manualEpoch += 1;
+    manualUiHoldUntil = Date.now() + 1500;
+    setManualModeUi(true);
+    sendPeerCommand({ type: 'MANUAL_ARM', on: true, epoch: manualEpoch });
+    scheduleManualFrame(true);
+}
 
 function setManualModeUi(on, fromHost = false) {
     if (fromHost && on === false && Date.now() < manualUiHoldUntil) return;
@@ -6846,7 +6865,7 @@ function setManualKeepalive(on) {
         // Inside the host's hold window, so a slider that is not moving
         // stays at that level. A frozen page stops sending and the host
         // eases the toys off.
-        manualKeepalive = setInterval(refreshManualHold, 200);
+        manualKeepalive = setInterval(refreshManualHold, 80);
         return;
     }
     if (manualKeepalive) {
@@ -7676,7 +7695,7 @@ function startTouchViz() {
     if (manualVizRaf || typeof requestAnimationFrame !== 'function') return;
     const tick = () => {
         manualVizRaf = requestAnimationFrame(tick);
-        if (!manualDriving || manualTraditional) return;
+        if (!manualDriving || manualTraditional || manualVizFrozen) return;
         paintTouchViz();
     };
     manualVizRaf = requestAnimationFrame(tick);
@@ -7704,6 +7723,7 @@ function initManualPanel() {
         manualEpoch += 1;
         manualUiHoldUntil = Date.now() + 800;
         const next = !manualDriving;
+        manualDeclined = !next;
         setManualModeUi(next);
         sendPeerCommand({ type: 'MANUAL_ARM', on: next, epoch: manualEpoch });
         if (next) scheduleManualFrame(true);
@@ -7717,6 +7737,7 @@ function initManualPanel() {
 
 function applyRemoteTelemetry(data) {
     if (!data || data.type !== 'TELEMETRY') return;
+    const previousStatus = state.sessionStatus;
     lastTelemetryAt = Date.now();
     // Telemetry proves the data channel is alive even after a signalling
     // error, so the stale check stays armed.
@@ -7809,6 +7830,12 @@ function applyRemoteTelemetry(data) {
     if (slowInput && data.speedSlowest !== undefined && document.activeElement !== slowInput) slowInput.value = String(data.speedSlowest);
     if (fastInput && data.speedFastest !== undefined && document.activeElement !== fastInput) fastInput.value = String(data.speedFastest);
     if (typeof data.manual === 'boolean' && isRemoteController) setManualModeUi(data.manual, true);
+    if (isRemoteController) {
+        const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+        const wasLive = previousStatus === 'RUNNING' || previousStatus === 'RAMPDOWN';
+        if (live) manualVizFrozen = false;
+        else if (wasLive) manualVizFrozen = true;
+    }
     lockRemoteControls();
 }
 
@@ -8375,6 +8402,7 @@ if (isRemotePage && remoteRoom) {
             lastTelemetryAt = Date.now();
             setRemoteRoleStatus('Live');
             hideAlertBanner('remote');
+            armManualDefault();
         },
         onTelemetryReceived: applyRemoteTelemetry,
         onDisconnected: () => {

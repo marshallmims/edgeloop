@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.12
+
+- **Manual follow no longer waits on a background timer.** With the controller on screen, the host tab was only allowed to run a timer about once a second, so The Handy and the Lovense motors stepped once a second. Finger messages now carry the next position and speed.
+- **Stop freezes a Loop.** The toy was stopping while the drawn loop kept playing. Stop also cuts a motor that was still repeating its last speed.
+- **A controller link opens on Manual.** EdgeLoop Control is still one tap away.
+
 ## 1.1.5.11
 
 - **Firmware 4 position is a fraction.** The dot was sending 5–95. That firmware reads 1 as the top, so every one of those numbers ran the carriage to the top and later moves did nothing. It now sends 0.05–0.95 and does not reset the stroke zone, which was also driving it to the top.
