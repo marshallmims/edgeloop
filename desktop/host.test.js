@@ -18,7 +18,7 @@ describe('desktop host', () => {
         const page = await get(host.url);
         assert.equal(page.status, 200);
         const html = await page.text();
-        assert.match(html, /id="shellNav"/);
+        assert.match(html, /id="playerSection" aria-label="Player" class="space-y-3"/);
         const status = await (await get(`http://127.0.0.1:${host.appPort}/desktop-api/status`)).json();
         assert.equal(status.ok, true);
         assert.equal(typeof status.smbclient, 'boolean');

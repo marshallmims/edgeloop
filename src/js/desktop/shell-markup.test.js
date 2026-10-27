@@ -1,30 +1,27 @@
-// The website and the desktop shell share index.html. This guards the
-// split: the shell markup is present, and a normal page load does not
-// request the shell script. dev.edgeloop.app stays the one page it is.
+// desktop-alpha tracks the website. The page is one layout. The shell tab
+// split is not in index.html, and a normal load does not request shell.js.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const html = readFileSync(new URL('../../../index.html', import.meta.url), 'utf8');
 
-describe('the desktop shell stays off the website', () => {
-    it('loads the shell script only when the address asks for it', () => {
-        assert.match(html, /get\('shell'\) === '1'/);
-        assert.equal(html.includes('<script type="module" src="./src/js/desktop/shell.js">'), false);
+describe('the page keeps the website layout', () => {
+    it('does not load the desktop shell', () => {
+        assert.equal(html.includes('src/js/desktop/shell.js'), false);
+        assert.equal(html.includes('id="shellNav"'), false);
+        assert.equal(html.includes('data-shell'), false);
     });
 
-    it('the tabs are in the file, and hidden until the shell turns them on', () => {
-        assert.match(html, /id="shellNav" class="hidden"/);
-        assert.match(html, /id="shellEdition"/);
-        assert.match(html, /#shellEdition \{ display: none; \}|#shellEdition \{ display: none/);
-        assert.match(html, /id="shellTabs" role="tablist"/);
-        assert.match(html, /role="tab" id="shellTabLoop"/);
-        assert.match(html, /data-live="loop"/);
-        assert.match(html, /data-live="video"/);
-        assert.match(html, /id="shellLibrary" data-shell="library" class="hidden /);
-        assert.match(html, /id="shellSession" data-shell="session" class="hidden"/);
-        assert.match(html, /id="playerSection" data-shell="video"/);
-        assert.match(html, /data-shell="loop"/);
+    it('keeps the player visible and the session bundle inside it', () => {
+        const player = html.indexOf('id="playerSection" aria-label="Player" class="space-y-3"');
+        const bundle = html.indexOf('id="sessionBundle"');
+        const manual = html.indexOf('id="manualModeBtn"');
+        const cockpit = html.indexOf('id="cockpit" class="space-y-3"');
+        assert.ok(player > 0 && player < bundle && bundle < manual && manual < cockpit);
+        assert.match(html, /id="partnerShareBtn" aria-pressed="false" aria-label="Share Control"/);
         assert.match(html, /id="deviceBar"/);
+        assert.doesNotMatch(html, /id="playerSection"[^>]*\bhidden\b/);
+        assert.doesNotMatch(html, /grid-cols-12/);
     });
 });
