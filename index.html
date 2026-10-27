@@ -2201,6 +2201,12 @@ python3 -m http.server 8787</pre>
     })();
   </script>
 
+  <div id="focusLostOverlay" class="hidden fixed inset-0 z-[80] bg-slate-950/50 backdrop-blur-sm flex items-start justify-center p-4 sm:p-8 cursor-pointer" role="status" aria-live="polite">
+    <div class="mt-10 max-w-xl w-full bg-slate-900 border border-amber-400/80 text-amber-50 text-sm px-4 py-3.5 rounded-2xl shadow-2xl shadow-black/50">
+      <p id="focusLostMsg" class="font-semibold leading-snug">EdgeLoop is not the focused window. Click the page to bring it back. Space and the other keys are going to the other window, and toy updates can slow down until this page is in front.</p>
+    </div>
+  </div>
+
   <!-- Module Entrypoint -->
   <script type="module" src="./src/js/app.js"></script>
 </body>

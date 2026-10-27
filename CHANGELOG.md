@@ -78,6 +78,10 @@ credited by username.
 - **Manual control is on the controller.** Each connected toy gets the controls it actually has. A stroker gets speed and a stroke range. A vibrator gets one level. Pulse, Wave, Ramp, Edge, and Climb are loops. Drag the pad to draw a loop and it repeats. Slow and Stop land immediately. A slider that is held stays there. A silent link eases the toys off, and a loop stops if the controller goes quiet. Stroke commands stay inside the travel limits already set on the toys. If the controller drops, the toys stop.
 - **The heart rate is sent when a reading arrives.** The one-second clock still sends the rest of the session.
 
+## 1.1.4.32
+
+- **The page says when it is not the focused window.** The screen blurs and a banner stays up until you click back. Space and the other keys are going to the other window, and toy updates can slow down while the page is in the background.
+
 ## 1.1.4.31
 
 This build is the live release on edgeloop.app. The install uses the plain heartbeat icon. The DEV badge stays on dev.edgeloop.app only.
