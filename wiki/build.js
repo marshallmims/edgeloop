@@ -2,7 +2,7 @@
 // Pages are HTML fragments in wiki/content; the shell, nav, and search index
 // are generated so a new page cannot forget the navigation.
 
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -66,12 +66,32 @@ export function headingsOf(html) {
 
 export function pagePath(page) {
     if (page.out) return `/${page.out}`;
-    return page.slug ? `/${page.slug}/` : '/';
+    const slug = page.slug ? `${page.slug}/` : '';
+    return page.edition ? `/${page.edition}/${slug}` : `/${slug}`;
+}
+
+const ASSET_PATHS = new Set(['/icon.svg', '/wiki.css', '/wiki.js', '/search.json']);
+
+export function prefixHrefs(html, editionId, slugs) {
+    return String(html).replace(/href="(\/[^"]*)"/g, (full, href) => {
+        const hashAt = href.indexOf('#');
+        const path = hashAt === -1 ? href : href.slice(0, hashAt);
+        const fragment = hashAt === -1 ? '' : href.slice(hashAt);
+        if (ASSET_PATHS.has(path) || path.startsWith('/search.json')) return full;
+        const normalized = path === '/' ? '/' : (path.endsWith('/') ? path : `${path}/`);
+        const parts = normalized.split('/').filter(Boolean);
+        if (parts.length > 1) return full;
+        const slug = parts[0] || '';
+        if (normalized !== '/' && !slugs.has(slug)) return full;
+        const next = slug ? `/${editionId}/${slug}/` : `/${editionId}/`;
+        return `href="${next}${fragment}"`;
+    });
 }
 
 function outputFile(page) {
     if (page.out) return page.out;
-    return page.slug ? join(page.slug, 'index.html') : 'index.html';
+    const slug = page.slug ? join(page.slug, 'index.html') : 'index.html';
+    return page.edition ? join(page.edition, slug) : slug;
 }
 
 function renderToc(headings) {
@@ -80,7 +100,7 @@ function renderToc(headings) {
         const cls = heading.level === 3 ? ' class="toc-sub"' : '';
         return `<li${cls}><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.text)}</a></li>`;
     }).join('');
-    return `<nav class="toc" aria-label="Contents"><details><summary>Contents</summary><ol>${items}</ol></details></nav>`;
+    return `<nav class="toc" aria-label="On this page"><details><summary>On this page</summary><ol>${items}</ol></details></nav>`;
 }
 
 function renderNav(pages, current) {
@@ -131,10 +151,27 @@ function searchRecords(page, html) {
     return records;
 }
 
-function renderPage(page, body, toc, nav) {
+function renderEditions(editions, currentId, pageSlug, pathsByEdition) {
+    const buttons = editions.map((edition) => {
+        const paths = pathsByEdition.get(edition.id);
+        const href = paths?.get(pageSlug) || paths?.get('') || `/${edition.id}/`;
+        const on = edition.id === currentId;
+        const currentAttr = on ? ' aria-current="page"' : '';
+        return `<a class="edition" href="${href}"${currentAttr}><span class="edition-dot" aria-hidden="true"></span><span class="edition-copy"><span class="edition-kicker">${escapeHtml(edition.kicker)}</span><span class="edition-name">${escapeHtml(edition.label)}</span></span><span class="edition-meta">${escapeHtml(edition.version)}</span></a>`;
+    }).join('');
+    return `<nav class="editions" aria-label="Branches">${buttons}</nav>`;
+}
+
+function renderPage(page, body, toc, nav, edition, editionsBar) {
     const path = pagePath(page);
     const documentTitle = page.slug === '' ? page.title : `${page.title} — EdgeLoop wiki`;
     const shellClass = toc ? 'shell' : 'shell no-toc';
+    const searchPath = edition ? `/${edition.id}/search.json` : '/dev/search.json';
+    const home = edition ? `/${edition.id}/` : '/dev/';
+    const appLink = edition?.app
+        ? `<a class="app-link" href="${escapeHtml(edition.app)}">${escapeHtml(edition.appLabel || 'Open the app')}</a>`
+        : '';
+    const footer = edition?.footer || 'The session runs in your browser.';
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -147,21 +184,22 @@ function renderPage(page, body, toc, nav) {
   <meta name="theme-color" content="#020617">
   <link rel="stylesheet" href="/wiki.css">
 </head>
-<body>
+<body data-search="${searchPath}">
   <a class="skip" href="#content">Skip to content</a>
   <header class="top">
-    <a class="brand" href="/">
+    <a class="brand" href="${home}">
       <img src="/icon.svg" width="32" height="32" alt="">
       <span class="word">EDGE<span>LOOP</span></span>
       <span class="wiki-tag">wiki</span>
     </a>
     <div class="search">
-      <label class="sr" for="q">Search the wiki</label>
-      <input id="q" type="search" placeholder="Search" autocomplete="off" enterkeyhint="search">
+      <label class="sr" for="q">Search this branch</label>
+      <input id="q" type="search" placeholder="Search this branch" autocomplete="off" enterkeyhint="search">
       <div id="results" role="listbox" hidden></div>
     </div>
-    <a class="app-link" href="https://edgeloop.app">Open the app</a>
+    ${appLink}
     <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Pages</button>
+    ${editionsBar}
   </header>
   <div class="${shellClass}">
     <nav id="site-nav" aria-label="Wiki">${nav}</nav>
@@ -172,7 +210,7 @@ function renderPage(page, body, toc, nav) {
     </article>
   </div>
   <footer class="colophon">
-    <p>Notes for EdgeLoop 1.1.3. The session stays in your browser.</p>
+    <p>${escapeHtml(footer)} The session runs in your browser.</p>
     <p>
       <a href="https://edgeloop.app">edgeloop.app</a>
       <a href="https://dev.edgeloop.app">dev.edgeloop.app</a>
@@ -186,31 +224,109 @@ function renderPage(page, body, toc, nav) {
 `;
 }
 
+function contentFile(root, edition, page) {
+    const specific = join(root, 'content', edition.id, page.file);
+    if (existsSync(specific)) return specific;
+    if (!edition.ready) return null;
+    const common = join(root, 'content', 'common', page.file);
+    return existsSync(common) ? common : null;
+}
+
+function withOverrides(page, edition) {
+    return { ...page, ...(edition.overrides?.[page.slug] || {}), edition: edition.id };
+}
+
 export function buildSite({ root = here, outDir = join(here, 'dist') } = {}) {
-    const pages = JSON.parse(readFileSync(join(root, 'pages.json'), 'utf8'));
+    const catalog = JSON.parse(readFileSync(join(root, 'pages.json'), 'utf8'));
+    const editions = JSON.parse(readFileSync(join(root, 'editions.json'), 'utf8'));
+    const slugs = new Set(catalog.filter((page) => !page.out).map((page) => page.slug));
     rmSync(outDir, { recursive: true, force: true });
     mkdirSync(outDir, { recursive: true });
     cpSync(join(root, 'public'), outDir, { recursive: true });
     cpSync(join(root, '..', 'icon.svg'), join(outDir, 'icon.svg'));
 
+    const planned = [];
+    for (const edition of editions) {
+        for (const source of catalog) {
+            if (source.out) continue;
+            const file = contentFile(root, edition, source);
+            if (!file) continue;
+            const page = withOverrides(source, edition);
+            planned.push({ page, file, edition });
+        }
+    }
+    const pathsByEdition = new Map();
+    for (const edition of editions) {
+        const paths = new Map();
+        for (const item of planned) {
+            if (item.edition.id === edition.id) paths.set(item.page.slug, pagePath(item.page));
+        }
+        pathsByEdition.set(edition.id, paths);
+    }
+
     const search = [];
     const built = [];
-    for (const page of pages) {
-        const raw = readFileSync(join(root, 'content', page.file), 'utf8');
+    const searchByEdition = new Map();
+    for (const item of planned) {
+        const raw = prefixHrefs(readFileSync(item.file, 'utf8'), item.edition.id, slugs);
         const body = decorateHeadings(raw.trim());
         const headings = headingsOf(body);
         const toc = renderToc(headings);
-        const nav = renderNav(pages, page);
-        const html = renderPage(page, body, toc, nav);
-        const file = outputFile(page);
+        const editionPages = planned.filter((other) => other.edition.id === item.edition.id).map((other) => other.page);
+        const nav = renderNav(editionPages, item.page);
+        const bar = renderEditions(editions, item.edition.id, item.page.slug, pathsByEdition);
+        const html = renderPage(item.page, body, toc, nav, item.edition, bar);
+        const file = outputFile(item.page);
         const dest = join(outDir, file);
         mkdirSync(dirname(dest), { recursive: true });
         writeFileSync(dest, html);
-        if (page.nav) search.push(...searchRecords(page, body));
-        built.push({ ...page, file, path: pagePath(page), headings });
+        const records = item.page.nav ? searchRecords(item.page, body) : [];
+        search.push(...records);
+        const bucket = searchByEdition.get(item.edition.id) || [];
+        bucket.push(...records);
+        searchByEdition.set(item.edition.id, bucket);
+        built.push({ ...item.page, file, path: pagePath(item.page), headings });
     }
-    writeFileSync(join(outDir, 'search.json'), JSON.stringify(search));
-    return { pages: built, search };
+
+    for (const [editionId, records] of searchByEdition) {
+        const dest = join(outDir, editionId, 'search.json');
+        mkdirSync(dirname(dest), { recursive: true });
+        writeFileSync(dest, JSON.stringify(records));
+    }
+    const fallback = editions.find((edition) => edition.default) || editions[0];
+    writeFileSync(join(outDir, 'search.json'), JSON.stringify(searchByEdition.get(fallback.id) || []));
+
+    const missing = catalog.find((page) => page.out);
+    if (missing) {
+        const raw = readFileSync(join(root, 'content', 'common', missing.file), 'utf8');
+        const body = decorateHeadings(prefixHrefs(raw.trim(), fallback.id, slugs));
+        const bar = renderEditions(editions, '', '', pathsByEdition);
+        const editionPages = planned.filter((other) => other.edition.id === fallback.id).map((other) => other.page);
+        const html = renderPage(
+            { ...missing, edition: '' },
+            body,
+            '',
+            renderNav(editionPages, missing),
+            fallback,
+            bar
+        );
+        writeFileSync(join(outDir, missing.out), html);
+        built.push({ ...missing, file: missing.out, path: `/${missing.out}`, headings: headingsOf(body) });
+    }
+
+    const redirects = [];
+    for (const page of built) {
+        if (page.edition !== fallback.id || page.out) continue;
+        const from = page.slug ? `/${page.slug}` : '';
+        if (!from) {
+            redirects.push(`/ /${fallback.id}/ 302`);
+            continue;
+        }
+        redirects.push(`${from} /${fallback.id}${from}/ 302`);
+        redirects.push(`${from}/ /${fallback.id}${from}/ 302`);
+    }
+    writeFileSync(join(outDir, '_redirects'), `${redirects.join('\n')}\n`);
+    return { pages: built, search, editions };
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);

@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>EdgeLoop — Autonomous Biofeedback Edging System</title>
 
-  <link rel="icon" type="image/svg+xml" href="./icon.svg">
-  <link rel="apple-touch-icon" href="./icon.svg">
+  <!-- Dev install icons. main keeps icon.svg and the plain PNGs. Do not copy these hrefs onto the live site. -->
+  <link rel="icon" type="image/svg+xml" href="./icon-dev.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-dev-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-dev-512.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icon-dev-180.png">
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#020617">
   <meta name="mobile-web-app-capable" content="yes">
@@ -22,6 +25,168 @@
     .no-scrollbar {
       -ms-overflow-style: none;
       scrollbar-width: none;
+    }
+    /* Theater stays in the page. The stage fills the window under the
+       header. The file panel and the controls move underneath, so they
+       cannot paint on the letterbox. */
+    body:has(#playerStage[data-theater="on"]) {
+      overflow-x: clip;
+    }
+    #playerBody:has(#playerStage[data-theater="on"]) {
+      display: flex;
+      flex-direction: column;
+    }
+    #playerBody:has(#playerStage[data-theater="on"]) > div {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    /* Devices are one row across the page, on the main screen and on the
+       Player. On a narrow window the row scrolls instead of wrapping. */
+    #deviceCardGrid {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 0.375rem;
+      width: 100%;
+      overflow-x: auto;
+    }
+    #deviceCardGrid > button {
+      flex: 1 1 0;
+      min-width: 7.5rem;
+    }
+    /* On a wide window the picture panel is as tall as the file panel.
+       Play and Stop live on the bottom of that panel. A phone stacks the
+       file panel first. */
+    #playerBody {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
+      align-items: start;
+    }
+    #playerColumn {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+    #playerStage {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 16rem;
+      aspect-ratio: auto;
+    }
+    #playerPicture {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 8rem;
+    }
+    #playerStage[data-empty="on"] #playerVideo {
+      display: none;
+    }
+    #playerDock {
+      flex: none;
+    }
+    #playerStage[data-theater="on"] #playerDock,
+    #playerStage:fullscreen #playerDock,
+    #playerStage:-webkit-full-screen #playerDock {
+      display: none;
+    }
+    #sessionActionsHome:empty,
+    #sessionTransportHome:empty,
+    #playerTransportSlot:empty,
+    #playerActionsSlot:empty {
+      display: none;
+    }
+    #playerDock #sessionTransport,
+    #playerDock #sessionTransport > div {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      width: auto;
+    }
+    #playerDock #sessionPlayPauseBtn {
+      flex: 0 0 auto;
+      max-width: none;
+      white-space: nowrap;
+    }
+    #sessionResetBtn,
+    #pipBtn {
+      display: none !important;
+    }
+    body:has(#playerSection:not(.hidden)) #cockpit {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    body:has(#playerSection:not(.hidden)) #cockpitSide {
+      display: none;
+    }
+    @media (min-width: 1024px) {
+      #playerBody:not(:has(#playerStage[data-theater="on"])) {
+        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+        align-items: stretch;
+      }
+      #deviceCardGrid > button {
+        min-width: 0;
+      }
+    }
+    #playerStage[data-theater="on"] {
+      position: relative;
+      z-index: 5;
+      flex: none;
+      aspect-ratio: auto;
+      height: calc(100vh - 7rem);
+      height: calc(100dvh - 7rem);
+      border-radius: 0;
+      background: #000;
+    }
+    #playerStage[data-theater="on"] #playerVideo,
+    #playerStage:fullscreen #playerVideo,
+    #playerStage:-webkit-full-screen #playerVideo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      object-fit: contain;
+      object-position: center;
+    }
+    #playerStage:fullscreen,
+    #playerStage:-webkit-full-screen {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+      max-height: none;
+      border: 0;
+      border-radius: 0;
+      background: #000;
+    }
+    #playerHud[data-idle="on"] .hud-chrome {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* The top readout can stay while the bottom bar hides. */
+    #playerHud[data-pin="on"][data-idle="on"] .hud-info {
+      opacity: 1;
+    }
+    .hud-chrome {
+      transition: opacity 0.25s ease;
+    }
+    /* The native date glyph is a dark mark on this dark field. Force it
+       light and give it a 44 px target so a tablet and a mouse can hit it. */
+    .edgeloop-date {
+      color-scheme: dark;
+      min-height: 2.75rem;
+      min-width: 11rem;
+    }
+    .edgeloop-date::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 1;
+      width: 1.5rem;
+      height: 1.5rem;
+      padding: 0.6rem;
+      margin-inline-start: 0.25rem;
+      filter: brightness(0) invert(1);
     }
   </style>
 </head>
@@ -40,11 +205,8 @@
     <!-- Header -->
     <header class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
       <div class="flex items-center gap-2">
-        <div class="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-rose-500 shadow-md">
-          <svg class="w-5 h-5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 18h3.5l2.5-7 2 4.5 3-10.5h4.5l2.5 8 2-3H22" />
-          </svg>
-        </div>
+        <!-- Dev branch only. main keeps the plain heartbeat drawing. -->
+        <img src="./icon-dev.svg" alt="" width="40" height="40" class="w-10 h-10 rounded-xl border border-slate-800 shadow-md bg-slate-950">
         <div>
           <div class="flex items-center gap-1.5">
             <h1 class="text-lg sm:text-xl font-black tracking-wide text-rose-500">EDGE<span class="text-white">LOOP</span></h1>
@@ -71,6 +233,12 @@
           <span>Session Setup</span>
         </button>
 
+<!-- The player section (your own video and .funscript) -->
+        <button id="playerHeaderBtn" type="button" aria-label="Player" aria-controls="playerSection" aria-expanded="false" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-xl text-sky-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span class="hidden sm:inline">Player</span>
+        </button>
+
         <!-- Share Remote Control -->
         <div class="relative">
           <button id="partnerShareBtn" class="bg-purple-950/60 hover:bg-purple-900 border border-purple-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
@@ -88,8 +256,313 @@
       </div>
     </header>
 
+    <div id="deviceBar" class="space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <p id="deviceNeedHint" class="text-[10px] text-slate-400 leading-snug">Connect a heart-rate monitor and one toy.</p>
+            <button id="deviceMoreBtn" type="button" class="hidden shrink-0 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Add a device</button>
+          </div>
+          <div id="deviceCardGrid">
+          <button id="cardBle" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotBle" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">HR Monitor</span>
+              <span id="badgeBleText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeBleBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+          <button id="cardHandy" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotHandy" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">The Handy</span>
+              <span id="badgeHandyText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeHandyBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+          <button id="cardIntiface" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotIntiface" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">Intiface Toys</span>
+              <span id="badgeIntifaceText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeIntifaceBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+
+          <button id="cardVacuglide" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotVacuglide" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">VacuGlide 2</span>
+              <span id="badgeVacuglideText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeVacuglideBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+
+          <button id="cardTCode" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
+            <span id="dotTCode" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">TCode Serial</span>
+              <span id="badgeTCodeText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
+              <span id="badgeTCodeBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            </div>
+          </button>
+          </div>
+        </div>
+
+
+<section id="playerSection" aria-label="Player" class="hidden space-y-3">
+      <div class="hidden">
+        <button id="playerToggleBtn" type="button" aria-controls="playerBody" aria-expanded="false" class="flex items-center gap-1.5 min-w-0 text-left cursor-pointer min-h-[44px]">
+          <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span id="playerStrip" class="text-[11px] font-semibold text-slate-300 truncate">Player: your own video and .funscript, played with your pulse as the limiter</span>
+        </button>
+        <span id="playerStripPhase" class="hidden shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-700 text-sky-300 font-mono"></span>
+      </div>
+
+      <div id="playerBody" class="hidden">
+        <div id="playerColumn" class="order-2 lg:order-1 min-w-0">
+          <div id="playerStage" data-theater="off" data-immersive="off" data-empty="on" class="relative flex flex-col bg-black rounded-xl border border-slate-800 overflow-hidden min-h-0">
+            <div id="playerPicture" class="relative flex-1 min-h-[8rem]">
+            <p id="playerStageEmpty" class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-400">Choose a video in the file panel.</p>
+            <video id="playerVideo" playsinline preload="auto" class="absolute inset-0 w-full h-full object-contain bg-black"></video>
+            <!-- The HUD: only in theater and fullscreen. The bottom bar hides
+                 after 4 s and comes back on a tap or a mouse move. The top
+                 readout stays when Keep the readout up is on. -->
+            <div id="playerHud" data-idle="off" data-pin="on" class="hidden absolute inset-0">
+              <div class="hud-chrome hud-info absolute top-0 inset-x-0 p-3 flex flex-col gap-1 bg-gradient-to-b from-black/70 to-transparent text-white pointer-events-none">
+                <div class="flex justify-between items-start gap-3">
+                  <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span class="text-3xl font-black font-mono text-rose-400"><span id="hudHr">--</span><span class="text-xs text-slate-300 ml-1">BPM</span></span>
+                    <span class="text-[11px] font-mono text-purple-200">mark <span id="hudMark">--</span></span>
+                    <span id="hudPhase" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-950/90 border border-sky-700 text-sky-200 font-mono"></span>
+                  </div>
+                  <div class="text-right font-mono">
+                    <div class="text-xl font-bold" id="hudTimer">00:00</div>
+                    <div class="text-[11px] text-amber-300">edges <span id="hudEdges">0</span></div>
+                  </div>
+                </div>
+                <div class="flex gap-4 text-[11px] font-mono text-slate-200">
+                  <span>Primary <span id="hudPrimary" class="text-rose-300 font-bold">0%</span></span>
+                  <span>Secondary <span id="hudSecondary" class="text-purple-300 font-bold">0%</span></span>
+                </div>
+              </div>
+              <p id="hudNotice" class="hud-chrome hidden absolute top-20 inset-x-3 text-center text-[11px] font-bold text-rose-100 bg-rose-950/90 border border-rose-700 rounded-lg px-2 py-1 pointer-events-none"></p>
+              <div class="hud-chrome absolute inset-x-0 bottom-0 p-3 pt-10 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2">
+                <input id="hudSeek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Scrub" class="w-full accent-amber-400 h-8 cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <button id="hudPauseBtn" type="button" class="min-h-[2.75rem] min-w-[5.5rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm cursor-pointer">Play</button>
+                  <button id="hudStopBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-rose-700/90 hover:bg-rose-600 text-white font-bold text-sm cursor-pointer">Stop</button>
+                  <span class="flex-1"></span>
+                  <label class="flex items-center gap-2 text-[10px] text-slate-200">
+                    <span>Volume</span>
+                    <input id="hudVolume" type="range" min="0" max="100" step="1" value="100" aria-label="Volume" class="w-24 accent-white cursor-pointer">
+                  </label>
+                  <button id="hudMuteBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs cursor-pointer">Mute</button>
+                  <button id="hudExitBtn" type="button" class="min-h-[2.75rem] px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm cursor-pointer">Exit</button>
+                </div>
+              </div>
+            </div>
+            </div>
+          <div id="playerDock" class="shrink-0 border-t border-slate-800 bg-slate-950 px-2 py-2 flex flex-col gap-1.5">
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+            <div id="playerTransportSlot" class="shrink-0"></div>
+              <button id="playerPlayBtn" type="button" class="hidden min-h-[2.75rem] min-w-[3.5rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold cursor-pointer">Play</button>
+              <button id="playerBothBtn" type="button" aria-pressed="false" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Both</button>
+              <span class="flex-1"></span>
+              <span id="playerTime" class="font-mono text-slate-400 shrink-0">0:00 / 0:00</span>
+              <button id="playerMarkBtn" type="button" class="hidden min-h-[2.75rem] px-2.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer">Climax here</button>
+              <button id="playerTheaterBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Theater</button>
+              <button id="playerFullscreenBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-[10px] cursor-pointer">Fullscreen</button>
+            </div>
+            <div id="playerScrub" class="relative w-full h-11 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 touch-none cursor-pointer">
+              <canvas id="playerSeekHeat" width="640" height="44" class="absolute inset-0 w-full h-full" aria-label="Video and heat map. Drag the dot to move through the video."></canvas>
+              <div id="playerSeekThumb" class="absolute top-1/2 left-0 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white border-2 border-slate-950 shadow pointer-events-none"></div>
+            </div>
+            <input id="playerSeek" type="range" min="0" max="0" step="0.1" value="0" disabled aria-label="Seek" class="sr-only">
+            <div id="playerClimaxList" class="hidden flex flex-wrap gap-1.5"></div>
+            <p id="playerNotice" role="status" aria-live="polite" class="hidden text-[10px] text-amber-300 leading-snug"></p>
+            <div id="playerActionsSlot"></div>
+            <label class="flex items-center justify-between gap-3 min-h-[2.75rem] cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Stats Overlay.</strong> Heart rate, edges, and both toys stay on the picture.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="playerHudPin" type="checkbox" class="sr-only peer" checked>
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+            <div id="playerOffsetRow" class="hidden flex flex-wrap items-center gap-2">
+              <span class="text-[11px] font-semibold text-slate-100">Offset</span>
+              <button id="playerOffsetMinus" type="button" aria-label="Strokes 50 ms earlier" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">−50</button>
+              <span id="playerOffsetValue" class="font-mono text-sky-300 font-bold w-16 text-center text-[10px]">0 ms</span>
+              <button id="playerOffsetPlus" type="button" aria-label="Strokes 50 ms later" class="min-h-[2.75rem] min-w-[2.75rem] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">+50</button>
+              <span class="text-[10px] text-slate-500 leading-snug">Each tap moves the strokes 50 ms earlier or later than the picture.</span>
+            </div>
+            <p id="playerHeatmapHint" class="hidden text-[9px] text-slate-400 leading-snug">Green is a pause, red is fast. A marked climax uses Pre-Climax Ramp Up, then Climax Duration, then Post Climax Ramp Down. Marks for this script stay on this device.</p>
+          </div>
+          </div>
+        </div>
+
+        <div id="playerFiles" class="order-1 lg:order-2 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2 min-w-0">
+          <div id="appSyncCard" class="hidden p-2.5 rounded-xl border border-sky-900 bg-slate-950 space-y-2">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300">Player clock</p>
+            <p id="appSyncHelp" class="text-[10px] text-slate-400 leading-snug">HereSphere or DeoVR plays the video. This app follows its clock and runs the toys. In the headset, turn on the timestamp server and put that address here. Port 23554 is the usual one. To test without a headset, choose VLC.</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="appSyncKind" aria-label="Player" class="min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200">
+                <option value="headset">Headset</option>
+                <option value="vlc">VLC</option>
+              </select>
+              <input id="appHeadsetHost" type="text" placeholder="192.168.1.20" aria-label="Player address" class="flex-1 min-h-[2.75rem] min-w-[8rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
+              <input id="appHeadsetPort" type="number" min="1" max="65535" value="23554" aria-label="Player port" class="w-20 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-[10px] text-slate-200 font-mono">
+              <input id="appVlcPassword" type="password" placeholder="VLC password" aria-label="VLC password" class="hidden w-28 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200">
+              <button id="appConnectBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-[10px] font-bold cursor-pointer">Connect</button>
+              <button id="appQuitBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Quit</button>
+            </div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-sky-300 pt-1">Video library</p>
+            <p class="text-[10px] text-slate-400 leading-snug">A folder on this computer. When the player plays a video, the script with the same name loads. Choosing files below still works.</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <input id="appLibraryPath" type="text" placeholder="/home/you/videos" aria-label="Video library folder" class="flex-1 min-h-[2.75rem] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
+              <button id="appLibraryBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Use folder</button>
+            </div>
+            <p id="appSyncStatus" role="status" class="text-[10px] text-slate-300 leading-snug">Not connected.</p>
+          </div>
+          <div id="playerDrop" data-over="off" class="p-2.5 rounded-xl border border-dashed border-slate-700 bg-slate-950 space-y-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="playerChooseBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold cursor-pointer">Choose MP4, M4V, WEBM, MKV, MOV, OGV</button>
+              <button id="playerClearBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer">Clear</button>
+              <span class="text-[10px] text-slate-400">or drop them here</span>
+              <input id="playerFileInput" type="file" multiple accept=".funscript,.mp4,.m4v,.webm,.mkv,.mov,.ogv,video/mp4,video/webm,video/quicktime,video/ogg" class="hidden">
+            </div>
+            <p id="playerFormatHint" class="text-[9px] text-slate-400 leading-snug">MP4, M4V, WEBM, MKV, MOV, OGV, plus a .funscript for the stroker and a .v0.funscript for the other toy. MP4 (H.264) and WebM play in the most browsers. MKV and MOV only play where this browser can decode them.</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="playerPrimaryConfigBtn" type="button" class="min-h-[2.75rem] px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-left cursor-pointer">
+                <span class="block text-[9px] font-bold uppercase tracking-wider text-rose-300">Primary</span>
+                <span id="playerPrimaryConfigName" class="block text-[11px] font-semibold text-slate-100 truncate">EdgeLoop</span>
+                <span id="playerPrimaryConfigHint" class="block text-[9px] text-slate-400">Tap to configure</span>
+              </button>
+              <button id="playerSecondaryConfigBtn" type="button" class="min-h-[2.75rem] px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-left cursor-pointer">
+                <span class="block text-[9px] font-bold uppercase tracking-wider text-purple-300">Secondary</span>
+                <span id="playerSecondaryConfigName" class="block text-[11px] font-semibold text-slate-100 truncate">EdgeLoop</span>
+                <span id="playerSecondaryConfigHint" class="block text-[9px] text-slate-400">Tap to configure</span>
+              </button>
+            </div>
+            <div id="playerPrimaryConfig" class="hidden space-y-1.5 rounded-xl border border-slate-800 bg-slate-950 p-2">
+              <p class="text-[10px] text-slate-400 leading-snug">Primary is the stroker. EdgeLoop runs the stroke. A funscript replaces it.</p>
+              <div class="flex gap-2">
+                <button id="playerPrimaryEdgeBtn" type="button" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-sky-800 text-slate-100 text-[10px] font-semibold cursor-pointer">EdgeLoop</button>
+                <button id="playerPrimaryBtn" type="button" aria-pressed="false" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Choose a funscript</button>
+              </div>
+              <button id="playerClearPrimaryBtn" type="button" class="hidden w-full min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer">Clear funscript</button>
+              <input id="playerPrimaryInput" type="file" accept=".funscript,application/json" class="hidden">
+            </div>
+            <div id="playerSecondaryConfig" class="hidden space-y-1.5 rounded-xl border border-slate-800 bg-slate-950 p-2">
+              <p class="text-[10px] text-slate-400 leading-snug">Secondary is the other toy. EdgeLoop follows the play style. A funscript replaces it.</p>
+              <div class="flex gap-2">
+                <button id="playerSecondaryEdgeBtn" type="button" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-sky-800 text-slate-100 text-[10px] font-semibold cursor-pointer">EdgeLoop</button>
+                <button id="playerSecondaryBtn" type="button" aria-pressed="false" class="flex-1 min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-semibold cursor-pointer">Choose a funscript</button>
+              </div>
+              <button id="playerClearSecondaryBtn" type="button" class="hidden w-full min-h-[2.75rem] px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold cursor-pointer">Clear funscript</button>
+              <input id="playerSecondaryInput" type="file" accept=".funscript,application/json" class="hidden">
+            </div>
+            <button id="playerClearScriptsBtn" type="button" class="hidden">Clear scripts</button>
+            <div class="hidden">
+              <input id="playerVideoUrl" type="url" inputmode="url" placeholder="https://…/video.mp4" aria-label="Direct video file address" class="flex-1 min-h-[2.75rem] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-[10px] text-slate-200 outline-none focus:border-sky-500">
+              <button id="playerVideoUrlBtn" type="button" class="min-h-[2.75rem] px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold cursor-pointer">Use link</button>
+            </div>
+            <label id="playerFollowRow" class="hidden flex items-center justify-between gap-3 pt-1 min-h-[44px] cursor-pointer">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Follow the script.</strong> On, the stroker plays the funscript and your pulse limits it. Off, the stroke you picked in the mode row runs instead.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="playerFollowScript" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+            <label class="hidden">
+              <span class="text-[10px] text-slate-300 leading-snug"><strong>Continue after the video.</strong> Off, the session ends with the video. On, it keeps going on your timer and the toys go back to Classic.</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="scriptContinueAfterVideo" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+            <div id="playerPackRow" class="hidden flex items-center gap-2 text-[10px]">
+              <label for="playerPackSelect" class="text-slate-400 font-semibold">Script</label>
+              <select id="playerPackSelect" class="flex-1 min-h-[44px] bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-200"></select>
+            </div>
+            <ul id="playerPairList" class="text-[10px] text-slate-300 leading-snug space-y-0.5 break-words"></ul>
+            <p id="playerError" role="alert" class="hidden text-[10px] font-semibold text-rose-300 leading-snug"></p>
+            <ul id="playerSummary" class="text-[10px] text-slate-400 leading-snug space-y-0.5"></ul>
+          </div>
+
+          <div class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Status</span>
+              <span id="playerPhase" class="text-[10px] font-bold font-mono text-sky-300">IDLE</span>
+            </div>
+            <ul id="playerToyNotes" class="text-[10px] text-slate-400 leading-snug space-y-0.5"></ul>
+          </div>
+
+          <div id="playerEdgeLoopSettings" class="hidden space-y-2"></div>
+          <div id="playerMorph" class="hidden space-y-2">
+          <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Funscript morphing</p>
+          <p class="text-[9px] text-slate-400 leading-snug">Shorten and skip opens a mild file when your pulse is low, and shortens it as you reach the edge. Keep the script leaves the file's strokes alone and only turns them down.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <button type="button" data-stroke-model="cactus" class="stroke-model-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1">
+                <span>Shorten and skip</span>
+                <span class="stroke-model-check text-purple-400">●</span>
+              </div>
+              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">Strokes get shorter as you climb, then skip at the edge.</p>
+            </button>
+            <button type="button" data-stroke-model="keep" class="stroke-model-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
+                <span>Keep the script</span>
+                <span class="stroke-model-check hidden text-purple-400">●</span>
+              </div>
+              <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">The file's strokes stay. Your pulse only turns them down.</p>
+            </button>
+          </div>
+          <p id="strokeModelDetail" class="text-[10px] text-slate-300 leading-snug">Strokes get shorter as your heart rate climbs. At your edge, the toy skips strokes and the video keeps going.</p>
+          <div class="rounded-xl border border-slate-800 bg-slate-950 p-2.5 space-y-2.5">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Marked climax</p>
+              <p class="text-[10px] text-slate-400 leading-snug mt-0.5">A gold mark on the bar is a climax in the file. The toys climb before it, stay there, then ease back into the script.</p>
+            </div>
+            <label class="block">
+              <span class="flex items-center justify-between gap-3">
+                <span class="text-[11px] font-semibold text-slate-100">Pre-Climax Ramp Up</span>
+                <span class="flex items-center gap-1.5 shrink-0">
+                  <input id="scriptClimaxRampSeconds" type="number" min="0" max="180" step="1" value="45" aria-label="Pre-Climax Ramp Up, seconds the toys climb before a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                  <span class="text-[10px] text-slate-400 w-6">sec</span>
+                </span>
+              </span>
+              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys spend climbing before the mark.</span>
+            </label>
+            <label class="block">
+              <span class="flex items-center justify-between gap-3">
+                <span class="text-[11px] font-semibold text-slate-100">Climax Duration</span>
+                <span class="flex items-center gap-1.5 shrink-0">
+                  <input id="scriptClimaxSeconds" type="number" min="5" max="180" step="1" value="20" aria-label="Climax Duration, seconds a marked climax stays at full" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                  <span class="text-[10px] text-slate-400 w-6">sec</span>
+                </span>
+              </span>
+              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys stay at that climax.</span>
+            </label>
+            <label class="block">
+              <span class="flex items-center justify-between gap-3">
+                <span class="text-[11px] font-semibold text-slate-100">Post Climax Ramp Down</span>
+                <span class="flex items-center gap-1.5 shrink-0">
+                  <input id="scriptClimaxEaseSeconds" type="number" min="0" max="180" step="1" value="15" aria-label="Post Climax Ramp Down, seconds to ease back into the script after a marked climax" class="w-16 min-h-[2.75rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-center text-slate-100 font-mono">
+                  <span class="text-[10px] text-slate-400 w-6">sec</span>
+                </span>
+              </span>
+              <span class="block text-[10px] text-slate-500 leading-snug mt-0.5">How long the toys ease back into the script. With no funscript, a gold mark aims EdgeLoop at that time.</span>
+            </label>
+          </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Two-Column Responsive Cockpit Grid (Desktop & Landscape Tablet) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+    <div id="cockpit" class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
 
       <!-- LEFT COLUMN -->
       <div class="lg:col-span-7 space-y-3">
@@ -115,15 +588,19 @@
               <button id="micReenableBtn" type="button" class="hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700 text-amber-300 hover:bg-amber-900 ml-1 cursor-pointer" title="Browsers only grant the microphone after a tap">Tap to re-enable microphone</button>
             </div>
 
-            <!-- BPM Limits. Resting heart rate is assumed at 70. -->
-            <div class="flex items-center gap-2.5 text-xs">
+            <!-- BPM Limits. Resting defaults to 70 and can be typed. -->
+            <div class="flex items-center gap-2.5 text-xs flex-wrap">
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-slate-300 font-semibold">Resting:</span>
+                <input id="minHr" type="number" value="70" min="30" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400" title="Heart rate at rest. The tease runs from here up to the climax number. Default 70.">
+              </div>
               <div class="flex items-center gap-1">
                 <span class="text-[10px] text-rose-400 font-semibold">Single max:</span>
-                <input id="maxHr" type="number" value="140" min="71" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
+                <input id="maxHr" type="number" value="140" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500" title="Heart rate where you climax with one toy">
               </div>
               <div class="flex items-center gap-1">
                 <span class="text-[10px] text-purple-300 font-semibold">Dual max:</span>
-                <input id="dualMaxHr" type="number" value="125" min="71" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
+                <input id="dualMaxHr" type="number" value="125" min="31" max="250" class="w-16 min-w-[4rem] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500" title="Heart rate where you climax with both toys">
               </div>
               <button id="calibrateBtn" type="button" aria-pressed="false" class="px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer bg-rose-950/60 hover:bg-rose-900 border-rose-800 text-rose-200">Calibrate</button>
             </div>
@@ -222,12 +699,10 @@
             </label>
           </div>
           <p class="text-[9px] text-slate-500 leading-tight">Strokes stay between these. 0 and 100 leave the pattern alone. A stop is still a stop.</p>
-          <div id="keybindList" class="grid grid-cols-2 gap-1 pt-1 text-[10px] text-slate-400"></div>
-          <p class="text-[9px] text-slate-500 leading-tight">Click a key name, then press a key or a controller button. Up and down move the VacuGlide valves when that toy is connected.</p>
         </div>
 
-        <!-- Action Bar: Edges, Pauses, Came Early, Force Orgasm -->
-        <div class="grid grid-cols-4 gap-2 text-center text-xs">
+        <div id="sessionActionsHome">
+        <div id="sessionActions" class="grid grid-cols-4 gap-2 text-center text-xs">
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-2">
             <div class="text-[9px] text-slate-500 uppercase font-semibold">Edges</div>
             <div id="edgeCount" class="text-lg font-black text-amber-400 font-mono leading-none mt-1">0</div>
@@ -245,9 +720,10 @@
             <span id="orgasmBtnText" class="font-bold text-[10px] mt-0.5">Force Orgasm</span>
           </button>
         </div>
+        </div>
 
-        <!-- Primary Transport Controls -->
-        <div class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
+        <div id="sessionTransportHome">
+        <div id="sessionTransport" class="bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80">
           <div class="flex gap-2">
             <button id="sessionPlayPauseBtn" disabled class="flex-1 bg-slate-800 text-slate-500 font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 border border-slate-700/50 cursor-not-allowed">
               <svg id="playPauseIcon" class="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -259,7 +735,7 @@
               <span>STOP</span>
             </button>
 
-            <button id="sessionResetBtn" class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
+            <button id="sessionResetBtn" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer">
               Reset
             </button>
             <button id="pipBtn" type="button" class="hidden bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Float a small cockpit over a fullscreen video. Start, Stop, Came Early, and Force Orgasm stay tappable.">
@@ -267,80 +743,71 @@
             </button>
           </div>
         </div>
+        </div>
 
       </div>
 
       <!-- RIGHT COLUMN -->
-      <div class="lg:col-span-5 space-y-3">
+      <div id="cockpitSide" class="lg:col-span-5 space-y-3">
 
-        <!-- Hardware Status Badges -->
-        <div class="grid grid-cols-2 xl:grid-cols-4 gap-1.5">
-          <button id="cardBle" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotBle" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">HR Monitor</span>
-              <span id="badgeBleText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeBleBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+        <div id="sessionLengthPanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Session Length</span>
+              <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
+                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
+                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
+                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
+              </div>
             </div>
-          </button>
-
-          <button id="cardHandy" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotHandy" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">The Handy</span>
-              <span id="badgeHandyText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeHandyBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Exact length:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
             </div>
-          </button>
-
-          <button id="cardIntiface" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotIntiface" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">Intiface Toys</span>
-              <span id="badgeIntifaceText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeIntifaceBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Mystery window:</span>
+              <div class="flex items-center gap-1 font-mono">
+                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">to</span>
+                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
             </div>
-          </button>
-
-
-          <button id="cardVacuglide" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotVacuglide" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">VacuGlide 2 <span class="text-amber-400">· Experimental</span></span>
-              <span id="badgeVacuglideText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeVacuglideBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Endless:</span>
+              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs until you stop it</span>
             </div>
-          </button>
-
-          <button id="cardTCode" class="text-left p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-start gap-2 cursor-pointer min-w-0">
-            <span id="dotTCode" class="h-2 w-2 rounded-full bg-rose-500/30 border border-rose-500 shrink-0 mt-1"></span>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-tight">TCode Serial</span>
-              <span id="badgeTCodeText" class="text-[11px] text-slate-200 font-medium truncate block mt-0.5">Disconnected</span>
-              <span id="badgeTCodeBattery" class="text-[9px] font-mono text-emerald-400 hidden mt-0.5">🔋 --%</span>
+            <p class="text-[9px] text-slate-400 leading-snug">The Oracle waits for the Mystery minimum. A Fixed length unlocks halfway through. Endless has no minimum.</p>
+            <div class="flex items-center justify-between text-xs pt-1">
+              <span class="text-slate-400 text-[10px]">Warm-up:</span>
+              <div class="flex items-center gap-2 font-mono">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input id="warmupToggle" type="checkbox" class="sr-only peer" checked aria-label="Warm-up">
+                  <span class="relative block w-8 h-4 bg-slate-700 rounded-full peer-checked:bg-amber-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4"></span>
+                </label>
+                <input id="warmupInput" type="number" min="0" max="10" step="1" value="5" aria-label="Warm-up minutes" class="w-14 bg-slate-950 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
+                <span class="text-slate-500 text-xs">min</span>
+              </div>
             </div>
-          </button>
         </div>
 
         <!-- Experience Profiles & Modes Grid -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
-          <div class="flex justify-between items-center">
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Mode</span>
-              <button id="openParamsBtn" type="button" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-400 hover:text-purple-300 border border-slate-700 text-[10px] font-semibold transition flex items-center gap-1 cursor-pointer">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                <span>Session Setup</span>
-              </button>
-            </div>
-
-          </div>
-
-          <p id="modeDetail" class="text-[10px] text-slate-300 leading-snug">Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical, then Crawl or Full Stop at the ceiling.</p>
-
+        <div id="sessionSetupHome" class="space-y-3">
+        <div id="playStylePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div id="customCardsContainer" class="space-y-1.5 hidden"></div>
 
-          <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Stroke</p>
-          <!-- Built-In Modes -->
+          <div class="space-y-1.5">
+            <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Play Style</p>
+            <button id="playStyleToggle" type="button" aria-expanded="false" aria-controls="playStyleDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
+              <span id="playStylePrompt" class="hidden text-sm font-bold text-purple-200">Select your play style</span>
+              <span id="playStyleName" class="block text-sm font-bold text-purple-300">Classic Tease</span>
+              <span id="playStyleHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
+            </button>
+            <p id="playStyleDetail" class="text-[10px] text-slate-300 leading-snug">Full strokes inside the travel range you set. Tempo and depth drift so the same pulse does not feel identical. Close to the heart rate you set, it sometimes stops for a beat and then picks the stroke back up.</p>
+          </div>
+          <div id="playStyleDrawer" class="hidden space-y-1.5">
           <div id="bioProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <button type="button" data-mode="classic" class="mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
               <div class="font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1">
@@ -351,6 +818,18 @@
               </div>
               <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
                 Full strokes. Speed eases off as your pulse climbs.
+              </p>
+            </button>
+
+            <button type="button" data-mode="finisher" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
+              <div class="font-bold text-[11px] text-slate-200 flex justify-between items-center gap-1">
+                <span>Finisher</span>
+                <span class="flex items-center gap-1">
+                  <span class="mode-check hidden text-rose-500">●</span>
+                </span>
+              </div>
+              <p class="text-[9px] text-slate-400 mt-0.5 leading-snug">
+                Speed climbs with your pulse and stays full on the mark.
               </p>
             </button>
 
@@ -414,9 +893,69 @@
               </p>
             </button>
           </div>
+          </div>
+        </div>
 
-          <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Goal</p>
-          <!-- Goal row. Tease means the stroke runs with no game on top. -->
+        <div id="endgamePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+          <div id="endgameHome">
+          <div id="endgameBlock" class="space-y-1.5">
+            <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Session Endgame</p>
+            <button id="endgameToggle" type="button" aria-expanded="false" aria-controls="endgameDrawer" class="w-full text-left p-2.5 rounded-xl bg-slate-950 border border-slate-700 hover:border-purple-500 transition cursor-pointer">
+              <span id="endgamePrompt" class="hidden text-sm font-bold text-purple-200">Select your ending</span>
+              <span id="endgameName" class="block text-sm font-bold text-purple-300">Tease</span>
+              <span id="endgameHint" class="block text-[9px] text-slate-500 mt-0.5">Tap to change</span>
+            </button>
+            <p id="endgameDetail" class="text-[10px] text-slate-300 leading-snug">No game. The stroke you picked runs on its own.</p>
+            <div id="timerEnding" class="pt-1.5 border-t border-slate-800 space-y-1.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">When the timer runs out</span>
+              <div class="grid grid-cols-3 gap-1.5" id="paramEndgameContainer">
+                <button type="button" data-endgame="orgasm" class="param-endgame-card p-1.5 rounded-lg bg-purple-950/30 border border-purple-800 text-left transition cursor-pointer">
+                  <div class="font-bold text-[10px] text-purple-300">Climax</div>
+                  <div class="text-[8px] text-slate-400 leading-tight">Surges to 100%</div>
+                </button>
+                <button type="button" data-endgame="rampdown" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
+                  <div class="font-bold text-[10px] text-slate-300">Soft Landing</div>
+                  <div class="text-[8px] text-slate-400 leading-tight">45s tease down</div>
+                </button>
+                <button type="button" data-endgame="denial" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
+                  <div class="font-bold text-[10px] text-slate-300">Strict Denial</div>
+                  <div class="text-[8px] text-slate-400 leading-tight">Immediate stop</div>
+                </button>
+              </div>
+            </div>
+            <div id="trainSettings" class="hidden">
+            <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-300">
+              <label class="flex items-center gap-1.5">Hold
+                <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
+                s
+              </label>
+              <label class="flex items-center gap-1.5">
+                <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-amber-300 outline-none focus:border-amber-500">
+                edges, then finish
+              </label>
+            </div>
+            </div>
+            <div id="nnnSettings" class="hidden">
+            <div class="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-300">
+              <span id="nnnStatus" class="font-mono text-[10px] font-bold text-emerald-300">Today 0/3</span>
+              <label class="flex items-center gap-1.5">Start
+                <input id="nnnStartInput" type="date" value="2026-10-08" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+              </label>
+              <label class="flex items-center gap-1.5">End
+                <input id="nnnEndInput" type="date" value="2026-11-30" class="edgeloop-date bg-slate-950 border border-slate-700 rounded-lg px-2 text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+              </label>
+              <label class="flex items-center gap-1.5">Edges/day
+                <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+              </label>
+              <label class="flex items-center gap-1.5">Denial
+                <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-14 min-h-[2.75rem] bg-slate-950 border border-slate-700 rounded-lg px-2 text-center text-[10px] font-mono font-bold text-emerald-300 outline-none focus:border-emerald-500">
+                %
+              </label>
+              <button id="nnnMissedDayBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Add a missed day</button>
+              <button id="nnnClearBtn" type="button" class="min-h-[2.75rem] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-semibold text-slate-200 cursor-pointer">Clear</button>
+            </div>
+            </div>
+            <div id="endgameDrawer" class="hidden">
           <div id="gameModesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <button type="button" data-mode="goal-off" class="mode-card text-left p-2 rounded-xl bg-purple-950/20 border border-purple-800 hover:border-purple-600 transition cursor-pointer flex flex-col justify-between">
               <div class="font-bold text-[11px] text-purple-300 flex justify-between items-center gap-1">
@@ -452,17 +991,6 @@
               <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
                 Hold the edge. After enough holds, it offers to finish you.
               </p>
-              <div class="flex flex-wrap items-center gap-2 mt-1.5 pt-1.5 border-t border-slate-800 text-[9px] text-slate-400" data-train-settings>
-                <label class="flex items-center gap-1 font-mono">
-                  Hold
-                  <input id="trainHoldSecondsInput" type="number" min="5" max="90" value="15" class="w-12 bg-slate-900 border border-slate-700 rounded-md py-0.5 text-center text-amber-300 font-bold outline-none">
-                  s
-                </label>
-                <label class="flex items-center gap-1 font-mono">
-                  <input id="trainEdgesInput" type="number" min="1" max="20" value="5" class="w-10 bg-slate-900 border border-slate-700 rounded-md py-0.5 text-center text-amber-300 font-bold outline-none">
-                  edges, then finish
-                </label>
-              </div>
             </button>
 
             <button type="button" data-mode="oracle" class="mode-card text-left p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between">
@@ -487,26 +1015,12 @@
               <p class="text-[9px] text-slate-300 mt-0.5 leading-snug">
                 A daily edge quota. Skip a day and the next one is harder. You can try it before November.
               </p>
-              <div class="flex flex-wrap items-center gap-2 mt-1.5 pt-1.5 border-t border-slate-800 text-[9px] text-slate-400" data-nnn-settings>
-                <span id="nnnStatus" class="font-mono text-emerald-300">Today 0/3</span>
-                <label class="flex items-center gap-1 font-mono">Start
-                  <input id="nnnStartInput" type="date" value="2026-10-08" class="bg-slate-900 border border-slate-700 rounded-md px-1 py-0.5 text-emerald-300 outline-none">
-                </label>
-                <label class="flex items-center gap-1 font-mono">End
-                  <input id="nnnEndInput" type="date" value="2026-11-30" class="bg-slate-900 border border-slate-700 rounded-md px-1 py-0.5 text-emerald-300 outline-none">
-                </label>
-                <label class="flex items-center gap-1 font-mono">Edges/day
-                  <input id="nnnDailyInput" type="number" min="1" max="20" value="3" class="w-10 bg-slate-900 border border-slate-700 rounded-md py-0.5 text-center text-emerald-300 font-bold outline-none">
-                </label>
-                <label class="flex items-center gap-1 font-mono">Denial
-                  <input id="nnnDenialInput" type="number" min="0" max="100" value="50" class="w-12 bg-slate-900 border border-slate-700 rounded-md py-0.5 text-center text-emerald-300 font-bold outline-none">
-                  %
-                </label>
-                <button id="nnnMissedDayBtn" type="button" class="px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-slate-300 cursor-pointer">Add a missed day</button>
-                <button id="nnnClearBtn" type="button" class="px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-slate-300 cursor-pointer">Clear</button>
-              </div>
             </button>
           </div>
+            </div>
+          </div>
+          </div>
+        </div>
         </div>
 
       </div>
@@ -518,7 +1032,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.3</span>
+        <span id="appVersion" class="font-mono">v1.1.4.13</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -623,6 +1137,18 @@
             <input type="range" id="handyCapSlider" min="10" max="100" step="5" value="100" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded cursor-pointer">
           </div>
 
+          <div class="pt-3 border-t border-slate-800 space-y-1.5">
+            <label for="beatSyncToggle" class="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
+              <span class="text-xs font-bold text-slate-200">Beat sync</span>
+              <span class="relative inline-flex shrink-0">
+                <input id="beatSyncToggle" type="checkbox" class="sr-only peer">
+                <span class="relative block w-11 h-6 bg-slate-700 rounded-full peer-checked:bg-sky-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+            <p class="text-[10px] text-slate-400 leading-snug">Off, The Handy follows the speed and depth of the moment. On, with a funscript and firmware 4, it plays each stroke in the file. The next few seconds of positions go to Handy's servers. The video, the file name, and your heart rate stay on this device. Leave it off until you want that match. It asks once the first time you turn it on.</p>
+            <p id="beatSyncRoute" class="text-[10px] text-slate-300 leading-snug"></p>
+          </div>
+
           <!-- Handy Physical Sleeve Travel Envelope (Moved from Motion tab) -->
           <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 mt-2">
             <div class="flex justify-between items-center">
@@ -630,7 +1156,7 @@
               <span id="hwEnvelopeDisplay" class="font-mono text-[10px] font-bold text-teal-400">Bounds: 0% - 100%</span>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">
-              Protects against sleeve slip-out or base jamming. Strokes scale inside these physical bounds.
+              The stroke range. 0–100% is the whole axis. Set a narrower range only to keep the sleeve on. It is not stacked on an axis speed cap: that cap changes speed, not how far the stroke goes.
             </p>
             <div class="grid grid-cols-2 gap-2 pt-1">
               <div class="space-y-0.5">
@@ -709,13 +1235,12 @@
       <div id="modalBodyVacuglide" class="space-y-3 hidden">
         <!-- Shipped for testers before anyone has run it on a real device -->
         <div class="p-2.5 rounded-xl border border-amber-700/70 bg-amber-950/40 space-y-1" role="note">
-          <div class="text-xs font-bold text-amber-300">Experimental</div>
           <p class="text-[10px] text-amber-100/90 leading-snug">
-            VacuGlide support is experimental. A first real session went well. Keep the first sessions on this build
+            A first real session went well. Keep the first sessions on this build
             short, with the VacuGlide's own power button within reach. To stop it, use EdgeLoop's STOP or the
             VacuGlide's own power button. If you stop it from Autoblow's app during a session, EdgeLoop pauses instead
-            of starting it again. Tell us what happened, good or bad, in the
-            <a href="https://discuss.eroscripts.com/t/edgeloop-app-autonomous-real-time-cardiac-biofeedback-edging-funscript-generator/336717" target="_blank" rel="noopener noreferrer" class="underline text-amber-200 hover:text-white">EdgeLoop thread on Eroscripts</a>.
+            of starting it again. Tell us what happened, good or bad, on
+            <a href="https://discord.gg/ZFrkehxAC" target="_blank" rel="noopener noreferrer" class="underline text-amber-200 hover:text-white">Discord</a>.
           </p>
         </div>
         <p class="text-xs text-slate-400">Turn on your VacuGlide's online mode (hold its mode button for about 2.5 seconds), then enter the device token Autoblow gave it. <a href="https://autoblowme.com/vacuglide-2/device-token" target="_blank" rel="noopener noreferrer" class="text-purple-400 hover:underline">Autoblow shows how to find the token</a>.</p>
@@ -832,7 +1357,7 @@
             <span id="tcodeHwEnvelopeDisplay" class="font-mono text-[10px] font-bold text-teal-400">Bounds: 0% - 100%</span>
           </div>
           <p class="text-[9px] text-slate-400 leading-snug">
-            Protects against sleeve slip-out or base jamming. Linear (L) axes scale inside these physical bounds; STOP rests at the lower guard. Shared with The Handy modal.
+            The stroke range, shared with The Handy modal. 0–100% is the whole axis. Set a narrower range only to keep the sleeve on. An axis Max speed below changes speed, not this range. STOP rests at the lower guard.
           </p>
           <div class="grid grid-cols-2 gap-2 pt-1">
             <div class="space-y-0.5">
@@ -854,6 +1379,21 @@
           <span>Recorded Sessions & Funscripts</span>
           <button id="clearHistoryBtn" class="text-rose-400 hover:underline cursor-pointer">Clear Log</button>
         </div>
+        <div id="sessionLogPanel" class="hidden p-2.5 bg-slate-950 rounded-xl border border-amber-900/60 space-y-1.5">
+          <label class="flex items-center justify-between gap-2 cursor-pointer">
+            <span class="text-xs font-bold text-slate-200">Record a session log</span>
+            <span class="flex items-center gap-2 shrink-0">
+              <span id="sessionLogOptInState" class="font-mono text-[10px] font-bold text-slate-400">Off</span>
+              <input id="sessionLogOptIn" type="checkbox" class="accent-amber-500 cursor-pointer" onchange="setSessionLogOptIn(this.checked)">
+            </span>
+          </label>
+          <p class="text-[9px] text-slate-400 leading-snug">
+            Off until you turn it on. The log stays in this browser. EdgeLoop does not upload it, and it has no account to attach it to. Stop a session and a JSON download appears on that row. Post it in <a href="https://discord.gg/ZFrkehxAC" target="_blank" rel="noopener noreferrer" class="underline text-amber-200/90 hover:text-white">Discord</a> if you want a hand reading what the toys did.
+          </p>
+          <p class="text-[9px] text-slate-400 leading-snug">
+            The file has your heart rate once a second, the speeds sent to the toys, your session settings, and the make and model of the toys that were on. It leaves out Handy keys, device tokens, Bluetooth addresses, and the names of videos and scripts.
+          </p>
+        </div>
         <div id="historyList" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar scroll-smooth pr-0.5">
           <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 text-xs text-center italic">
             No completed sessions recorded yet.
@@ -864,85 +1404,18 @@
       <!-- 5. UNIFIED SESSION SETUP MODAL (4 Sub-Tabs: Duration, Guards, Audio & Mic, Backup) -->
       <div id="modalBodyParams" class="space-y-3 hidden">
         <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-bold">
-          <button id="paramsTabDurationBtn" class="flex-1 py-1.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Duration</button>
-          <button id="paramsTabGuardsBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Guards</button>
+          <button id="paramsTabGuardsBtn" class="flex-1 py-1.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Guards</button>
           <button id="paramsTabAudioBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Audio & Mic</button>
           <button id="paramsTabBackupBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Backup</button>
+          <button id="paramsTabKeysBtn" class="flex-1 py-1.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Keys</button>
         </div>
 
-        <!-- TAB 1: Duration (Includes Warm-Up, Target Mode & Endgame) -->
-        <div id="paramsDurationSection" class="space-y-2.5">
-
-          <!-- Warm-Up Ramp Duration (Moved here from former Motion tab) -->
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <div class="flex justify-between items-center">
-              <label class="text-xs font-bold text-slate-200">Warm-Up Ramp Duration</label>
-              <span id="warmupValDisplay" class="font-mono text-xs font-bold text-amber-400">5 Minutes</span>
-            </div>
-            <input id="warmupInput" type="range" min="0" max="10" step="1" value="5" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
-            <p class="text-[9px] text-slate-400 leading-snug">
-              Restricts strokes to lower half (0%–55%) while soft, expanding as erection builds.
-            </p>
-          </div>
-
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-            <div class="flex justify-between items-center">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300">Target Mode</span>
-              <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[9px] font-bold">
-                <button id="durFixedBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Fixed</button>
-                <button id="durRangeBtn" type="button" class="px-2 py-0.5 rounded-md bg-purple-600 text-white transition cursor-pointer">Mystery</button>
-                <button id="durEndlessBtn" type="button" class="px-2 py-0.5 rounded-md text-slate-400 hover:text-white transition cursor-pointer">Endless</button>
-              </div>
-            </div>
-
-            <div id="paramFixedContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Exact Session Length:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramFixedInput" type="number" min="1" max="180" value="30" class="w-14 bg-slate-900 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-
-            <div id="paramRangeContainer" class="flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Mystery Window:</span>
-              <div class="flex items-center gap-1 font-mono">
-                <input id="paramMinInput" type="number" min="1" max="180" value="25" class="w-12 bg-slate-900 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">to</span>
-                <input id="paramMaxInput" type="number" min="1" max="180" value="45" class="w-12 bg-slate-900 border border-slate-700 rounded-lg text-center py-0.5 outline-none focus:border-purple-500 text-slate-200 font-bold">
-                <span class="text-slate-500 text-xs">min</span>
-              </div>
-            </div>
-
-            <div id="paramEndlessContainer" class="hidden flex items-center justify-between text-xs pt-1">
-              <span class="text-slate-400 text-[10px]">Endless Mode:</span>
-              <span class="text-purple-400 font-mono text-[10px] font-semibold">Runs indefinitely until manually stopped</span>
-            </div>
-            <p class="text-[9px] text-slate-400 leading-snug pt-1">
-              With <strong>The Oracle</strong>, climax and denial stay locked until the Mystery minimum you typed - always, including on the roll that lands on it. A <strong>Fixed</strong> length has no window of its own, so there they unlock halfway through instead. Endless has no minimum.
-            </p>
-          </div>
-
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">Endgame Trigger</span>
-            <div class="grid grid-cols-3 gap-1.5" id="paramEndgameContainer">
-              <button type="button" data-endgame="orgasm" class="param-endgame-card p-1.5 rounded-lg bg-purple-950/30 border border-purple-800 text-left transition cursor-pointer">
-                <div class="font-bold text-[10px] text-purple-300">Climax</div>
-                <div class="text-[8px] text-slate-400 leading-tight">Surges to 100%</div>
-              </button>
-              <button type="button" data-endgame="rampdown" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
-                <div class="font-bold text-[10px] text-slate-300">Soft Landing</div>
-                <div class="text-[8px] text-slate-400 leading-tight">45s tease down</div>
-              </button>
-              <button type="button" data-endgame="denial" class="param-endgame-card p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-left transition cursor-pointer">
-                <div class="font-bold text-[10px] text-slate-300">Strict Denial</div>
-                <div class="text-[8px] text-slate-400 leading-tight">Immediate stop</div>
-              </button>
-            </div>
-          </div>
+        <div id="paramsKeysSection" class="hidden space-y-2">
+          <p class="text-[10px] text-slate-400 leading-snug">Click a key name, then press a key or a controller button. Up and down move the VacuGlide valves. [ and ] move a loaded script earlier or later.</p>
+          <div id="keybindList" class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[10px] text-slate-400"></div>
         </div>
 
-        <!-- TAB 2: Guards -->
-        <div id="paramsGuardsSection" class="space-y-2.5 hidden">
+        <div id="paramsGuardsSection" class="space-y-2.5">
           <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
             <div class="flex justify-between items-center gap-2">
               <label for="ceilingBehaviourSelect" class="text-xs font-bold text-slate-200">At the ceiling</label>
@@ -960,7 +1433,7 @@
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">How long the toys take to come down after you mark an orgasm, or after you turn Force Orgasm off. They land on Crawl or Full Stop, above. In Survival the climb and the warm-up then start again, and the session timer keeps going. 0 cuts immediately.</p>
             <p class="text-[9px] text-slate-400 leading-snug">
-              What the strokers do once your pulse crosses the pullback percent of Climax HR below. <strong>Full Stop</strong> parks the primary at 0%; <strong>Crawl</strong> keeps a 10% micro-motion so the edge stays alive. This applies in every mode that teases you down, including every Edge Training and Oracle state you reach while on the mark (the training hold and its recover alike). It does not govern <strong>Survival Mode</strong> or <strong>Calibration</strong>, where the speed keeps climbing and each edge raises the mark itself, so the toys never park and the run does not end when you cross your old max, or <strong>Ruin &amp; Leak</strong>, which keeps stroking through the edge and then, after about 12 seconds on the mark, cuts the primary dead for 18 seconds whichever you picked. Force Orgasm overrides both.
+              What the strokers do once your pulse crosses the pullback percent of Climax HR below. <strong>Full Stop</strong> parks the primary at 0%; <strong>Crawl</strong> keeps a 10% micro-motion so the edge stays alive. This applies in every mode that teases you down, including every Edge Training and Oracle state you reach while on the mark (the training hold and its recover alike). It does not govern <strong>Survival Mode</strong> or <strong>Calibration</strong>, where the speed keeps climbing and each edge raises the mark itself, so the toys never park and the run does not end when you cross your old max, <strong>Finisher</strong>, which speeds up with your pulse and stays at full speed on the mark, or <strong>Ruin &amp; Leak</strong>, which keeps stroking through the edge and then, after about 12 seconds on the mark, cuts the primary dead for 18 seconds whichever you picked. Force Orgasm overrides both.
             </p>
           </div>
 
@@ -973,7 +1446,7 @@
               </div>
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">
-              100% is the climax heart rate for the toys that are on (single max, or dual max when both are live); 95% pulls back early. It never goes above 100%. Decay and the learned offset move the mark down with it (the preview below and the cockpit HOLD TO badge show where it sits right now). Crawl / Full Stop and the stall timers start at this mark, and it is always kept far enough above the assumed resting heart rate of 70 to leave a release band. The edge counter waits until your pulse reaches the max, and releases 5 BPM below that max.
+              100% is the climax heart rate for the toys that are on (single max, or dual max when both are live); 95% pulls back early. It never goes above 100%. Decay and the learned offset move the mark down with it (the preview below and the cockpit HOLD TO badge show where it sits right now). Crawl / Full Stop and the stall timers start at this mark, and it is always kept far enough above your resting heart rate to leave a release band. The edge counter waits until your pulse reaches the max, and releases 5 BPM below that max.
             </p>
             <p id="edgeHoldPreview" class="text-[10px] font-mono text-purple-300">Pullback at 140 BPM (100% of 140)</p>
           </div>
@@ -1062,15 +1535,15 @@
           <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
             <div class="flex items-center justify-between">
               <div>
-                <label class="text-xs font-bold text-slate-200 block">On-screen cues</label>
-                <p class="text-[9px] text-slate-400 leading-snug">Build-up and the other lines show on the dashboard. They are not spoken. The browser voice sounded too robotic, so speech is off.</p>
+                <label class="text-xs font-bold text-slate-200 block">Speak the cues</label>
+                <p class="text-[9px] text-slate-400 leading-snug">The lines always show on the dashboard. Speech stays off until you turn it on. An installed browser voice, such as Kokoro, shows up in the list.</p>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer shrink-0 hidden" aria-hidden="true">
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
                 <input id="paramVoiceToggle" type="checkbox" class="sr-only peer">
                 <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
             </div>
-            <div class="hidden items-center gap-2 pt-1 border-t border-slate-900">
+            <div class="flex items-center gap-2 pt-1 border-t border-slate-900">
               <select id="paramVoiceSelect" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-purple-500">
                 <option value="">Browser default</option>
               </select>
@@ -1301,13 +1774,16 @@
       <div id="wizardStep2" class="wizard-pane space-y-2 text-center hidden">
         <p class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Step 3 of 3</p>
         <h3 class="text-base font-bold text-white">Set your ceiling and start</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">Resting heart rate is assumed at 70. Set the heart rate where you climax with one toy, and the heart rate where you climax with both. Open <strong class="text-slate-200">Session Setup</strong> for duration, warm-up, and guards.</p>
-        <div class="flex justify-center gap-3 text-xs">
+        <p class="text-xs text-slate-400 leading-relaxed">Set your resting heart rate, the heart rate where you climax with one toy, and the heart rate where you climax with both. Resting starts at 70. Open <strong class="text-slate-200">Session Setup</strong> for duration, warm-up, and guards.</p>
+        <div class="flex justify-center gap-3 text-xs flex-wrap">
+          <label class="flex items-center gap-1 text-slate-300 font-semibold">Resting
+            <input id="wizardMinHr" type="number" min="30" max="250" value="70" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-slate-400">
+          </label>
           <label class="flex items-center gap-1 text-rose-300 font-semibold">Single
-            <input id="wizardSingleMax" type="number" min="71" max="250" value="140" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500">
+            <input id="wizardSingleMax" type="number" min="31" max="250" value="140" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-rose-500">
           </label>
           <label class="flex items-center gap-1 text-purple-300 font-semibold">Dual
-            <input id="wizardDualMax" type="number" min="71" max="250" value="125" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500">
+            <input id="wizardDualMax" type="number" min="31" max="250" value="125" class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 font-mono text-center text-xs font-bold text-slate-200 outline-none focus:border-purple-500">
           </label>
         </div>
         <p class="text-[10px] text-slate-500 leading-relaxed">If you do not know those numbers, start <strong class="text-slate-200">Calibration</strong>. The first run is your primary stimulation device alone. When you orgasm, tap <strong>The app / Finished me</strong>. After a rest, a second run with both devices sets the dual max. You can change either number by hand.</p>

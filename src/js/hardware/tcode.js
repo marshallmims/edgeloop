@@ -38,6 +38,7 @@ import {
     describeSerialError
 } from './tcode-protocol.js';
 import { createStrokePlanner } from './stroke-planner.js';
+import { createScriptPlanner, liveFeed } from './script-planner.js';
 
 export const TCODE_STORAGE_KEY = 'edgeloop_tcode_devices';
 
@@ -63,6 +64,9 @@ let status = { state: 'offline', text: 'Offline' };
 let lastZone = { min: 0, max: 1 };
 let lastEnvelope = { min: 0, max: 1 };
 let lastSpeeds = { primary: 0, secondary: 0 };
+let scriptFeed = null;
+let unsubscribeScriptFeed = null;
+const scriptFeedNow = liveFeed(() => scriptFeed);
 
 const handlers = {
     onStatus: null,
@@ -355,6 +359,7 @@ function makeAxis(parsedAxis, saved, defaults) {
     const role = savedAxis && isAxisRole(savedAxis.role) ? savedAxis.role : (defaults[id] || 'off');
     const cap = savedAxis ? Number(savedAxis.maxCap) : NaN;
     const usesPlanner = kind === 'linear' || kind === 'rotate';
+    const strokePlanner = usesPlanner ? createStrokePlanner({ restMs: TCODE_TIMINGS.restMs }) : null;
     return {
         id,
         kind,
@@ -365,7 +370,9 @@ function makeAxis(parsedAxis, saved, defaults) {
         role,
         maxCap: Number.isFinite(cap) ? Math.max(0, Math.min(100, Math.round(cap))) : 100,
         invert: kind === 'linear' && Boolean(savedAxis && savedAxis.invert),
-        planner: usesPlanner ? createStrokePlanner({ restMs: TCODE_TIMINGS.restMs }) : null,
+        planner: strokePlanner,
+        strokePlanner,
+        scriptPlanner: null,
         timer: null,
         testTimer: null,
         lastSent: null
@@ -547,18 +554,86 @@ function physicalPosition(axis, position) {
     return lastEnvelope.min + lastEnvelope.max - position;
 }
 
+// L0 is the stroke axis. While Script mode is driving, it plays the funscript
+// instead of oscillating the zone at the engine's allowance (that allowance
+// is a limit on the file, and reading it as a speed runs the sleeve flat out).
+function wantsScript(axis) {
+    if (axis.kind !== 'linear' || axis.centred || axis.role !== 'primary' || !scriptFeed) return false;
+    try {
+        return Boolean(scriptFeed.isActive());
+    } catch (e) {
+        return false;
+    }
+}
+
+function scriptPlannerOf(axis) {
+    if (!axis.scriptPlanner) {
+        axis.scriptPlanner = createScriptPlanner({
+            feed: scriptFeedNow,
+            restMs: TCODE_TIMINGS.restMs,
+            profile: 'tcode'
+        });
+    }
+    return axis.scriptPlanner;
+}
+
+function syncScriptPlanner(axis, now) {
+    if (!axis.strokePlanner) return;
+    const want = wantsScript(axis) ? scriptPlannerOf(axis) : axis.strokePlanner;
+    const current = axis.planner;
+    if (want === current) return;
+    const input = current && current.getInput ? current.getInput() : null;
+    const moving = input && input.enabled && input.effectiveSpeed > 0;
+    if (moving && current.isInFlight && current.isInFlight(now)) return;
+    const at = current && current.lastPosition ? current.lastPosition() : null;
+    want.reset();
+    if (typeof want.place === 'function') want.place(at);
+    if (input) want.setInput(input);
+    axis.planner = want;
+}
+
+function onScriptFeedChange() {
+    if (!isTCodeConnected()) return;
+    const now = Date.now();
+    device.axes.forEach((axis) => {
+        if (!axis.scriptPlanner || axis.planner !== axis.scriptPlanner) return;
+        axis.scriptPlanner.poke();
+        pumpPlanner(axis, now);
+    });
+}
+
+export function setTCodeScriptFeed(feed) {
+    if (unsubscribeScriptFeed) {
+        try { unsubscribeScriptFeed(); } catch (e) {}
+        unsubscribeScriptFeed = null;
+    }
+    scriptFeed = feed && typeof feed === 'object' ? feed : null;
+    if (scriptFeed && typeof scriptFeed.subscribe === 'function') {
+        try { unsubscribeScriptFeed = scriptFeed.subscribe(onScriptFeedChange); } catch (e) {}
+    }
+}
+
 // Ask the planner for the next leg and, when it yields one, send it and arm
-// a timer for its end. Never sends while a leg is in flight.
+// a timer for its end. Never sends while a leg is in flight. An idle leg
+// (the script is holding, or waiting on the clock) sends nothing: repeating
+// the position is not a hold.
 function pumpPlanner(axis, now = Date.now()) {
     if (!axis.planner || !isTCodeConnected() || !device.axes.includes(axis)) return;
+    syncScriptPlanner(axis, now);
+    if (!axis.planner) return;
     const leg = axis.planner.next(now);
     if (!leg) return;
-    writeCommands([formatAxisCommand(axis.id, physicalPosition(axis, leg.position), { intervalMs: leg.durationMs })]);
+    const quiet = leg.kind === 'idle' || leg.kind === 'hold' || leg.position === null || leg.position === undefined;
+    if (!quiet) {
+        writeCommands([formatAxisCommand(axis.id, physicalPosition(axis, leg.position), { intervalMs: leg.durationMs })]);
+    }
     if (axis.timer) clearTimeout(axis.timer);
+    const wait = Math.max(0, Number(leg.durationMs) || 0);
+    if (wait === 0) return;
     axis.timer = setTimeout(() => {
         axis.timer = null;
         pumpPlanner(axis, Math.max(Date.now(), axis.planner.legEndsAt()));
-    }, leg.durationMs);
+    }, wait);
 }
 
 function sendScalar(axis, level) {
@@ -768,5 +843,10 @@ export function resetTCodeForTests() {
     lastZone = { min: 0, max: 1 };
     lastEnvelope = { min: 0, max: 1 };
     lastSpeeds = { primary: 0, secondary: 0 };
+    scriptFeed = null;
+    if (unsubscribeScriptFeed) {
+        try { unsubscribeScriptFeed(); } catch (e) {}
+        unsubscribeScriptFeed = null;
+    }
     Object.keys(handlers).forEach((k) => { handlers[k] = null; });
 }

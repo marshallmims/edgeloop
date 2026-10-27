@@ -128,6 +128,20 @@ export function applyEndMargin(range, margin = HANDY_DEFAULT_END_MARGIN, minGap 
     return { min: lo, max: hi };
 }
 
+// The slide window HSP uses: the travel envelope, pulled off the mechanical
+// ends by the end margin, never narrower than the minimum stroke.
+export function endMarginWindow(envMin = 0, envMax = 100, margin = HANDY_DEFAULT_END_MARGIN, minGap = HANDY_MIN_SLIDE_GAP) {
+    const gap = Math.max(0, toInt(minGap, HANDY_MIN_SLIDE_GAP));
+    const env = normalizeEnvelope(envMin, envMax, 'max', gap);
+    const keep = Math.min(gap, env.max - env.min);
+    const m = clampEndMargin(margin);
+    let lo = Math.max(env.min, m);
+    let hi = Math.min(env.max, 100 - m);
+    if (hi - lo < keep) lo = Math.max(env.min, hi - keep);
+    if (hi - lo < keep) hi = Math.min(env.max, lo + keep);
+    return { min: lo, max: hi };
+}
+
 // PUT /slide answers with a SlideResult: ACCEPTED(0), ACCEPTED_ROUNDED_DOWN(1)
 // or ACCEPTED_ROUNDED_UP(2). A 1 or a 2 is the only way the device ever tells
 // us it did not take the numbers we sent (the spec names a MIN_ALLOWED stroke
