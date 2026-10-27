@@ -312,7 +312,7 @@ If you find a bug, want to add a device driver, or want to tweak the math, contr
 
 **Live Web App:** [https://edgeloop.app](https://edgeloop.app)
 
-**Discord:** [https://discord.gg/ZFrkehxAC](https://discord.gg/ZFrkehxAC) — questions, device reports, and support.
+**Discord:** [https://discord.gg/ZSqmV7ctcU](https://discord.gg/ZSqmV7ctcU) — questions, device reports, and support.
 
 **Private contact:** support@edgeloop.app, for security reports and anything that should not be posted in a public server. Product support goes to Discord.
 
