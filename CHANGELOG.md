@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.13
+
+- **The Handy uses the whole stroke again.** Each new position was only given about a tenth of a second, and the carriage brakes at the end of that, so a full sweep only covered a short slice. A long move now has time to arrive, and position mode opens the full travel window first.
+- **The line under each toy stays a line.** The tip was a dot that slid off the last sample and snapped back to the edge while a toy sat still.
+
 ## 1.1.5.12
 
 - **Manual follow no longer waits on a background timer.** With the controller on screen, the host tab was only allowed to run a timer about once a second, so The Handy and the Lovense motors stepped once a second. Finger messages now carry the next position and speed.

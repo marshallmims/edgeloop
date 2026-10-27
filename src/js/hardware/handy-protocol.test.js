@@ -197,12 +197,13 @@ describe('hdspMove', () => {
         const first = hdspMove(5, -1);
         assert.equal(first.position, 5);
         assert.equal(first.stopOnTarget, true);
-        assert.ok(first.duration >= 100 && first.duration <= 400);
+        assert.ok(first.duration >= 800);
         const down = hdspMove(20, 95);
         assert.equal(down.position, 20);
         assert.equal(down.stopOnTarget, true);
+        assert.ok(down.duration >= 700);
         const held = hdspMove(50, 50);
-        assert.equal(held.duration, 100);
+        assert.equal(held.duration, 120);
         const body = hdspBody(down);
         assert.equal(body.position, 20);
         assert.equal(body.xp, 20);

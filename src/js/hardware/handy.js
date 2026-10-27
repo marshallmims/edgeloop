@@ -790,15 +790,18 @@ function pumpHdsp() {
             handyIsHampRunning = false;
             handyLastVelocitySent = -1;
         }
-        // Firmware 4: do not set the stroke here. That command runs the
-        // carriage to the top of the zone and then ignores later positions.
-        // xp is a fraction from 0 to 1. Sending 5–95 is read as past the top.
-        if (!useHandyV3() && (slide.min !== hdspSlide.min || slide.max !== hdspSlide.max)) {
-            await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
+        // Open the whole travel window once. A stroke left over from
+        // EdgeLoop is often a short slice, and position commands stay
+        // inside it. Firmware 4 takes that window as a fraction of the rail.
+        if (slide.min !== hdspSlide.min || slide.max !== hdspSlide.max) {
+            if (useHandyV3()) {
+                await handyV3('/slider/stroke', { min: slide.min / 100, max: slide.max / 100 }, key);
+            } else {
+                await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
+            }
             hdspSlide = { min: slide.min, max: slide.max };
             handyLastStrokeSent = { min: slide.min, max: slide.max };
         }
-        if (useHandyV3()) hdspSlide = { min: slide.min, max: slide.max };
         if (generation !== commandGeneration || !handyConnected) return;
         // The finger can move while the mode switch is in flight. Send where
         // it is now. stop_on_target makes the carriage stay there.

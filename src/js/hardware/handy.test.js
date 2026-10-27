@@ -738,8 +738,11 @@ describe('handy driver', () => {
             assert.equal(xpt[0].body.xp, 0.5);
             assert.equal(xpt[0].body.stop_on_target, true);
             assert.equal(xpt[0].body.position, undefined);
-            assert.equal(calls.some((call) => call.path === '/slider/stroke'), false);
-            assert.ok(xpt[0].body.t >= 100 && xpt[0].body.t <= 400);
+            const stroke = calls.find((call) => call.path === '/slider/stroke');
+            assert.ok(stroke, 'firmware 4 opens the full travel window');
+            assert.equal(stroke.body.min, 0.05);
+            assert.equal(stroke.body.max, 0.95);
+            assert.ok(xpt[0].body.t >= 120);
         } finally {
             HANDY_TIMINGS.hdspIntervalMs = 250;
         }

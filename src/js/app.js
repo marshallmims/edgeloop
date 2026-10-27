@@ -7603,7 +7603,11 @@ function paintVizCanvas(canvas) {
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    const yOf = (value) => height - (Math.max(0, Math.min(100, value)) / 100) * (height - 4) - 2;
+    const yOf = (value) => {
+        const pad = 3;
+        const v = Math.max(0, Math.min(100, Number(value) || 0)) / 100;
+        return pad + (1 - v) * (height - pad * 2);
+    };
     const loop = manualLoops.get(id);
     const pattern = loop && loop.points && loop.points.length ? loop : (
         manualPatternOn && manualPatternCmd && Array.isArray(manualPatternCmd.tracks)
@@ -7622,35 +7626,51 @@ function paintVizCanvas(canvas) {
             else ctx.lineTo(x, y);
         });
         ctx.stroke();
-        const period = Math.max(1, Number(pattern.periodMs) || Number(manualPatternCmd && manualPatternCmd.periodMs) || 1);
-        const started = Number(pattern.startedAt) || manualVizStarted;
-        const phase = ((Date.now() - started) % period) / period;
-        ctx.strokeStyle = '#f5d0fe';
-        ctx.beginPath();
-        ctx.moveTo(phase * width, 0);
-        ctx.lineTo(phase * width, height);
-        ctx.stroke();
         return;
     }
     const trail = vizTrail.get(id) || [];
     if (!trail.length) return;
     const now = Date.now();
     const windowMs = 2000;
+    const start = now - windowMs;
+    const xOf = (t) => ((t - start) / windowMs) * width;
     ctx.strokeStyle = '#c084fc';
     ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    trail.forEach((point, index) => {
-        const x = ((point.t - (now - windowMs)) / windowMs) * width;
+    let drawing = false;
+    const hold = (x, y) => {
+        if (!drawing) {
+            ctx.moveTo(x, y);
+            drawing = true;
+        } else ctx.lineTo(x, y);
+    };
+    for (let i = 0; i < trail.length; i += 1) {
+        const point = trail[i];
+        const x = xOf(point.t);
         const y = yOf(point.v);
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+        if (x < 0) {
+            const next = trail[i + 1];
+            if (!next) {
+                hold(0, y);
+                continue;
+            }
+            const nx = xOf(next.t);
+            if (nx <= 0) continue;
+            const span = nx - x;
+            const k = span <= 0 ? 1 : (0 - x) / span;
+            hold(0, y + (yOf(next.v) - y) * k);
+            continue;
+        }
+        hold(Math.min(width, x), y);
+    }
     const last = trail[trail.length - 1];
-    ctx.fillStyle = '#e9d5ff';
-    ctx.beginPath();
-    ctx.arc(Math.min(width - 3, ((last.t - (now - windowMs)) / windowMs) * width), yOf(last.v), 2.5, 0, Math.PI * 2);
-    ctx.fill();
+    // Hold the latest level to the right edge. A dot parked on the last
+    // sample slides left until the next sample and snaps back, which at
+    // idle looks like it is bouncing off the side.
+    hold(width, yOf(last.v));
+    ctx.stroke();
 }
 
 function pointOnLoop(loop, now) {
