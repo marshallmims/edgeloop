@@ -142,25 +142,20 @@ export function followPosition(percent, envMin = 0, envMax = 100, margin = HANDY
 // the full stroke. `lastPosition` below 0 means the sleeve position is not
 // known yet. `intervalMs` is the soonest another command is allowed out.
 //
-// stopOnTarget false does not brake at the target. That is smooth only when
-// the next command arrives before `duration` ends. A short duration with that
-// flag carries the sleeve through the end stop, and the firmware then locks
-// it there. A move aimed at either end, a long move, or a held position
-// brakes. A short step in the middle may coast, and its duration is at least
-// the stream interval so the next point arrives while it is still moving.
+// The carriage always brakes at the target. Leaving stopOnTarget off lets it
+// keep traveling after the target, through the end stop, and the firmware
+// then locks it there: at the bottom, or at the top, until it will not follow
+// the finger back. A longer move is given more time. A short one still lasts
+// at least the stream interval, so the next finger position can replace it.
 export function hdspMove(position, lastPosition, intervalMs) {
     const pos = clampPercent(position, 0);
     const known = Number.isFinite(Number(lastPosition)) && Number(lastPosition) >= 0;
     const last = known ? clampPercent(lastPosition, 0) : pos;
-    const distance = known ? Math.abs(pos - last) : 40;
-    const interval = Math.max(40, Math.round(Number(intervalMs) || 250));
-    const travelMs = Math.round(distance * 12);
-    const streamMs = interval + 80;
-    const holding = known && distance < 1;
-    const nearEnd = pos <= 8 || pos >= 92;
-    const stopOnTarget = holding || nearEnd || travelMs > streamMs;
-    const duration = Math.round(Math.max(streamMs, Math.min(1600, holding ? streamMs : travelMs)));
-    return { position: pos, duration, stopOnTarget };
+    const distance = known ? Math.abs(pos - last) : 30;
+    const interval = Math.max(120, Math.round(Number(intervalMs) || 250));
+    const travelMs = Math.round(distance * 8);
+    const duration = Math.round(Math.min(800, Math.max(interval, travelMs)));
+    return { position: pos, duration, stopOnTarget: true };
 }
 
 // The slide window HSP uses: the travel envelope, pulled off the mechanical

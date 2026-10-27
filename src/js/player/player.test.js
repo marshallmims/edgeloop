@@ -482,8 +482,7 @@ describe('player markup', () => {
         assert.match(html, /id="bleLinuxFlagUrl"[^>]*readonly/);
         assert.match(html, /id="bleLinuxFlagCopy"/);
         assert.match(html, /chrome:\/\/flags\/#enable-experimental-web-platform-features/);
-        assert.match(html, /id="manualTraditionalBtn"/);
-        assert.match(html, /id="manualFloatBtn"/);
+        assert.match(html, /id="manualSliderBtn"[\s\S]*id="manualFloatBtn"[\s\S]*id="manualLoopBtn"[\s\S]*id="manualTraditionalBtn"/);
         assert.match(html, /id="manualLoopBtn"/);
         assert.match(html, /id="manualLoopStage"/);
         assert.match(html, /id="manualViz"/);

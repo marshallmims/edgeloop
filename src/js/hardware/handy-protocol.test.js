@@ -191,18 +191,20 @@ describe('clampEndMargin', () => {
 });
 
 describe('hdspMove', () => {
-    it('brakes at an end and coasts only on a short step in the middle', () => {
+    it('brakes at the finger, including a move back down', () => {
         const first = hdspMove(5, -1, 250);
         assert.equal(first.position, 5);
         assert.equal(first.stopOnTarget, true);
-        assert.ok(first.duration >= 330);
-        const coast = hdspMove(58, 50, 250);
-        assert.equal(coast.stopOnTarget, false);
-        assert.ok(coast.duration >= 330);
-        const jump = hdspMove(90, 20, 250);
-        assert.equal(jump.stopOnTarget, true);
-        const top = hdspMove(95, 90, 250);
-        assert.equal(top.stopOnTarget, true);
+        assert.ok(first.duration >= 250);
+        const down = hdspMove(20, 95, 250);
+        assert.equal(down.position, 20);
+        assert.equal(down.stopOnTarget, true);
+        assert.ok(down.duration >= 250);
+        const small = hdspMove(55, 50, 250);
+        const long = hdspMove(95, 20, 250);
+        assert.equal(small.stopOnTarget, true);
+        assert.equal(long.stopOnTarget, true);
+        assert.ok(long.duration > small.duration);
     });
 });
 

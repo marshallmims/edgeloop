@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.07
+
+- **A slider holds the level it shows.** The Edge was still running its pulse phrase under Manual Control, so a steady slider or Float ramped up, rested, and ramped again. The level you set is now the level the toy holds. The pulse phrase stays with EdgeLoop when it is driving.
+- **The Handy dot follows in both directions.** Middle of the dot is the middle of the stroke, the top is the top, and the bottom is the bottom. A move brakes at that spot instead of coasting into an end stop and locking there. Traditional is unchanged.
+- **Slider, Float, Loop, then Traditional.** Slider is the dots. Float and Loop turn on with it, and either one turns off if you select it again. Traditional clears all three and shows the sliders.
+
 ## 1.1.5.06
 
 - **Traditional is the sliders.** Manual Control opens on the dots. Higher is more, and the bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. A line under each toy shows what it is doing. Traditional switches to the sliders and hides Float and Loop.

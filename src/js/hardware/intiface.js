@@ -697,9 +697,12 @@ function armPulse(dev, axis, now) {
 // peak of a pulse train (Pulsed). The train starts on the first positive
 // level, at the peak at once, and any 0 cuts it: a stop, a pause, OFF, or
 // a cap of 0.
-function applyScalar(dev, axis, speed, now) {
+function applyScalar(dev, axis, speed, now, { steady = false } = {}) {
     const level = fullRail(axis) && !envelopeIsWhole(lastEnvelope) ? 0 : scalarFor(axis, speed);
-    if (!isPulsed(axis) || level <= 0) {
+    // A slider, Float, or a dot is the level the toy should hold. The pulse
+    // phrase is the engine's pattern: ramp, rest, ramp again. Running that
+    // under a finger makes the toy stutter back up to the slider.
+    if (steady || !isPulsed(axis) || level <= 0) {
         cutPulse(axis);
         sendScalar(dev, axis, level);
         return;
@@ -925,6 +928,7 @@ export function setIntifaceManualHold(pairs) {
             axis.manualHold = hold;
             if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
             if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+            if (hold) cutPulse(axis);
             if (hold && axis.planner) axis.planner.setInput({ enabled: false });
         }
     });
@@ -1030,7 +1034,7 @@ export function applyManualIntiface(entries, envMin = 0, envMax = 100, { stopAll
         } else if (axis.kind === 'rotate') {
             sendRotate(dev, axis, scalarFor(axis, speed));
         } else {
-            applyScalar(dev, axis, speed, now);
+            applyScalar(dev, axis, speed, now, { steady: true });
         }
     }
 }

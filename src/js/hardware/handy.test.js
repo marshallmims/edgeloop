@@ -702,6 +702,24 @@ describe('handy driver', () => {
         }
     });
 
+    it('follows the finger back down from the top', async () => {
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            await connectOk();
+            dispatchHandyFollow(100, 0, 100, 5);
+            await tick(40);
+            calls = [];
+            dispatchHandyFollow(40, 0, 100, 5);
+            await tick(40);
+            const xpt = sent('/hdsp/xpt', 'PUT');
+            assert.equal(xpt.at(-1).body.position, 41);
+            assert.equal(xpt.at(-1).body.stopOnTarget, true);
+            assert.equal(sent('/slide', 'PUT').length, 0);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
     it('follows a finger in HDSP, then a speed command returns to HAMP', async () => {
         HANDY_TIMINGS.hdspIntervalMs = 0;
         try {

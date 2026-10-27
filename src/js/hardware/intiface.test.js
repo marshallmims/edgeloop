@@ -6,6 +6,8 @@ import {
     connectIntifaceServer,
     disconnectIntiface,
     dispatchIntiface,
+    applyManualIntiface,
+    setIntifaceManualHold,
     setAxisRole,
     setAxisMaxCap,
     setAxisInvert,
@@ -532,6 +534,28 @@ describe('pulsed vibration', () => {
         assert.equal(edge.axes[0].vibeMode, 'pulsed');
         assert.equal(edge.axes[1].vibeMode, 'pulsed');
         assert.equal(edge.axes[1].pulsePeriodMs, 2400);
+    });
+
+    it('holds a manual slider steady instead of repeating the pulse', async () => {
+        const ws = connectWith([EDGE]);
+        const axis = intifaceDevices.get(0).axes[0];
+        assert.equal(axis.vibeMode, 'pulsed');
+        dispatchIntiface(0, 40, 0, 100);
+        assert.ok(axis.pulse);
+        setIntifaceManualHold([{ deviceIndex: 0, axisKey: axis.key }]);
+        assert.equal(axis.pulse, null);
+        applyManualIntiface([{
+            deviceIndex: 0,
+            axisKey: axis.key,
+            level: 60,
+            speed: 0,
+            strokeMin: 0,
+            strokeMax: 100
+        }], 0, 100);
+        assert.equal(levels(ws, 0).at(-1), 0.6);
+        const count = levels(ws, 0).length;
+        await sleep(600);
+        assert.equal(levels(ws, 0).length, count, 'a held level does not ramp and rest');
     });
 });
 

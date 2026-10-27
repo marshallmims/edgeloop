@@ -6760,7 +6760,7 @@ function setManualModeUi(on, fromHost = false) {
     live?.classList.toggle('hidden', !manualDriving);
     if (hint) {
         hint.textContent = manualDriving
-            ? 'Traditional is the sliders. Off, each toy you drive is a dot: higher is more and the bottom is nothing. Float holds, Loop repeats, and letting go otherwise returns to nothing. Slow and Stop are immediate.'
+            ? 'Slider is the dots. Float and Loop turn on with it. Traditional clears those and shows the sliders. Higher is more and the bottom is nothing. Slow and Stop are immediate.'
             : 'EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.';
     }
 }
@@ -7156,16 +7156,22 @@ function modeButtonClass(on) {
 
 function paintManualChrome() {
     const traditional = manualTraditional;
+    const sliderOn = !traditional;
     document.getElementById('manualTouch')?.classList.toggle('hidden', traditional);
+    const sliderBtn = document.getElementById('manualSliderBtn');
     const traditionalBtn = document.getElementById('manualTraditionalBtn');
     const floatBtn = document.getElementById('manualFloatBtn');
     const loopBtn = document.getElementById('manualLoopBtn');
+    const floatOn = sliderOn && manualTouchMode === 'float';
+    const loopOn = sliderOn && manualTouchMode === 'loop';
+    sliderBtn?.setAttribute('aria-pressed', sliderOn ? 'true' : 'false');
+    floatBtn?.setAttribute('aria-pressed', floatOn ? 'true' : 'false');
+    loopBtn?.setAttribute('aria-pressed', loopOn ? 'true' : 'false');
     traditionalBtn?.setAttribute('aria-pressed', traditional ? 'true' : 'false');
-    floatBtn?.setAttribute('aria-pressed', !traditional && manualTouchMode === 'float' ? 'true' : 'false');
-    loopBtn?.setAttribute('aria-pressed', !traditional && manualTouchMode === 'loop' ? 'true' : 'false');
+    if (sliderBtn) sliderBtn.className = modeButtonClass(sliderOn);
+    if (floatBtn) floatBtn.className = modeButtonClass(floatOn);
+    if (loopBtn) loopBtn.className = modeButtonClass(loopOn);
     if (traditionalBtn) traditionalBtn.className = modeButtonClass(traditional);
-    if (floatBtn) floatBtn.className = modeButtonClass(!traditional && manualTouchMode === 'float') + (traditional ? ' hidden' : '');
-    if (loopBtn) loopBtn.className = modeButtonClass(!traditional && manualTouchMode === 'loop') + (traditional ? ' hidden' : '');
     document.querySelectorAll('[data-own-controls]').forEach((el) => {
         const id = el.getAttribute('data-own-controls');
         const you = manualOwned.has(id);
@@ -7177,34 +7183,54 @@ function paintManualChrome() {
             ? 'Float holds the dot where you leave it. Higher is more. The bottom is nothing. The line under each toy is what it is doing.'
             : manualTouchMode === 'loop'
                 ? 'Loop repeats the shape you draw. Higher is more. The bottom is nothing. The line under each toy is the pattern it is playing.'
-                : 'Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it. Loop repeats the shape. Traditional is the sliders.';
+                : 'Slider. Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it. Loop repeats the shape.';
     }
 }
 
-function setTraditional(on) {
-    const next = Boolean(on);
-    if (next === manualTraditional) {
+function showSliderDots() {
+    manualTraditional = false;
+    paintManualChrome();
+    renderLoopLanes();
+    startTouchViz();
+}
+
+function setSliderMode() {
+    if (!manualTraditional && manualTouchMode === 'spring') {
         paintManualChrome();
         return;
     }
-    if (next) {
+    const leavingLoop = manualTouchMode === 'loop';
+    if (leavingLoop) {
         syncDraftsFromPattern();
         manualPatternOn = false;
         manualPatternCmd = null;
         manualVizStarted = 0;
-        cancelTouchReturn();
-        for (const draft of ownedDrafts()) delete draft.position;
-        scheduleManualFrame(true);
+        easeToRest(loopDevices());
     }
-    manualTraditional = next;
     manualTouchMode = 'spring';
+    showSliderDots();
+}
+
+function setTraditional() {
+    if (manualTraditional) {
+        paintManualChrome();
+        return;
+    }
+    syncDraftsFromPattern();
+    manualPatternOn = false;
+    manualPatternCmd = null;
+    manualVizStarted = 0;
+    cancelTouchReturn();
+    manualTouchMode = 'spring';
+    for (const draft of ownedDrafts()) delete draft.position;
+    manualTraditional = true;
     paintManualChrome();
-    if (!next) renderLoopLanes();
+    scheduleManualFrame(true);
 }
 
 function setTouchMode(mode) {
-    if (manualTraditional) return;
-    const next = manualTouchMode === mode ? 'spring' : mode;
+    const fromTraditional = manualTraditional;
+    const next = !fromTraditional && manualTouchMode === mode ? 'spring' : mode;
     const leavingLoop = manualTouchMode === 'loop' && next !== 'loop';
     if (leavingLoop) {
         syncDraftsFromPattern();
@@ -7219,8 +7245,7 @@ function setTouchMode(mode) {
         }
     }
     manualTouchMode = next;
-    paintManualChrome();
-    renderLoopLanes();
+    showSliderDots();
 }
 
 function loopDevices() {
@@ -7603,11 +7628,10 @@ function initManualPanel() {
         }
         sendPeerCommand({ type: 'MANUAL_STOP', epoch: manualEpoch });
     });
-    document.getElementById('manualTraditionalBtn')?.addEventListener('click', () => {
-        setTraditional(!manualTraditional);
-    });
+    document.getElementById('manualSliderBtn')?.addEventListener('click', () => setSliderMode());
     document.getElementById('manualFloatBtn')?.addEventListener('click', () => setTouchMode('float'));
     document.getElementById('manualLoopBtn')?.addEventListener('click', () => setTouchMode('loop'));
+    document.getElementById('manualTraditionalBtn')?.addEventListener('click', () => setTraditional());
     paintManualChrome();
 }
 

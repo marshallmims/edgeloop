@@ -714,16 +714,10 @@ export function dispatchHandyFollow(percent, envMin = 0, envMax = 100, endMargin
     const bounds = endMarginWindow(envMin, envMax, endMargin);
     const position = followPosition(percent, envMin, envMax, endMargin);
     const now = Date.now();
-    if (!hdspPending) {
-        hdspPending = { position, slide: bounds, at: now };
-    } else if (hdspLastPosition < 0 || Math.abs(position - hdspLastPosition) >= Math.abs(hdspPending.position - hdspLastPosition)) {
-        // Before the first command, follow the finger. After that, keep the
-        // farthest point still waiting, so a quick up-and-down inside the
-        // rate-limit window is not flattened.
-        hdspPending.position = position;
-        hdspPending.at = now;
-        hdspPending.slide = bounds;
-    }
+    // The latest finger position wins, in either direction. Keeping the
+    // farthest point made a drag to the top stick there when the next
+    // downward move was inside that same window.
+    hdspPending = { position, slide: bounds, at: now };
     pumpHdsp();
 }
 
