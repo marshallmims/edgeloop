@@ -10,6 +10,7 @@ import {
     clampEndMargin,
     applyEndMargin,
     followPosition,
+    hdspBody,
     hdspMove,
     normalizeSlideRange,
     normalizeEnvelope,
@@ -191,20 +192,22 @@ describe('clampEndMargin', () => {
 });
 
 describe('hdspMove', () => {
-    it('brakes at the finger, including a move back down', () => {
-        const first = hdspMove(5, -1, 250);
+    it('brakes at the finger, and gives a full stroke time to arrive', () => {
+        const first = hdspMove(5, -1);
         assert.equal(first.position, 5);
         assert.equal(first.stopOnTarget, true);
-        assert.ok(first.duration >= 250);
-        const down = hdspMove(20, 95, 250);
+        assert.ok(first.duration >= 1000);
+        const down = hdspMove(20, 95);
         assert.equal(down.position, 20);
         assert.equal(down.stopOnTarget, true);
-        assert.ok(down.duration >= 250);
-        const small = hdspMove(55, 50, 250);
-        const long = hdspMove(95, 20, 250);
-        assert.equal(small.stopOnTarget, true);
-        assert.equal(long.stopOnTarget, true);
-        assert.ok(long.duration > small.duration);
+        const held = hdspMove(50, 50);
+        assert.equal(held.duration, 400);
+        const body = hdspBody(down);
+        assert.equal(body.position, 20);
+        assert.equal(body.xp, 20);
+        assert.equal(body.t, body.duration);
+        assert.equal(body.stopOnTarget, true);
+        assert.equal(body.stop_on_target, true);
     });
 });
 

@@ -30,6 +30,7 @@ import {
     describeSlideAdjustment,
     endMarginWindow,
     followPosition,
+    hdspBody,
     hdspMove,
     isHampModeError,
     normalizeSlideRange,
@@ -760,18 +761,13 @@ function pumpHdsp() {
         const target = hdspPending ? hdspPending.position : pending.position;
         const same = hdspLastPosition >= 0 && Math.abs(target - hdspLastPosition) < 1;
         if (same && hdspSettled) return;
-        const move = hdspMove(target, hdspLastPosition, HANDY_TIMINGS.hdspIntervalMs);
+        const move = hdspMove(target, hdspLastPosition);
         const row = rememberHandyMove(move);
         hdspLastPosition = move.position;
         await handyRequest('/hdsp/xpt', {
             method: 'PUT',
             key,
-            body: {
-                position: move.position,
-                duration: move.duration,
-                stopOnTarget: move.stopOnTarget,
-                immediateResponse: true
-            }
+            body: hdspBody(move)
         });
         hdspSettled = same || move.stopOnTarget;
         handyMotionError = '';

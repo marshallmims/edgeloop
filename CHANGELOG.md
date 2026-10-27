@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.08
+
+- **Each EdgeLoop toy keeps its own play style.** Setting one vibrator to Milker and the other to Classic no longer changes both.
+- **The Handy dot is an absolute position.** Top of the box is the top of the stroke and it stays there. Middle stays in the middle. Bottom stays at the bottom. A loop plays those positions back. The move is given time to arrive, so it does not slam into an end and lock. Firmware 4 gets the position fields it expects.
+- **Start, Edged, Came Early, Force Orgasm, Stop.** The row uses the same green-to-red ramp as the stimulation slider. Start is green. Stop is red. The three between sit on the ramp.
+
 ## 1.1.5.07
 
 - **A slider holds the level it shows.** The Edge was still running its pulse phrase under Manual Control, so a steady slider or Float ramped up, rested, and ramped again. The level you set is now the level the toy holds. The pulse phrase stays with EdgeLoop when it is driving.

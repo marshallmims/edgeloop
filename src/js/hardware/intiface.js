@@ -995,6 +995,32 @@ export function dispatchIntiface(primarySpeed, secondarySpeed, strokeMin = 0, st
 // { deviceIndex, axisKey, speed, strokeMin, strokeMax, level }. The wearer's
 // per-axis cap and travel envelope still apply. `stopAll` is the fast path
 // for Slow is not enough / Stop: every motor is cut, not eased.
+// One axis, at a level chosen for that toy. Used when its play style is not
+// the session's, so it does not have to follow the other toy.
+export function driveIntifaceAxis(deviceIndex, axisKey, speedPercent) {
+    if (!isIntifaceConnected()) return;
+    const dev = intifaceDevices.get(deviceIndex);
+    if (!dev) return;
+    const axis = dev.axes.find((item) => item.key === axisKey);
+    if (!axis || axis.inert || axis.role === 'off' || axis.manualHold) return;
+    const speed = Math.max(0, Math.min(100, Number(speedPercent) || 0));
+    const now = Date.now();
+    if (axis.kind === 'linear') {
+        axis.planner.setInput({
+            speed,
+            cap: axis.maxCap,
+            zoneMin: lastZone.min,
+            zoneMax: lastZone.max,
+            enabled: speed > 0
+        });
+        pumpLinear(dev, axis, now);
+    } else if (axis.kind === 'rotate') {
+        sendRotate(dev, axis, scalarFor(axis, speed));
+    } else {
+        applyScalar(dev, axis, speed, now);
+    }
+}
+
 export function applyManualIntiface(entries, envMin = 0, envMax = 100, { stopAll = false } = {}) {
     if (!isIntifaceConnected() || intifaceDevices.size === 0) return;
     const mapped = zoneFromPercent(0, 100, envMin, envMax);

@@ -100,6 +100,7 @@ import {
     disconnectIntiface,
     rescanIntiface,
     dispatchIntiface,
+    driveIntifaceAxis,
     applyManualIntiface,
     setIntifaceManualHold,
     stopAllIntiface,
@@ -546,7 +547,7 @@ function renderTransport(status) {
     if (status === 'RUNNING' || status === 'RAMPDOWN') {
         if (playPauseText) playPauseText.textContent = "PAUSE";
         if (playPauseIcon) playPauseIcon.innerHTML = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
-        playPauseBtn.className = "flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 shadow-lg shadow-amber-950/40 cursor-pointer";
+        playPauseBtn.className = "flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 px-3 rounded-xl text-xs sm:text-sm transition tracking-wide flex justify-center items-center gap-1.5 shadow-lg shadow-emerald-950/40 cursor-pointer";
     } else if (status === 'PAUSED') {
         if (playPauseText) playPauseText.textContent = "RESUME";
         if (playPauseIcon) playPauseIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
@@ -1277,7 +1278,7 @@ function updateEngine() {
     holdBadge?.classList.toggle('hidden', holdPct === 100 || triggerHr === max);
     state.edgeTriggerHr = triggerHr;
 
-    const result = calculateEngineOutputs({
+    const engineInput = {
         hr,
         edgeHr: sensorHr,
         minHr: min,
@@ -1322,7 +1323,9 @@ function updateEngine() {
         orgasmFromStrokeMax: state.orgasmFromStrokeMax,
         scriptSettings: advancedSettings,
         scriptReleasedAt: state.scriptReleasedAt
-    });
+    };
+    lastEngineInput = engineInput;
+    const result = calculateEngineOutputs(engineInput);
     if (result.scriptReleasedAt !== undefined) state.scriptReleasedAt = result.scriptReleasedAt;
     if (scriptFeed) {
         scriptFeed.setSettings(sanitizeScriptSettings(advancedSettings));
@@ -1536,6 +1539,8 @@ let handyManualTimer = null;
 let handyManualHold = null;
 let handyManualLastForce = 0;
 let deviceCatalog = [];
+let lastEngineInput = null;
+const deviceStyles = new Map();
 
 function manualSessionLive() {
     return state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
@@ -1970,6 +1975,26 @@ function handleManualCommand(cmd) {
     }
 }
 
+function applyDeviceStyles() {
+    if (!deviceStyles.size || !lastEngineInput || isRemotePage) return;
+    const cache = new Map();
+    for (const [id, mode] of deviceStyles) {
+        if (!mode || mode === state.teaseMode) continue;
+        if (manualLatch && manualLatch.owned && manualLatch.owned.has(id)) continue;
+        const parsed = parseDeviceId(id);
+        if (!parsed || parsed.family !== 'intiface' || !parsed.axisKey) continue;
+        const info = deviceCatalog.find((item) => item.id === id);
+        if (!info || !info.connected || info.role === 'off') continue;
+        let out = cache.get(mode);
+        if (!out) {
+            out = calculateEngineOutputs({ ...lastEngineInput, strokeMode: mode });
+            cache.set(mode, out);
+        }
+        const speed = info.role === 'primary' ? out.primaryPercent : out.secondaryPercent;
+        driveIntifaceAxis(parsed.deviceIndex, parsed.axisKey, speed);
+    }
+}
+
 function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, force = false) {
     if (isRemotePage) return;
     let skipHandy = false;
@@ -2008,6 +2033,7 @@ function dispatchHardware(primarySpeed, secondarySpeed, strokeMin, strokeMax, fo
     // updates the planner inputs (and, with force, issues StopAllDevices).
     // An axis the controller is holding is skipped inside the driver.
     dispatchIntiface(primarySpeed, secondarySpeed, range.min, range.max, range.env.min, range.env.max, force);
+    applyDeviceStyles();
     // Same for the direct T-Code serial device: a forced zero dispatch is an
     // immediate stop (every axis to rest on one line).
     dispatchTCode(primarySpeed, secondarySpeed, range.min, range.max, range.env.min, range.env.max, force);
@@ -6576,13 +6602,19 @@ function setupPartnerHost() {
             } else if (cmd.type === 'SESSION_RESET') resetBtn?.click();
             else if (cmd.type === 'ORGASM_TOGGLE') orgasmBtn?.click();
             else if (cmd.type === 'MODE_CHANGE') {
-                if (cmd.endgame) {
-                    state.endgameType = cmd.endgame;
-                    highlightEndgameCard(state.endgameType);
-                    persistSessionLimits(true);
+                if (cmd.device) {
+                    deviceStyles.set(cmd.device, cmd.mode);
+                    updateEngine();
+                    syncTelemetry();
+                } else {
+                    if (cmd.endgame) {
+                        state.endgameType = cmd.endgame;
+                        highlightEndgameCard(state.endgameType);
+                        persistSessionLimits(true);
+                    }
+                    applyModeSelection(cmd.mode, cmd.enabled);
+                    syncTelemetry();
                 }
-                applyModeSelection(cmd.mode, cmd.enabled);
-                syncTelemetry();
             }
             else if (cmd.type === 'ENDGAME') {
                 state.endgameType = cmd.endgame;
@@ -6974,9 +7006,14 @@ function addStrokeRange(parent, device) {
     place();
 }
 
+function styleForDevice(id) {
+    return deviceStyles.get(id) || state.teaseMode || 'classic';
+}
+
 function paintManualStyleButtons() {
-    const mode = state.teaseMode || 'classic';
     document.querySelectorAll('[data-style]').forEach((btn) => {
+        const owner = btn.getAttribute('data-style-for');
+        const mode = owner ? styleForDevice(owner) : (state.teaseMode || 'classic');
         const on = btn.getAttribute('data-style') === mode;
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         btn.className = on
@@ -6985,12 +7022,12 @@ function paintManualStyleButtons() {
     });
 }
 
-function pickPlayStyle(mode) {
-    if (isRemoteViewer) return;
-    applyModeSelection(mode, true);
-    if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled: true });
-    else syncTelemetry();
+function pickPlayStyle(device, mode) {
+    if (isRemoteViewer || !device || !device.id) return;
+    deviceStyles.set(device.id, mode);
     paintManualStyleButtons();
+    if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled: true, device: device.id });
+    else updateEngine();
 }
 
 function setDeviceOwner(device, you) {
@@ -7088,7 +7125,7 @@ function renderManualDevices(devices) {
         note.setAttribute('data-own-note', device.id);
         const noteText = document.createElement('p');
         noteText.className = 'text-[10px] text-slate-400 leading-snug';
-        noteText.textContent = 'Pick a play style. EdgeLoop drives this toy from their pulse.';
+        noteText.textContent = 'Pick a play style for this toy. Another toy on EdgeLoop can use a different one.';
         const styles = document.createElement('div');
         styles.className = 'flex flex-wrap gap-1';
         for (const [mode, label] of PLAY_STYLE_CHOICES) {
@@ -7096,7 +7133,8 @@ function renderManualDevices(devices) {
             styleBtn.type = 'button';
             styleBtn.textContent = label;
             styleBtn.setAttribute('data-style', mode);
-            styleBtn.addEventListener('click', () => pickPlayStyle(mode));
+            styleBtn.setAttribute('data-style-for', device.id);
+            styleBtn.addEventListener('click', () => pickPlayStyle(device, mode));
             styles.append(styleBtn);
         }
         note.append(noteText, styles);

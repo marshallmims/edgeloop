@@ -13,6 +13,7 @@ import {
     MAX_TRAIN_EDGES
 } from './session-rules.js';
 import {
+    parseDeviceId,
     sanitizeDeviceCatalog,
     sanitizeEpoch,
     sanitizeManualFrame,
@@ -80,6 +81,8 @@ export function sanitizeCommand(raw, role = 'controller') {
             if (typeof raw.enabled === 'boolean') command.enabled = raw.enabled;
             const endgame = oneOf(raw.endgame, ENDGAME_TYPES);
             if (endgame) command.endgame = endgame;
+            // A play style for one toy. Games stay session-wide.
+            if (TEASE_MODES.includes(mode) && parseDeviceId(raw.device)) command.device = String(raw.device);
             return command;
         }
         case 'ENDGAME': {

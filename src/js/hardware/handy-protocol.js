@@ -147,15 +147,34 @@ export function followPosition(percent, envMin = 0, envMax = 100, margin = HANDY
 // then locks it there: at the bottom, or at the top, until it will not follow
 // the finger back. A longer move is given more time. A short one still lasts
 // at least the stream interval, so the next finger position can replace it.
-export function hdspMove(position, lastPosition, intervalMs) {
+export function hdspMove(position, lastPosition) {
     const pos = clampPercent(position, 0);
     const known = Number.isFinite(Number(lastPosition)) && Number(lastPosition) >= 0;
     const last = known ? clampPercent(lastPosition, 0) : pos;
-    const distance = known ? Math.abs(pos - last) : 30;
-    const interval = Math.max(120, Math.round(Number(intervalMs) || 250));
-    const travelMs = Math.round(distance * 8);
-    const duration = Math.round(Math.min(800, Math.max(interval, travelMs)));
+    // An unknown start is treated as a full-stroke move. A short duration
+    // from the wrong place runs the carriage into the end stop, and firmware
+    // 4 then holds it there.
+    const distance = known ? Math.abs(pos - last) : 100;
+    const duration = Math.round(Math.min(1500, Math.max(400, distance * 12)));
     return { position: pos, duration, stopOnTarget: true };
+}
+
+// v2 names the fields position/duration/stopOnTarget. Firmware 4 (API v3)
+// names them xp/t/stop_on_target. Send both. A server that understands one
+// ignores the other.
+export function hdspBody(move) {
+    const position = clampPercent(move && move.position, 0);
+    const duration = Math.round(Math.min(1500, Math.max(400, Number(move && move.duration) || 400)));
+    return {
+        position,
+        duration,
+        stopOnTarget: true,
+        immediateResponse: true,
+        xp: position,
+        t: duration,
+        stop_on_target: true,
+        immediate_rsp: true
+    };
 }
 
 // The slide window HSP uses: the travel envelope, pulled off the mechanical

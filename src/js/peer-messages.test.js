@@ -12,6 +12,11 @@ describe('sanitizeCommand', () => {
         assert.deepEqual(sanitizeCommand({ type: 'ORGASM_TOGGLE' }), { type: 'ORGASM_TOGGLE' });
         assert.deepEqual(sanitizeCommand({ type: 'MODE_CHANGE', mode: 'milker' }), { type: 'MODE_CHANGE', mode: 'milker' });
         assert.deepEqual(
+            sanitizeCommand({ type: 'MODE_CHANGE', mode: 'classic', device: 'intiface:0:scalar:1' }),
+            { type: 'MODE_CHANGE', mode: 'classic', device: 'intiface:0:scalar:1' }
+        );
+        assert.deepEqual(sanitizeCommand({ type: 'MODE_CHANGE', mode: 'milker', device: 'not-a-toy' }), { type: 'MODE_CHANGE', mode: 'milker' });
+        assert.deepEqual(
             sanitizeCommand({ type: 'MODE_CHANGE', mode: 'oracle', enabled: false }),
             { type: 'MODE_CHANGE', mode: 'oracle', enabled: false }
         );

@@ -510,6 +510,7 @@ describe('player markup', () => {
         assert.doesNotMatch(html, /id="playerHudPin"/);
         assert.match(html, /id="hudSessionSlot"/);
         assert.doesNotMatch(html, /id="edgedBtn"[^>]*\bhidden\b/);
+        assert.match(html, /id="sessionPlayPauseBtn"[\s\S]*id="edgedBtn"[\s\S]*id="cameEarlyBtn"[\s\S]*id="orgasmBtn"[\s\S]*id="sessionStopBtn"/);
         const handy = html.indexOf('id="modalBodyHandy"');
         const beat = html.indexOf('id="beatSyncToggle"');
         const filesEnd = html.indexOf('id="playerFiles"');
