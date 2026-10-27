@@ -27,6 +27,10 @@ export const state = {
     pauses: 0,
     peakHr: 70,
     isEdged: false,
+    // Heart rate latched by the Edged button. Null once that rest has ended.
+    // The engine holds the edge against this number, not against the ceiling,
+    // because the pulse is often still below the ceiling when they press.
+    manualEdgeHr: null,
     orgasmMode: false,
     // Force Orgasm raises the WORKING ceiling by 1 BPM/s (capped) instead of
     // rewriting the typed Climax HR input; cleared by stop/reset.
@@ -266,7 +270,10 @@ export const advancedSettings = {
     learningProfile: {
         breakthroughEvents: 0,
         suggestedMaxHrOffset: 0,
-        lastBreakthroughHr: null
+        lastBreakthroughHr: null,
+        // Heart rates from the Edged button, most recent last. The average
+        // pulls the edge mark down when the pulse lags the body.
+        edgeMarks: []
     }
 };
 

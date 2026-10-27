@@ -1036,7 +1036,7 @@
               <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
               <span>STOP</span>
             </button>
-            <button id="edgedBtn" type="button" class="bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-100 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="Stop and count an edge the pulse has not reached. Counts for NNN. Does not add a pause.">Edged</button>
+            <button id="edgedBtn" type="button" class="bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-100 font-bold py-3 px-3 rounded-xl text-xs transition cursor-pointer" title="You are on the edge. The toys slow down and rest, then start again. This heart rate is counted and remembered.">Edged</button>
             <button id="cameEarlyBtn" class="bg-amber-950/60 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold rounded-xl p-1.5 transition text-xs flex flex-col items-center justify-center cursor-pointer" title="Log accidental release so local learning engine tightens limits next time.">
               <span id="cameEarlyKicker" class="text-[8px] text-amber-400 font-semibold uppercase">Accidental</span>
               <span id="cameEarlyLabel" class="font-bold text-[10px] mt-0.5">Came Early</span>
@@ -1269,7 +1269,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.4.31</span>
+        <span id="appVersion" class="font-mono">v1.1.4.32</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1890,6 +1890,9 @@
             </div>
             <p class="text-[9px] text-slate-400 leading-snug">
               Tap <strong>Came Early</strong> after an accidental climax. EdgeLoop stores that locally and lowers the working climax ceiling on every future session (your typed Climax HR stays as the baseline). Wipe memory to restore the original ceiling.
+            </p>
+            <p class="text-[9px] text-slate-400 leading-snug">
+              Tap <strong>Edged</strong> when you are on the edge and your heart rate has not caught up. The toys slow down and rest, then start again, and that heart rate is counted. The last eight presses are averaged. While the average sits under your ceiling, the pullback and the edge count follow it. Survival and Calibration do not use the average. Wipe Memory clears the presses too.
             </p>
           </div>
         </div>

@@ -182,7 +182,11 @@ describe('the learning profile', () => {
 
     it('keeps a plausible one and zeroes an unreadable one', () => {
         assert.deepEqual(sanitizeLearningProfile({ breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141 }),
-            { breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141 });
+            { breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141, edgeMarks: [] });
+        assert.deepEqual(
+            sanitizeLearningProfile({ edgeMarks: [96, 30, '98', 900, 200] }).edgeMarks,
+            [96, 98, 200]
+        );
         assert.deepEqual(sanitizeLearningProfile('nope'), SETTING_DEFAULTS.learningProfile);
         assert.equal(sanitizeLearningProfile({ lastBreakthroughHr: 9000 }).lastBreakthroughHr, null);
     });

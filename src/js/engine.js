@@ -81,11 +81,25 @@ export function resolveEdgeTriggerHr(maxHr, holdPercent = DEFAULT_EDGE_HOLD_PERC
 // pair, where 90% of 95 is 86 - a resting rate sitting close under the low
 // Climax HR the README sends prostate users to). It now says what actually
 // happened instead.
-export function describeEdgeHoldPreview({ typedMaxHr, workingMaxHr, minHr, holdPercent } = {}) {
+export function describeEdgeHoldPreview({ typedMaxHr, workingMaxHr, minHr, holdPercent, learnedEdgeHr } = {}) {
     const pct = clampEdgeHoldPercent(holdPercent, DEFAULT_EDGE_HOLD_PERCENT);
     const max = Number.isFinite(workingMaxHr) ? workingMaxHr : typedMaxHr;
     if (!Number.isFinite(max)) return 'Pullback mark: type a Resting and a Climax HR first.';
     const trigger = resolveEdgeTriggerHr(max, pct, minHr);
+    if (Number.isFinite(learnedEdgeHr)) {
+        const frame = resolveEdgeFrame({
+            maxHr: max,
+            minHr,
+            holdPercent: pct,
+            learnedEdgeHr,
+            edgeHr: max,
+            orgasmMode: false,
+            sessionStatus: 'IDLE'
+        });
+        if (Number.isFinite(frame.triggerHr) && frame.triggerHr < trigger) {
+            return `Pullback at ${frame.triggerHr} BPM. Edged readings average ${Math.round(learnedEdgeHr)}, under the ${pct}% mark (${trigger}).`;
+        }
+    }
     const base = max === typedMaxHr ? `${typedMaxHr}` : `${max}, the working ceiling right now`;
     // The mark the percentage alone would give, before the resting-rate floor.
     const fromPercent = Math.min(max, Math.max(1, Math.round(max * (pct / 100))));
@@ -101,6 +115,93 @@ export function edgeReleaseHr(maxHr, triggerHr) {
     if (!Number.isFinite(maxHr)) return maxHr;
     const top = Number.isFinite(triggerHr) ? Math.min(maxHr, triggerHr) : maxHr;
     return top - EDGE_RELEASE_BPM;
+}
+
+// How many Edged presses are kept. The average is the recent body, not the
+// first afternoon the button was tried. Eight is a run of edges, not a year.
+export const MAX_EDGE_MARKS = 8;
+
+// A press can teach the mark only when the toys can come back from it. At or
+// under Resting + the release band, the latch would park them on a number the
+// pulse cannot fall out of. At or above the working ceiling, the pulse
+// already owns that edge. Outside 40–220 it is not a heart rate.
+export function usableEdgeMark(hr, { minHr, ceilingHr } = {}) {
+    const n = typeof hr === 'number' ? hr : Number(hr);
+    if (!Number.isFinite(n)) return null;
+    const rounded = Math.round(n);
+    if (rounded < 40 || rounded > 220) return null;
+    if (Number.isFinite(minHr) && rounded <= minHr + EDGE_RELEASE_BPM) return null;
+    if (Number.isFinite(ceilingHr) && rounded >= ceilingHr) return null;
+    return rounded;
+}
+
+// Append one press and keep the most recent window. A press that cannot teach
+// the mark leaves the window as it was. Older marks are not re-judged against
+// today's ceiling: a later, lower Climax HR must not erase the presses that
+// were real when they were taken.
+export function rememberEdgeMark(marks, hr, bounds = {}) {
+    const kept = (Array.isArray(marks) ? marks : [])
+        .map((value) => usableEdgeMark(value))
+        .filter((value) => value !== null);
+    const sample = usableEdgeMark(hr, bounds);
+    const next = sample === null ? kept : [...kept, sample];
+    return next.slice(-MAX_EDGE_MARKS);
+}
+
+export function averageEdgeMark(marks) {
+    const list = (Array.isArray(marks) ? marks : []).filter((n) => Number.isFinite(n));
+    if (!list.length) return null;
+    return Math.round(list.reduce((sum, n) => sum + n, 0) / list.length);
+}
+
+// Where an automatic edge is counted. No presses yet: the working ceiling,
+// which is what every session did before the button remembered anything.
+// Presses pull that down, never up, and never into the band the resting rate
+// cannot climb out of.
+export function resolveLearnedEdgeHr(maxHr, learnedHr, minHr) {
+    if (!Number.isFinite(maxHr)) return maxHr;
+    if (!Number.isFinite(learnedHr)) return maxHr;
+    const capped = Math.min(maxHr, Math.round(learnedHr));
+    if (!Number.isFinite(minHr)) return Math.max(1, capped);
+    const lowest = Math.min(maxHr, minHr + EDGE_RELEASE_BPM + 1);
+    return Math.max(Math.max(1, capped), lowest);
+}
+
+// The pullback the toys actually use, and the heart rate an edge is counted
+// at. They are the same number once Edged presses have an average under the
+// ceiling: the slowdown and the count have to agree, or a game releases the
+// edge while the engine still holds it and the next tick counts a second one.
+// A press in progress drops both to the heart rate the wearer was on, so the
+// rest starts now instead of when the pulse finally catches up.
+export function resolveEdgeFrame({
+    maxHr,
+    minHr,
+    holdPercent = DEFAULT_EDGE_HOLD_PERCENT,
+    learnedEdgeHr = null,
+    manualEdgeHr = null,
+    edgeHr = null,
+    orgasmMode = false,
+    sessionStatus = 'IDLE'
+} = {}) {
+    const learnedAt = resolveLearnedEdgeHr(maxHr, learnedEdgeHr, minHr);
+    const manual = Number.isFinite(manualEdgeHr) ? Math.round(manualEdgeHr) : null;
+    const source = Number.isFinite(edgeHr) ? edgeHr : NaN;
+    const manualUsable = manual !== null && (!Number.isFinite(minHr) || manual > minHr + EDGE_RELEASE_BPM);
+    const holdingManual = manualUsable
+        && !orgasmMode
+        && sessionStatus === 'RUNNING'
+        && Number.isFinite(source)
+        && !hasReleasedEdge(source, manual, manual);
+    let edgeAt = learnedAt;
+    if (holdingManual) edgeAt = Math.min(learnedAt, Math.min(maxHr, manual));
+    let trigger = resolveEdgeTriggerHr(maxHr, holdPercent, minHr);
+    if (Number.isFinite(edgeAt) && Number.isFinite(trigger)) trigger = Math.min(trigger, edgeAt);
+    if (Number.isFinite(minHr) && Number.isFinite(maxHr)) {
+        const lowest = Math.min(maxHr, minHr + EDGE_RELEASE_BPM + 1);
+        if (Number.isFinite(trigger)) trigger = Math.max(trigger, lowest);
+        if (Number.isFinite(edgeAt)) edgeAt = Math.min(maxHr, Math.max(edgeAt, lowest));
+    }
+    return { triggerHr: trigger, edgeAt, holdingManual };
 }
 
 // The narrowest stroke zone (percent of the hardware envelope) the engine
@@ -262,6 +363,14 @@ export function calculateEngineOutputs({
     ceilingBehaviour = 'crawl',
     crawlSpeed = CRAWL_PERCENT,
     edgeHoldPercent = DEFAULT_EDGE_HOLD_PERCENT,
+    // The average of Edged presses, when there is one. Null leaves the
+    // ceiling as the only mark. Ignored on Survival and Calibration: those
+    // climbs must not park at an old edge.
+    learnedEdgeHr = null,
+    // The heart rate the wearer was on when they pressed Edged. While it is
+    // set, this tick is an edge even though the pulse is still under the
+    // ceiling. Null when they have not pressed, or the rest has already ended.
+    manualEdgeHr = null,
     ruinHoldSeconds = 0,
     strokeMode,
     oracleState = 'IDLE',
@@ -321,10 +430,25 @@ export function calculateEngineOutputs({
     let nextIsEdged = Boolean(isEdged);
     let newEdgeTriggered = false;
 
-    const triggerHr = resolveEdgeTriggerHr(maxHr, edgeHoldPercent, minHr);
     const edgeSource = Number.isFinite(edgeHr) ? edgeHr : hr;
-    // Hold to is where the toys ease off. An edge is the pulse reaching the
-    // max itself. A lower Hold to must not count one early.
+    // Survival and Calibration climb through the old max on purpose. A learned
+    // mark, or a press, must not park them there.
+    const climb = isUncappedClimb(mode);
+    const frame = resolveEdgeFrame({
+        maxHr,
+        minHr,
+        holdPercent: edgeHoldPercent,
+        learnedEdgeHr: climb ? null : learnedEdgeHr,
+        manualEdgeHr: climb ? null : manualEdgeHr,
+        edgeHr: edgeSource,
+        orgasmMode,
+        sessionStatus
+    });
+    const triggerHr = frame.triggerHr;
+    // Hold to is where the toys ease off. With no Edged readings, an edge is
+    // still the pulse reaching the max itself, so a lower Hold to must not
+    // count one early. Once presses have an average, that average IS the
+    // edge: the slowdown and the count move together.
     const atPullback = edgeSource >= triggerHr;
 
     // Force Orgasm FREEZES the edge flag; it never clears it. The overdrive
@@ -337,12 +461,19 @@ export function calculateEngineOutputs({
     // never left the mark. New edges were already suppressed here; releases
     // are too, so the flag stays whatever the pulse last really said and the
     // first tick after a cancel judges it against the real ceiling again.
-    if (edgeSource >= maxHr) {
+    //
+    // A press is the same freeze, against the heart rate they were on rather
+    // than the ceiling. The pulse is often still low when they are already
+    // over the edge, so judging the rest against the ceiling released it on
+    // the same tick and the toys never slowed down.
+    if (frame.holdingManual) {
+        nextIsEdged = true;
+    } else if (edgeSource >= frame.edgeAt) {
         if (!isEdged && !orgasmMode && sessionStatus !== 'RAMPDOWN') {
             newEdgeTriggered = true;
             nextIsEdged = true;
         }
-    } else if (!orgasmMode && hasReleasedEdge(edgeSource, maxHr, maxHr)) {
+    } else if (!orgasmMode && hasReleasedEdge(edgeSource, frame.edgeAt, frame.edgeAt)) {
         nextIsEdged = false;
     }
 

@@ -88,9 +88,12 @@ describe('pause reasons', () => {
         assert.match(app, /pauseSession\('Paused\.', 'player'\)/);
         assert.match(app, /function countManualEdge/);
         assert.match(app, /function markCalibrationEdge/);
+        assert.match(app, /function latchPressedEdge/);
         assert.doesNotMatch(app, /classList\.toggle\('hidden', !live\)/);
-        assert.match(app, /state\.pauseReason !== 'edged'/);
-        for (const source of ["'hr-link'", "'handy'", "'handy-stop'", "'beat-sync'", "'intiface'", "'tcode'", "'video'", "'remote'", "'edged'"]) {
+        const edged = app.match(/getElementById\('edgedBtn'\)\?\.addEventListener\([\s\S]*?\n\}\);/);
+        assert.ok(edged, 'Edged button handler moved');
+        assert.equal(edged[0].includes('pauseSession'), false, 'Edged rests inside the session instead of pausing it');
+        for (const source of ["'hr-link'", "'handy'", "'handy-stop'", "'beat-sync'", "'intiface'", "'tcode'", "'video'", "'remote'"]) {
             assert.ok(app.includes(source), `missing pause source ${source}`);
         }
     });

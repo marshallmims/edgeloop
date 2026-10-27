@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.32
+
+- **Edged is an edge.** The toys slow down and rest, then start again, the same way they do when the pulse reaches the mark. The edge is counted. The session does not pause.
+- **Edged heart rates teach the mark.** Each press is kept, up to the last eight, and averaged. While that average sits under the working ceiling, the pullback and the edge count follow it, so a heart rate that stays low on the edge still backs the toys off. Survival and Calibration do not use it. Wipe Memory clears it.
+
 ## 1.1.4.31
 
 - **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.

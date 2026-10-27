@@ -44,7 +44,7 @@ const KEY = 'AUDITKEY-9f3c21';
 const STORES = {
     settings: {
         minHr: 70, maxHr: 140, handyHwMin: 10, handyHwMax: 90,
-        learningProfile: { breakthroughEvents: 2, suggestedMaxHrOffset: 6, lastBreakthroughHr: 132 }
+        learningProfile: { breakthroughEvents: 2, suggestedMaxHrOffset: 6, lastBreakthroughHr: 132, edgeMarks: [] }
     },
     handyRole: 'secondary',
     handyMaxCap: 65,
@@ -576,7 +576,7 @@ describe('the learning profile is clamped like every other restored value', () =
     it('keeps a plausible profile as it is', () => {
         assert.deepEqual(
             sanitizeLearningProfile({ breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141 }),
-            { breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141 }
+            { breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141, edgeMarks: [] }
         );
     });
 
@@ -601,17 +601,17 @@ describe('the learning profile is clamped like every other restored value', () =
         // Not dropped: a file that carries a profile field is asking for a
         // profile, and the only profile with no information in it is the
         // one a fresh install has.
-        assert.deepEqual(sanitizeLearningProfile('yes'), { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null });
-        assert.deepEqual(sanitizeLearningProfile([1]), { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null });
+        assert.deepEqual(sanitizeLearningProfile('yes'), { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null, edgeMarks: [] });
+        assert.deepEqual(sanitizeLearningProfile([1]), { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null, edgeMarks: [] });
         const read = readBackup({ minHr: 70, learningProfile: 'yes' });
-        assert.deepEqual(read.settings.learningProfile, { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null });
+        assert.deepEqual(read.settings.learningProfile, { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null, edgeMarks: [] });
         // and the file's own words are kept, so the count can see it changed
         assert.equal(read.requested.learningProfile, 'yes');
     });
 
     it('clamps the profile that arrives inside a file', () => {
         const read = readBackup({ minHr: 70, learningProfile: { breakthroughEvents: 2, suggestedMaxHrOffset: -60, lastBreakthroughHr: 4000 } });
-        assert.deepEqual(read.settings.learningProfile, { breakthroughEvents: 2, suggestedMaxHrOffset: 0, lastBreakthroughHr: null });
+        assert.deepEqual(read.settings.learningProfile, { breakthroughEvents: 2, suggestedMaxHrOffset: 0, lastBreakthroughHr: null, edgeMarks: [] });
     });
 });
 
@@ -937,7 +937,7 @@ describe('the third round: what the fixes themselves broke', () => {
 
     it('a corrected value is visible as corrected, and key order is not a correction', () => {
         const read = readBackup({ minHr: 70, learningProfile: { breakthroughEvents: 99999, suggestedMaxHrOffset: 500, lastBreakthroughHr: 9 } });
-        assert.deepEqual(read.settings.learningProfile, { breakthroughEvents: 9999, suggestedMaxHrOffset: MAX_LEARNED_OFFSET_BPM, lastBreakthroughHr: null });
+        assert.deepEqual(read.settings.learningProfile, { breakthroughEvents: 9999, suggestedMaxHrOffset: MAX_LEARNED_OFFSET_BPM, lastBreakthroughHr: null, edgeMarks: [] });
         // The count compares the store against `requested`, so what the app
         // corrected differs and is reported as corrected - with no second
         // list to keep in step.
@@ -947,7 +947,7 @@ describe('the third round: what the fixes themselves broke', () => {
         // so - app.js compares canonically.
         const sorted = { lastBreakthroughHr: 141, breakthroughEvents: 3, suggestedMaxHrOffset: 9 };
         const readSorted = readBackup({ minHr: 70, learningProfile: sorted });
-        assert.deepEqual(readSorted.settings.learningProfile, { breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141 });
+        assert.deepEqual(readSorted.settings.learningProfile, { breakthroughEvents: 3, suggestedMaxHrOffset: 9, lastBreakthroughHr: 141, edgeMarks: [] });
     });
 
     it('says a refused value came back at the nearest the app takes, not at the default', () => {

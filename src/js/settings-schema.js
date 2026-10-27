@@ -21,7 +21,7 @@
 
 import { SETTING_DEFAULTS } from './state.js';
 import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, clampOrgasmSettleSeconds, MAX_SESSION_MINUTES } from './session-rules.js';
-import { clampEdgeHoldPercent, clampCrawlPercent } from './engine.js';
+import { clampEdgeHoldPercent, clampCrawlPercent, MAX_EDGE_MARKS, usableEdgeMark } from './engine.js';
 import {
     clampReactBpm,
     clampFloor,
@@ -112,10 +112,18 @@ export function sanitizeLearningProfile(raw) {
     const events = Number(raw.breakthroughEvents);
     const offset = Number(raw.suggestedMaxHrOffset);
     const last = Number(raw.lastBreakthroughHr);
+    const marks = Array.isArray(raw.edgeMarks) ? raw.edgeMarks : [];
+    const edgeMarks = [];
+    for (const value of marks) {
+        const sample = usableEdgeMark(value);
+        if (sample !== null) edgeMarks.push(sample);
+    }
+    if (edgeMarks.length > MAX_EDGE_MARKS) edgeMarks.splice(0, edgeMarks.length - MAX_EDGE_MARKS);
     return {
         breakthroughEvents: Number.isFinite(events) ? Math.max(0, Math.min(MAX_LEARNED_EVENTS, Math.round(events))) : 0,
         suggestedMaxHrOffset: Number.isFinite(offset) ? Math.max(0, Math.min(MAX_LEARNED_OFFSET_BPM, Math.round(offset))) : 0,
-        lastBreakthroughHr: Number.isFinite(last) && last >= MIN_PLAUSIBLE_HR && last <= MAX_PLAUSIBLE_HR ? Math.round(last) : null
+        lastBreakthroughHr: Number.isFinite(last) && last >= MIN_PLAUSIBLE_HR && last <= MAX_PLAUSIBLE_HR ? Math.round(last) : null,
+        edgeMarks
     };
 }
 

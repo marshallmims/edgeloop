@@ -9,6 +9,12 @@ import {
     resolveCeilingBehaviour,
     hasReleasedEdge,
     EDGE_RELEASE_BPM,
+    MAX_EDGE_MARKS,
+    usableEdgeMark,
+    rememberEdgeMark,
+    averageEdgeMark,
+    resolveLearnedEdgeHr,
+    resolveEdgeFrame,
     MIN_ZONE_WIDTH,
     CRAWL_PERCENT,
     MIN_CRAWL_PERCENT,
@@ -1123,6 +1129,123 @@ describe('engine safety guards', () => {
         assert.equal(below.isEdged, false);
     });
 
+    it('a learned edge mark counts and parks at that heart rate, then releases 5 BPM under it', () => {
+        const missed = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 96,
+            isEdged: false,
+            ceilingBehaviour: 'stop',
+            edgeHoldPercent: 100
+        });
+        assert.equal(missed.newEdgeTriggered, false, 'without a learned mark, 96 is not the ceiling');
+        assert.ok(missed.primaryPercent > 0);
+
+        const hit = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 96,
+            isEdged: false,
+            ceilingBehaviour: 'stop',
+            learnedEdgeHr: 96
+        });
+        assert.equal(hit.newEdgeTriggered, true);
+        assert.equal(hit.isEdged, true);
+        assert.equal(hit.primaryPercent, 0);
+
+        const band = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 92,
+            isEdged: true,
+            ceilingBehaviour: 'stop',
+            learnedEdgeHr: 96
+        });
+        assert.equal(band.isEdged, true, 'the latch holds for 5 BPM');
+        assert.equal(band.newEdgeTriggered, false);
+        assert.ok(band.primaryPercent > 0, 'speed follows the mark, not the latch');
+
+        const released = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 90,
+            isEdged: true,
+            learnedEdgeHr: 96
+        });
+        assert.equal(released.isEdged, false);
+        assert.equal(released.newEdgeTriggered, false);
+    });
+
+    it('an Edged press rests at the heart rate they were on, and does not count a second edge', () => {
+        const rest = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 96,
+            isEdged: true,
+            manualEdgeHr: 96,
+            ceilingBehaviour: 'crawl'
+        });
+        assert.equal(rest.newEdgeTriggered, false);
+        assert.equal(rest.isEdged, true);
+        assert.equal(rest.primaryPercent, CRAWL_PERCENT);
+
+        const easing = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 94,
+            isEdged: true,
+            manualEdgeHr: 96,
+            ceilingBehaviour: 'stop'
+        });
+        assert.equal(easing.isEdged, true);
+        assert.ok(easing.primaryPercent > 0, 'one BPM under the press, the stroke starts back');
+
+        const done = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 90,
+            isEdged: true,
+            manualEdgeHr: 96,
+            ceilingBehaviour: 'stop'
+        });
+        assert.equal(done.isEdged, false);
+        assert.ok(done.primaryPercent > 0);
+    });
+
+    it('Survival ignores a learned mark and a press, and keeps climbing', () => {
+        const climb = calculateEngineOutputs({
+            ...running,
+            activeMode: 'survival',
+            hr: 90,
+            isEdged: true,
+            learnedEdgeHr: 90,
+            manualEdgeHr: 90,
+            ceilingBehaviour: 'stop'
+        });
+        assert.equal(climb.newEdgeTriggered, false);
+        assert.equal(climb.isEdged, false);
+        assert.equal(climb.primaryPercent, 42);
+    });
+
+    it('a learned mark cannot sit inside the resting release band or above the ceiling', () => {
+        assert.equal(resolveLearnedEdgeHr(140, null, 70), 140);
+        assert.equal(resolveLearnedEdgeHr(140, 200, 70), 140);
+        assert.equal(resolveLearnedEdgeHr(140, 96, 70), 96);
+        assert.equal(resolveLearnedEdgeHr(140, 50, 70), 76);
+        const parked = calculateEngineOutputs({
+            ...running,
+            activeMode: 'classic',
+            hr: 75,
+            minHr: 70,
+            maxHr: 140,
+            isEdged: false,
+            learnedEdgeHr: 50,
+            ceilingBehaviour: 'stop'
+        });
+        assert.equal(parked.isEdged, false, 'a resting pulse is not the learned edge');
+        assert.ok(parked.primaryPercent > 0);
+    });
+
     it('does not count edges during orgasm mode or rampdown', () => {
         const orgasm = calculateEngineOutputs({ ...running, activeMode: 'classic', hr: 150, orgasmMode: true });
         assert.equal(orgasm.newEdgeTriggered, false);
@@ -1608,6 +1731,13 @@ describe('the Guards pullback preview', () => {
         assert.equal(resolveEdgeTriggerHr(95, 90, 88), 94);
     });
 
+    it('says when Edged readings pull the mark under the percentage', () => {
+        assert.equal(
+            describeEdgeHoldPreview({ typedMaxHr: 140, workingMaxHr: 140, minHr: 70, holdPercent: 100, learnedEdgeHr: 96 }),
+            'Pullback at 96 BPM. Edged readings average 96, under the 100% mark (140).'
+        );
+    });
+
     it('never prints a percentage that does not produce the BPM beside it', () => {
         // The property, over every pair the inputs allow: if the line reads
         // "N BPM (P% of M)" then P% of M must really be N.
@@ -1864,5 +1994,54 @@ describe('the MIC badge only promises a push that reaches a motor', () => {
             /micReaches/.test(badge[0]),
             `the badge must report nothing in a blind mode: ${badge[0]}`
         );
+    });
+});
+
+describe('Edged readings', () => {
+    it('keeps a press the pulse has not reached, and refuses one it already owns', () => {
+        assert.equal(usableEdgeMark(96, { minHr: 70, ceilingHr: 140 }), 96);
+        assert.equal(usableEdgeMark(140, { minHr: 70, ceilingHr: 140 }), null);
+        assert.equal(usableEdgeMark(75, { minHr: 70 }), null);
+        assert.equal(usableEdgeMark(30, { minHr: 70 }), null);
+        assert.equal(usableEdgeMark(NaN), null);
+        assert.deepEqual(rememberEdgeMark([], 96, { minHr: 70, ceilingHr: 140 }), [96]);
+        assert.deepEqual(rememberEdgeMark([96], 140, { minHr: 70, ceilingHr: 140 }), [96]);
+        assert.equal(averageEdgeMark([100, 96, 98]), 98);
+        assert.equal(averageEdgeMark([]), null);
+    });
+
+    it('forgets the oldest press once the window is full', () => {
+        let marks = [];
+        for (let hr = 90; hr < 90 + MAX_EDGE_MARKS + 1; hr += 1) {
+            marks = rememberEdgeMark(marks, hr, { minHr: 70, ceilingHr: 140 });
+        }
+        assert.equal(marks.length, MAX_EDGE_MARKS);
+        assert.equal(marks[0], 91);
+        assert.equal(marks[marks.length - 1], 90 + MAX_EDGE_MARKS);
+    });
+
+    it('holds a press until the pulse drops 5 BPM, and lines the games up on that same mark', () => {
+        const held = resolveEdgeFrame({
+            maxHr: 140,
+            minHr: 70,
+            holdPercent: 100,
+            learnedEdgeHr: null,
+            manualEdgeHr: 96,
+            edgeHr: 96,
+            orgasmMode: false,
+            sessionStatus: 'RUNNING'
+        });
+        assert.equal(held.holdingManual, true);
+        assert.equal(held.triggerHr, 96);
+        assert.equal(held.edgeAt, 96);
+        const released = resolveEdgeFrame({
+            maxHr: 140,
+            minHr: 70,
+            manualEdgeHr: 96,
+            edgeHr: 90,
+            sessionStatus: 'RUNNING'
+        });
+        assert.equal(released.holdingManual, false);
+        assert.equal(released.triggerHr, 140);
     });
 });

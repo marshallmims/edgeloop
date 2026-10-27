@@ -5,10 +5,13 @@ import {
     gameEdgeReleased,
     clampEdgeHoldPercent,
     clampSpeedBound,
-    resolveEdgeTriggerHr,
+    resolveEdgeFrame,
     describeEdgeHoldPreview,
     micBoostReachesMotors,
-    clampCrawlPercent
+    clampCrawlPercent,
+    averageEdgeMark,
+    rememberEdgeMark,
+    usableEdgeMark
 } from './engine.js';
 import {
     KEYBIND_ACTIONS,
@@ -500,13 +503,9 @@ function pauseSession(voiceText = 'Paused.', source = 'button') {
     state.resumeStatus = state.sessionStatus;
     state.sessionStatus = 'PAUSED';
     state.pauseReason = pauseReasonFromSource(source) || 'button';
-    // An edged stop is a pause the wearer asked for so the edge can be
-    // counted. It does not add to the pause total.
-    if (state.pauseReason !== 'edged') {
-        state.pauses += 1;
-        const pauseEl = document.getElementById('pauseCount');
-        if (pauseEl) pauseEl.textContent = state.pauses;
-    }
+    state.pauses += 1;
+    const pauseEl = document.getElementById('pauseCount');
+    if (pauseEl) pauseEl.textContent = state.pauses;
     renderTransport('PAUSED');
     clearMicBoost(state);
     dispatchHardware(0, 0, 0, 100, true);
@@ -545,7 +544,7 @@ function paintEdgedButton() {
     const calibrating = state.activeMode === 'calibrate';
     btn.title = calibrating
         ? 'You are on the edge. Saves this heart rate as your max and eases the toys down, before an orgasm.'
-        : 'Stop and count an edge the pulse has not reached. Counts for NNN. Does not add a pause.';
+        : 'You are on the edge. The toys slow down and rest, then start again. This heart rate is counted and remembered.';
 }
 
 function commitEdge({ countNnn = true } = {}) {
@@ -557,17 +556,64 @@ function commitEdge({ countNnn = true } = {}) {
     if (countNnn && state.gameMode === 'nnn' && nnnState.holdSeconds <= 0) noteNnnEdge();
 }
 
-// The pulse never reached the mark, usually because the session was paused
-// first. One tap records that edge. A crossing the engine already counted
-// is left alone.
+// The pulse never reached the mark. One tap records that edge and, outside
+// Calibration, holds the toys in the same rest a detected edge would. A
+// crossing the engine already counted is left alone.
 function countManualEdge() {
-    if (isRemoteViewer || isRemoteController) return;
+    if (isRemoteViewer || isRemoteController) return false;
     const live = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'PAUSED' || state.sessionStatus === 'RAMPDOWN';
-    if (!live || state.settleSecondsLeft > 0 || state.isEdged) return;
+    if (!live || state.settleSecondsLeft > 0 || state.isEdged) return false;
     state.isEdged = true;
     commitEdge({ countNnn: false });
     if (state.gameMode === 'nnn') noteNnnEdge();
     syncTelemetry();
+    return true;
+}
+
+function learningProfile() {
+    const current = advancedSettings.learningProfile;
+    if (!current || typeof current !== 'object') {
+        advancedSettings.learningProfile = {
+            breakthroughEvents: 0,
+            suggestedMaxHrOffset: 0,
+            lastBreakthroughHr: null,
+            edgeMarks: []
+        };
+    } else if (!Array.isArray(current.edgeMarks)) {
+        current.edgeMarks = [];
+    }
+    return advancedSettings.learningProfile;
+}
+
+// The heart rate on the sensor right now. The resting default is not a press.
+function pressedEdgeHr() {
+    if (!state.hrReadingSeen) return null;
+    const hr = Number.isFinite(state.sensorHr) ? state.sensorHr : state.hrCurrent;
+    return Number.isFinite(hr) ? Math.round(hr) : null;
+}
+
+// Latch the rest and remember the reading. Survival and Calibration keep
+// their own edge: one climbs, the other writes the typed max. A rampdown is
+// already ending. The ceiling is not a reason to skip the rest — a press on
+// the mark still holds — but it is not a new lesson, because the pulse
+// already knew that number.
+function latchPressedEdge() {
+    if (isUncappedClimb() || state.sessionStatus === 'RAMPDOWN') return false;
+    const hr = pressedEdgeHr();
+    const minHr = readHrLimits().minHr;
+    const sample = usableEdgeMark(hr, { minHr });
+    if (sample === null) return false;
+    state.manualEdgeHr = sample;
+    const ceiling = Number.isFinite(state.effectiveMaxHr) ? state.effectiveMaxHr : readHrLimits().maxHr;
+    const profile = learningProfile();
+    const next = rememberEdgeMark(profile.edgeMarks, sample, { minHr, ceilingHr: ceiling });
+    const same = next.length === profile.edgeMarks.length && next.every((n, i) => n === profile.edgeMarks[i]);
+    if (!same) {
+        profile.edgeMarks = next;
+        persistSettings();
+        renderLearningStatus();
+    }
+    return true;
 }
 
 // Grey out the transport with a reason while the hardware is not ready.
@@ -1200,11 +1246,25 @@ function updateEngine() {
     ceilingBadge?.classList.toggle('hidden', max === typedMax);
 
     const holdPct = clampEdgeHoldPercent(advancedSettings.edgeHoldPercent);
-    const triggerHr = resolveEdgeTriggerHr(max, holdPct, min);
+    // Survival and Calibration climb through an old edge. The learned mark
+    // stays stored and comes back when the climb is over.
+    const learnedEdgeHr = isUncappedClimb() ? null : averageEdgeMark(advancedSettings.learningProfile?.edgeMarks);
+    const manualEdgeHr = isUncappedClimb() ? null : state.manualEdgeHr;
+    const edgeFrame = resolveEdgeFrame({
+        maxHr: max,
+        minHr: min,
+        holdPercent: holdPct,
+        learnedEdgeHr,
+        manualEdgeHr,
+        edgeHr: sensorHr,
+        orgasmMode: state.orgasmMode,
+        sessionStatus: state.sessionStatus
+    });
+    const triggerHr = edgeFrame.triggerHr;
     const holdBadge = document.getElementById('edgeHoldBadge');
     const holdText = document.getElementById('edgeHoldText');
     if (holdText) holdText.textContent = `${triggerHr}`;
-    holdBadge?.classList.toggle('hidden', holdPct === 100 || triggerHr === max);
+    holdBadge?.classList.toggle('hidden', triggerHr === max);
     state.edgeTriggerHr = triggerHr;
 
     const result = calculateEngineOutputs({
@@ -1235,6 +1295,8 @@ function updateEngine() {
         ceilingBehaviour: advancedSettings.ceilingBehaviour,
         crawlSpeed: clampCrawlPercent(advancedSettings.crawlPercent),
         edgeHoldPercent: advancedSettings.edgeHoldPercent,
+        learnedEdgeHr,
+        manualEdgeHr,
         ruinHoldSeconds: state.ruinHoldSeconds,
         oracleState: state.oracleState,
         survivalSpeedFloor: state.survivalSpeedFloor,
@@ -1309,6 +1371,9 @@ function updateEngine() {
     if (result.newEdgeTriggered && !(state.settleSecondsLeft > 0)) commitEdge();
 
     state.isEdged = result.isEdged;
+    // The rest is over once the pulse has dropped out of the band. Clearing
+    // the latch here is what lets the next climb count as its own edge.
+    if (!result.isEdged) state.manualEdgeHr = null;
     state.strokerSpeed = result.primaryPercent;
     state.prostateSpeed = result.secondaryPercent;
     state.strokeMin = result.strokeMinPercent;
@@ -1719,6 +1784,7 @@ function resetSessionCounters() {
     state.pauses = 0;
     state.peakHr = Number.isFinite(state.hrCurrent) ? state.hrCurrent : 70;
     state.isEdged = false;
+    state.manualEdgeHr = null;
     state.orgasmBoost = 0;
     clearMicBoost(state);
     state.rampdownSecondsLeft = 45;
@@ -2510,11 +2576,7 @@ document.getElementById('edgedBtn')?.addEventListener('click', () => {
         updateEngine();
         return;
     }
-    countManualEdge();
-    const finishing = state.orgasmMode || state.settleSecondsLeft > 0 || state.sessionStatus === 'IDLE';
-    if (!finishing && (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN')) {
-        pauseSession(null, 'edged');
-    }
+    if (countManualEdge()) latchPressedEdge();
     checkReadiness();
     syncTelemetry();
     updateEngine();
@@ -2542,6 +2604,7 @@ function restartSurvivalAfterOrgasm() {
     state.survivalBreachTicks = 0;
     state.survivalLastReadingAt = null;
     state.isEdged = false;
+    state.manualEdgeHr = null;
     state.orgasmBoost = 0;
     state.edgeStallSeconds = 0;
     state.stallPauseElapsed = 0;
@@ -2739,17 +2802,26 @@ function persistSessionLimits(immediate = false) {
 
 function renderLearningStatus() {
     const text = document.getElementById('learningStatusText');
-    const p = advancedSettings.learningProfile || { breakthroughEvents: 0, suggestedMaxHrOffset: 0 };
+    const p = advancedSettings.learningProfile || { breakthroughEvents: 0, suggestedMaxHrOffset: 0, edgeMarks: [] };
+    const marks = Array.isArray(p.edgeMarks) ? p.edgeMarks : [];
+    const avg = averageEdgeMark(marks);
+    const edgeSentence = avg
+        ? ` Edged: ${marks.length} reading${marks.length === 1 ? '' : 's'}, averaging ${avg} BPM. Pullback and the edge count follow that while it sits under your ceiling.`
+        : '';
     if (text) {
         if (p.breakthroughEvents > 0) {
             const last = p.lastBreakthroughHr ? ` Last event at ${p.lastBreakthroughHr} BPM.` : '';
-            text.textContent = `Active: ${p.breakthroughEvents} premature event(s). Working climax ceiling is ${p.suggestedMaxHrOffset} BPM below your typed Climax HR on every session.${last}`;
+            text.textContent = `Active: ${p.breakthroughEvents} premature event(s). Working climax ceiling is ${p.suggestedMaxHrOffset} BPM below your typed Climax HR on every session.${last}${edgeSentence}`;
             text.className = "p-2 bg-amber-950/40 border border-amber-800 rounded-lg text-[10px] font-mono text-amber-300";
+        } else if (avg) {
+            text.textContent = `No accidental climaxes recorded. Typed Climax HR is used as-is.${edgeSentence}`;
+            text.className = "p-2 bg-slate-900 rounded-lg text-[10px] font-mono text-purple-300";
         } else {
             text.textContent = "Zero breakthrough events recorded. Typed Climax HR is used as-is.";
             text.className = "p-2 bg-slate-900 rounded-lg text-[10px] font-mono text-purple-300";
         }
     }
+    updateEdgeHoldPreview();
     updateEngine();
 }
 
@@ -2904,7 +2976,7 @@ cameEarlyBtn?.addEventListener('click', () => {
     }
     if (confirm("Log an accidental release? EdgeLoop will lower your working climax ceiling on this and future sessions.")) {
         if (!advancedSettings.learningProfile) {
-            advancedSettings.learningProfile = { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null };
+            advancedSettings.learningProfile = { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null, edgeMarks: [] };
         }
         const profile = advancedSettings.learningProfile;
         const userMax = readHrLimits().maxHr;
@@ -2922,7 +2994,7 @@ cameEarlyBtn?.addEventListener('click', () => {
 
 document.getElementById('wipeLearningBtn')?.addEventListener('click', () => {
     if (confirm("Reset local bio-learning memory? Your typed Climax HR will be used with no offset.")) {
-        advancedSettings.learningProfile = { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null };
+        advancedSettings.learningProfile = { breakthroughEvents: 0, suggestedMaxHrOffset: 0, lastBreakthroughHr: null, edgeMarks: [] };
         persistSettings();
         renderLearningStatus();
     }
@@ -4505,7 +4577,8 @@ function updateEdgeHoldPreview() {
         typedMaxHr: typedMax,
         workingMaxHr: max,
         minHr: limits.minHr,
-        holdPercent: pct
+        holdPercent: pct,
+        learnedEdgeHr: averageEdgeMark(advancedSettings.learningProfile?.edgeMarks)
     });
 }
 
