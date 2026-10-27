@@ -205,6 +205,8 @@ function clearAxisTimers(dev) {
         if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
         if (axis.testTimer) { clearTimeout(axis.testTimer); axis.testTimer = null; }
         if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+        if (axis.steadyTimer) { clearTimeout(axis.steadyTimer); axis.steadyTimer = null; }
+        axis.steadyLevel = null;
         cutPulse(axis);
     });
 }
@@ -649,9 +651,9 @@ function silenced(axis) {
     return Boolean(axis.pair) && axis.role === 'off' && axis.pair.owner !== axis.kind;
 }
 
-function sendScalar(dev, axis, value) {
+function sendScalar(dev, axis, value, { force = false } = {}) {
     if (silenced(axis)) return false;
-    if (axis.lastSent === value) return false;
+    if (!force && axis.lastSent === value) return false;
     if (!sendDeviceCmd(dev, axis, buildScalarCmd(nextId(), dev.index, [{ index: axis.index, scalar: value, actuatorType: axis.type }]))) return false;
     axis.lastSent = value;
     noteDrove(axis, value > 0);
@@ -702,8 +704,32 @@ function applyScalar(dev, axis, speed, now, { steady = false } = {}) {
     // A slider, Float, or a dot is the level the toy should hold. The pulse
     // phrase is the engine's pattern: ramp, rest, ramp again. Running that
     // under a finger makes the toy stutter back up to the slider.
-    if (steady || !isPulsed(axis) || level <= 0) {
+    if (steady && level > 0) {
+        // A finger on a Lovense motor. The toy drops a command it is still
+        // finishing, so a burst of slider moves lands about once a second.
+        // Hold the latest level and repeat it until the finger changes it.
         cutPulse(axis);
+        axis.steadyLevel = level;
+        if (!axis.steadyTimer) {
+            sendScalar(dev, axis, level, { force: true });
+            const pump = () => {
+                if (axis.steadyLevel == null || !isIntifaceConnected()) {
+                    axis.steadyTimer = null;
+                    return;
+                }
+                sendScalar(dev, axis, axis.steadyLevel, { force: true });
+                axis.steadyTimer = setTimeout(pump, 80);
+                if (axis.steadyTimer && typeof axis.steadyTimer.unref === 'function') axis.steadyTimer.unref();
+            };
+            axis.steadyTimer = setTimeout(pump, 80);
+            if (axis.steadyTimer && typeof axis.steadyTimer.unref === 'function') axis.steadyTimer.unref();
+        }
+        return;
+    }
+    if (!isPulsed(axis) || level <= 0) {
+        cutPulse(axis);
+        if (axis.steadyTimer) { clearTimeout(axis.steadyTimer); axis.steadyTimer = null; }
+        axis.steadyLevel = null;
         sendScalar(dev, axis, level);
         return;
     }

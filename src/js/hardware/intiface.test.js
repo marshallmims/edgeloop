@@ -552,10 +552,12 @@ describe('pulsed vibration', () => {
             strokeMin: 0,
             strokeMax: 100
         }], 0, 100);
+        const atHold = levels(ws, 0).length;
         assert.equal(levels(ws, 0).at(-1), 0.6);
-        const count = levels(ws, 0).length;
-        await sleep(600);
-        assert.equal(levels(ws, 0).length, count, 'a held level does not ramp and rest');
+        await sleep(250);
+        const after = levels(ws, 0).slice(atHold - 1);
+        assert.ok(after.length > 1, 'the same level is sent again so the motor does not wait a second');
+        assert.ok(after.every((value) => value === 0.6));
     });
 });
 

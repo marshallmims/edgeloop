@@ -779,15 +779,15 @@ function pumpHdsp() {
             handyIsHampRunning = false;
             handyLastVelocitySent = -1;
         }
-        if (slide.min !== hdspSlide.min || slide.max !== hdspSlide.max) {
-            if (useHandyV3()) {
-                await handyV3('/slider/stroke', { min: slide.min / 100, max: slide.max / 100 }, key);
-            } else {
-                await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
-            }
+        // Firmware 4: do not set the stroke here. That command runs the
+        // carriage to the top of the zone and then ignores later positions.
+        // xp is a fraction from 0 to 1. Sending 5–95 is read as past the top.
+        if (!useHandyV3() && (slide.min !== hdspSlide.min || slide.max !== hdspSlide.max)) {
+            await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
             hdspSlide = { min: slide.min, max: slide.max };
             handyLastStrokeSent = { min: slide.min, max: slide.max };
         }
+        if (useHandyV3()) hdspSlide = { min: slide.min, max: slide.max };
         if (generation !== commandGeneration || !handyConnected) return;
         // The finger can move while the mode switch is in flight. Send where
         // it is now. stop_on_target makes the carriage stay there.
@@ -799,7 +799,7 @@ function pumpHdsp() {
         hdspLastPosition = move.position;
         if (useHandyV3()) {
             await handyV3('/hdsp/xpt', {
-                xp: move.position,
+                xp: Math.round(move.position) / 100,
                 t: move.duration,
                 stop_on_target: true,
                 immediate_rsp: true

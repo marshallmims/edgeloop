@@ -735,10 +735,11 @@ describe('handy driver', () => {
             assert.ok(mode, 'firmware 4 must be put in HDSP');
             const xpt = calls.filter((call) => call.path === '/hdsp/xpt');
             assert.equal(xpt.length, 1);
-            assert.equal(xpt[0].body.xp, 50);
+            assert.equal(xpt[0].body.xp, 0.5);
             assert.equal(xpt[0].body.stop_on_target, true);
             assert.equal(xpt[0].body.position, undefined);
-            assert.ok(xpt[0].body.t >= 400);
+            assert.equal(calls.some((call) => call.path === '/slider/stroke'), false);
+            assert.ok(xpt[0].body.t >= 100 && xpt[0].body.t <= 400);
         } finally {
             HANDY_TIMINGS.hdspIntervalMs = 250;
         }

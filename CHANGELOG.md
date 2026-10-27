@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.11
+
+- **Firmware 4 position is a fraction.** The dot was sending 5–95. That firmware reads 1 as the top, so every one of those numbers ran the carriage to the top and later moves did nothing. It now sends 0.05–0.95 and does not reset the stroke zone, which was also driving it to the top.
+- **A Lovense slider repeats the latest level.** Quick moves were landing about once a second because the motor was still finishing the previous command. The latest level is sent again at a steady pace.
+
 ## 1.1.5.10
 
 - **The Handy dot uses absolute position on firmware 4.** The box is the stroke. Top stays at the top, the middle stays in the middle, and the bottom stays at the bottom. A loop plays that shape back.

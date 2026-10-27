@@ -154,8 +154,10 @@ export function hdspMove(position, lastPosition) {
     // An unknown start is treated as a full-stroke move. A short duration
     // from the wrong place runs the carriage into the end stop, and firmware
     // 4 then holds it there.
-    const distance = known ? Math.abs(pos - last) : 100;
-    const duration = Math.round(Math.min(1500, Math.max(400, distance * 12)));
+    const distance = known ? Math.abs(pos - last) : 50;
+    // Short enough that the next finger position replaces this one, long
+    // enough that stop_on_target can brake at the target instead of the end.
+    const duration = Math.round(Math.min(400, Math.max(100, distance * 5)));
     return { position: pos, duration, stopOnTarget: true };
 }
 
@@ -170,7 +172,7 @@ export function firmwareMajor(info) {
 
 export function hdspBody(move) {
     const position = clampPercent(move && move.position, 0);
-    const duration = Math.round(Math.min(1500, Math.max(400, Number(move && move.duration) || 400)));
+        const duration = Math.round(Math.min(400, Math.max(100, Number(move && move.duration) || 100)));
     return {
         position,
         duration,
