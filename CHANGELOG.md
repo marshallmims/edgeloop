@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.14
+
+- **Discord uses a new invite.** The old one expired. The footer, the VacuGlide note, and the debug log all open the new one.
+
 ## 1.1.5.13
 
 - **The Handy uses the whole stroke again.** Each new position was only given about a tenth of a second, and the carriage brakes at the end of that, so a full sweep only covered a short slice. A long move now has time to arrive, and position mode opens the full travel window first.
