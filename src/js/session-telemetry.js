@@ -1,4 +1,4 @@
-// A Dev session log: what the session did, so a later look can tune it.
+// A session log: what the session did, so a later look can tune it.
 // Pure. The file it builds is an allowlist. A connection key, a device
 // token, a video address, or a script file name cannot ride along, even
 // when a caller hands one in.
@@ -49,6 +49,8 @@ const PAUSE_SOURCE = Object.freeze({
 });
 const MAC = /(?:[0-9a-f]{2}:){5}[0-9a-f]{2}/i;
 
+// The footer DEV badge is this host. Recording a session log is not: History
+// offers that switch on the live site too, and it stays off until turned on.
 export function isDevTelemetryHost(hostname) {
     return String(hostname || '').toLowerCase() === 'dev.edgeloop.app';
 }

@@ -6,6 +6,10 @@ credited by username.
 
 ## 1.1.4.31
 
+This build is the live release on edgeloop.app. The install uses the plain heartbeat icon. The DEV badge stays on dev.edgeloop.app only.
+
+- **The live site uses the plain icon.** The tab, the header, and a home-screen install are the heartbeat, with no DEV bar. The installed name is EdgeLoop.
+- **A session log is there when you ask for it.** History has the switch on the live site, off until you turn it on. A finished session then offers the JSON download. The file stays in this browser. EdgeLoop does not upload it.
 - **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.
 - **No Nut November does not offer an orgasm.** The mode is renamed from NNN practice. Reaching the day's edge quota eases the toys down and ends the session. The denial percent is gone.
 

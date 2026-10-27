@@ -194,5 +194,7 @@ describe('the history opt-in', () => {
         assert.match(app, /sessionLogWanted\(\)/);
         assert.match(app, /edgeloop_session_log/);
         assert.match(app, /safeParse\(SESSION_LOG_KEY, false\) === true/);
+        assert.match(app, /return !isRemotePage && sessionLogOptIn/);
+        assert.doesNotMatch(app, /isDevTelemetryHost/);
     });
 });

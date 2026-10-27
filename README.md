@@ -35,7 +35,7 @@ EdgeLoop runs 100% locally in your web browser with zero accounts, zero subscrip
 
 ### Versions
 
-EdgeLoop uses semantic versions. **1.0.0** is the app as it stood when the footer started showing a number, which is the build that had been called 1.0. **1.1.0** is PATTERNS. **1.1.1** fixes sessions that were easing off before the heart-rate max. **1.1.2** is Survival, shipped as a patch so it can be tested. **1.1.3** is the live release on edgeloop.app: calibration, separate single and dual climax numbers, the stroke and goal on one card, and the tuning that was tested with it. **1.1.4** is the dev release. The footer on dev.edgeloop.app adds a build number, **1.1.4.31** and up, so two builds of the same release can be told apart. The DEV badge is the host, not a second version. A bug fix bumps the last number. The next feature release bumps the middle number. The footer shows the number and a **Changelog** button that opens [CHANGELOG.md](CHANGELOG.md) in the app. That file is the same list on GitHub. Publishing a [GitHub Release](https://github.com/marshallmims/edgeloop/releases) for a version is what posts it to the Discord changelog channel.
+EdgeLoop uses semantic versions. **1.0.0** is the app as it stood when the footer started showing a number, which is the build that had been called 1.0. **1.1.0** is PATTERNS. **1.1.1** fixes sessions that were easing off before the heart-rate max. **1.1.2** is Survival, shipped as a patch so it can be tested. **1.1.3** was the previous live release: calibration, separate single and dual climax numbers, the stroke and goal on one card. **1.1.4.31** is the live release on edgeloop.app. It is the 1.1.4 work that was tested on dev.edgeloop.app, through build 31. The install uses the plain heartbeat icon, with no DEV bar. The DEV badge still appears only on dev.edgeloop.app. History can record a session log on the live site, and that switch stays off until you turn it on. A bug fix bumps the last number. The next feature release bumps the middle number. The footer shows the number and a **Changelog** button that opens [CHANGELOG.md](CHANGELOG.md) in the app. That file is the same list on GitHub. Publishing a [GitHub Release](https://github.com/marshallmims/edgeloop/releases) for a version is what posts it to the Discord changelog channel.
 
 ---
 
@@ -202,7 +202,7 @@ edgeloop/
 ├── LICENSE                     # AGPL-3.0
 ├── README.md
 ├── icon.svg                    # Live app icon. main points the favicon and the install manifest here.
-├── icon-dev.svg                # Dev favicon. This branch's index.html and manifest.json point at the DEV PNGs. Do not point main at these.
+├── icon-dev.svg                # Dev favicon artwork, kept for a dev host. The live page and manifest.json point at icon.svg. Do not point edgeloop.app at these.
 ├── index.html                  # Interface layout, cockpit panels, popup dialogs and the service-worker registration
 ├── manifest.json               # Web App manifest definitions (icons, standalone display)
 ├── package.json                # npm test / npm run smoke / npm start; no dependencies
@@ -306,7 +306,7 @@ If you find a bug, want to add a device driver, or want to tweak the math, contr
 
 **Live Web App:** [https://edgeloop.app](https://edgeloop.app)
 
-**Discord:** [https://discord.gg/ZFrkehxAC](https://discord.gg/ZFrkehxAC) — questions, device reports, and support.
+**Discord:** [https://discord.gg/ZSqmV7ctcU](https://discord.gg/ZSqmV7ctcU) — questions, device reports, and support.
 
 **Private contact:** support@edgeloop.app, for security reports and anything that should not be posted in a public server. Product support goes to Discord.
 

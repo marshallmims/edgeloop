@@ -66,7 +66,7 @@ import { applySettingSchema } from './settings-schema.js';
 import { createWriteCoalescer } from './write-coalescer.js';
 import { planBannerUpdate, canClearBanner, hiddenBannerState, BANNER_OWNER_ANY } from './alert-banner.js';
 import { pushSample, buildFunscripts, toFunscript } from './funscript.js';
-import { isDevTelemetryHost, createSessionLog, buildSessionExport, pauseReasonFromSource } from './session-telemetry.js';
+import { createSessionLog, buildSessionExport, pauseReasonFromSource } from './session-telemetry.js';
 import { formatLiveHr } from './hr-readout.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
@@ -296,7 +296,6 @@ const viewerRoom = urlParams.get('group_sub');
 export const isRemoteController = Boolean(partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
-const devTelemetry = !isRemotePage && isDevTelemetryHost(typeof location !== 'undefined' ? location.hostname : '');
 const SESSION_LOG_KEY = 'edgeloop_session_log';
 const sessionLog = createSessionLog();
 let sessionLogOptIn = safeParse(SESSION_LOG_KEY, false) === true;
@@ -304,8 +303,10 @@ let sessionLogOptIn = safeParse(SESSION_LOG_KEY, false) === true;
 // a partner's pause from the button on this page.
 let pendingPauseReason = '';
 
+// Off until the person running the session turns it on. A remote page does
+// not record: it is watching someone else's session.
 function sessionLogWanted() {
-    return devTelemetry && sessionLogOptIn;
+    return !isRemotePage && sessionLogOptIn;
 }
 let player = null;
 let secondaryTrack = null;
@@ -493,7 +494,7 @@ function triggerDisconnectAlert(message, source = 'device') {
 
 // Pause a RUNNING or RAMPDOWN session, remembering which one so RESUME goes
 // back into the rampdown where it left off. Motors are stopped immediately.
-// `source` is the pause reason stored in the dev session log.
+// `source` is the pause reason stored in the session log.
 // Returns false when there was nothing to pause.
 function pauseSession(voiceText = 'Paused.', source = 'button') {
     if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'RAMPDOWN') return false;
@@ -5691,10 +5692,9 @@ function funscriptForSession(session, channel) {
 }
 
 window.downloadSessionTelemetry = (sessionId) => {
-    if (!isDevTelemetryHost(location.hostname)) return;
     const history = safeParse('edgeloop_history', []);
     const session = history.find(s => s.id === sessionId);
-    if (!session || !session.telemetry) return alert('This session has no Dev session log.');
+    if (!session || !session.telemetry) return alert('This session has no session log.');
     const stored = session.telemetry;
     const clean = buildSessionExport({
         appVersion: stored.appVersion,
@@ -5737,7 +5737,7 @@ window.downloadFunscript = (sessionId, channel) => {
 
 function paintSessionLogOptIn() {
     const panel = document.getElementById('sessionLogPanel');
-    if (panel) panel.classList.toggle('hidden', !devTelemetry);
+    if (panel) panel.classList.toggle('hidden', isRemotePage);
     const box = document.getElementById('sessionLogOptIn');
     if (box) box.checked = sessionLogOptIn;
     const label = document.getElementById('sessionLogOptInState');
@@ -5785,7 +5785,7 @@ function renderHistory() {
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         .v0.funscript
         </button>
-        ${devTelemetry && s.telemetry ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log. It stays on your device until you share it.">Session log</button>` : ''}
+        ${s.telemetry ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log. It stays on your device until you share it.">Session log</button>` : ''}
         </div>
         `;
         list.appendChild(item);

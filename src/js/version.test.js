@@ -11,6 +11,20 @@ describe('the version has one number', () => {
         assert.match(html, new RegExp(`id="appVersion"[^>]*>v${APP_VERSION}<`));
         assert.match(html, /id="footerChangelogBtn"/);
     });
+
+    it('the live page and the install manifest use the plain icon', () => {
+        const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+        const manifest = JSON.parse(readFileSync(new URL('../../manifest.json', import.meta.url), 'utf8'));
+        const worker = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
+        assert.doesNotMatch(html, /icon-dev/);
+        assert.match(html, /href="\.\/icon\.svg"/);
+        assert.match(html, /href="\.\/icon-192\.png"/);
+        assert.equal(manifest.name, 'EdgeLoop');
+        assert.equal(manifest.short_name, 'EdgeLoop');
+        assert.ok(manifest.icons.every((icon) => !String(icon.src).includes('icon-dev')));
+        assert.doesNotMatch(worker, /icon-dev/);
+        assert.doesNotMatch(worker, /manifest-dev\.json/);
+    });
 });
 
 describe('parseChangelog', () => {
@@ -41,7 +55,9 @@ describe('parseChangelog', () => {
         assert.equal(titles[0], APP_VERSION);
         assert.equal(titles[1], '1.1.4.30');
         assert.equal(titles[2], '1.1.4.29');
-        assert.equal(titles[3], '1.1.4.28');        assert.equal(titles[4], '1.1.4.27');        assert.equal(titles[5], '1.1.4.26');        assert.equal(titles[6], '1.1.4.25');        assert.equal(titles[7], '1.1.4.24');        assert.equal(titles[8], '1.1.4.23');        assert.equal(titles[9], '1.1.4.22');        assert.equal(titles[10], '1.1.4.21');        assert.equal(titles[11], '1.1.4.20');        assert.equal(titles[12], '1.1.4.19');        assert.equal(titles[13], '1.1.4.18');        assert.equal(titles[14], '1.1.4.17');        assert.equal(titles[15], '1.1.4.16');        assert.equal(titles[16], '1.1.4.15');        assert.equal(titles[17], '1.1.4.14');        assert.equal(titles[18], '1.1.4.13');        assert.equal(titles[19], '1.1.4.12');        assert.equal(titles[20], '1.1.4.11');        assert.equal(titles[21], '1.1.4.10');        assert.equal(titles[22], '1.1.4.09');        assert.equal(titles[23], '1.1.4.08');        assert.equal(titles[24], '1.1.4.07');        assert.equal(titles[25], '1.1.4.06');        assert.equal(titles[26], '1.1.4.05');        assert.equal(titles[27], '1.1.4.04');        assert.equal(titles[28], '1.1.4.03');        assert.equal(titles[29], '1.1.4.02');        assert.equal(titles[30], '1.1.4.01');        assert.equal(titles[31], '1.1.4');        assert.equal(titles[32], '1.1.3');        assert.equal(titles[33], '1.1.2');        assert.equal(titles[34], '1.1.1');        assert.equal(titles[35], '1.1.0');        assert.ok(sections[0].blocks.some((block) => /No Nut November/.test(block.text)));
+        assert.equal(titles[3], '1.1.4.28');        assert.equal(titles[4], '1.1.4.27');        assert.equal(titles[5], '1.1.4.26');        assert.equal(titles[6], '1.1.4.25');        assert.equal(titles[7], '1.1.4.24');        assert.equal(titles[8], '1.1.4.23');        assert.equal(titles[9], '1.1.4.22');        assert.equal(titles[10], '1.1.4.21');        assert.equal(titles[11], '1.1.4.20');        assert.equal(titles[12], '1.1.4.19');        assert.equal(titles[13], '1.1.4.18');        assert.equal(titles[14], '1.1.4.17');        assert.equal(titles[15], '1.1.4.16');        assert.equal(titles[16], '1.1.4.15');        assert.equal(titles[17], '1.1.4.14');        assert.equal(titles[18], '1.1.4.13');        assert.equal(titles[19], '1.1.4.12');        assert.equal(titles[20], '1.1.4.11');        assert.equal(titles[21], '1.1.4.10');        assert.equal(titles[22], '1.1.4.09');        assert.equal(titles[23], '1.1.4.08');        assert.equal(titles[24], '1.1.4.07');        assert.equal(titles[25], '1.1.4.06');        assert.equal(titles[26], '1.1.4.05');        assert.equal(titles[27], '1.1.4.04');        assert.equal(titles[28], '1.1.4.03');        assert.equal(titles[29], '1.1.4.02');        assert.equal(titles[30], '1.1.4.01');        assert.equal(titles[31], '1.1.4');        assert.equal(titles[32], '1.1.3');        assert.equal(titles[33], '1.1.2');        assert.equal(titles[34], '1.1.1');        assert.equal(titles[35], '1.1.0');        assert.ok(sections[0].blocks.some((block) => /plain icon/.test(block.text)));
+        assert.ok(sections[0].blocks.some((block) => /session log/.test(block.text)));
+        assert.ok(sections[0].blocks.some((block) => /No Nut November/.test(block.text)));
         assert.ok(sections[1].blocks.some((block) => /A choice closes the lists/.test(block.text)));
         assert.ok(sections[2].blocks.some((block) => /A choice stays open/.test(block.text)));
         assert.ok(sections[3].blocks.some((block) => /The video controls are one bar/.test(block.text)));
