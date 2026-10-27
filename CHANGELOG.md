@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.14
+
+- **The Handy follows faster.** A full stroke was given almost a second, so the slider felt slow. A later command that only moved the target a little was given a tenth of a second while the carriage was still far away, so the same trip was sometimes quick and sometimes slow. Each move is timed from where the carriage is, at a speed closer to what the slider can hold. It still brakes at the position you asked for, and a full stroke still has time to arrive.
+
 ## 1.1.5.13
 
 - **The Handy uses the whole stroke again.** Each new position was only given about a tenth of a second, and the carriage brakes at the end of that, so a full sweep only covered a short slice. A long move now has time to arrive, and position mode opens the full travel window first.

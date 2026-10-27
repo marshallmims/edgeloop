@@ -34,6 +34,7 @@ import {
     firmwareMajor,
     hdspBody,
     hdspMove,
+    hdspEstimatedPosition,
     isHampModeError,
     normalizeSlideRange,
     parseBatteryLevel,
@@ -76,6 +77,9 @@ let hdspTimer = null;
 let hdspBusy = false;
 let hdspLastSend = 0;
 let hdspLastPosition = -1;
+// The move that is in flight. The next duration is timed from where this
+// says the carriage is, not from the target it has not reached yet.
+let hdspLeg = null;
 let hdspSlide = { min: -1, max: -1 };
 let hdspSettled = false;
 let hdspFailed = false;
@@ -215,6 +219,7 @@ function clearHdspQueue() {
     hdspBusy = false;
     hdspSettled = false;
     hdspLastPosition = -1;
+    hdspLeg = null;
     if (hdspTimer) {
         clearTimeout(hdspTimer);
         hdspTimer = null;
@@ -808,8 +813,17 @@ function pumpHdsp() {
         const target = hdspPending ? hdspPending.position : pending.position;
         const same = hdspLastPosition >= 0 && Math.abs(target - hdspLastPosition) < 1;
         if (same && hdspSettled) return;
-        const move = hdspMove(target, hdspLastPosition);
+        const sentAt = Date.now();
+        const estimated = hdspEstimatedPosition(hdspLeg, sentAt);
+        const origin = estimated >= 0 ? estimated : hdspLastPosition;
+        const move = hdspMove(target, origin);
         const row = rememberHandyMove(move);
+        hdspLeg = {
+            from: origin >= 0 ? origin : move.position,
+            to: move.position,
+            duration: move.duration,
+            sentAt
+        };
         hdspLastPosition = move.position;
         if (useHandyV3()) {
             await handyV3('/hdsp/xpt', {
@@ -833,10 +847,12 @@ function pumpHdsp() {
         if (err && (err.code === 429 || /rate limit/i.test(String(err.message || '')))) {
             hdspGapMs = Math.min(1000, hdspGapMs + 40);
             hdspLastPosition = -1;
+            hdspLeg = null;
             hdspSettled = false;
             return;
         }
         hdspLastPosition = -1;
+        hdspLeg = null;
         hdspSettled = false;
         handyMotionError = handyFaultLabel(err);
         const row = handyTrace.length ? handyTrace[handyTrace.length - 1] : null;

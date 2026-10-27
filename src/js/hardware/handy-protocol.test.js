@@ -13,6 +13,9 @@ import {
     firmwareMajor,
     hdspBody,
     hdspMove,
+    hdspEstimatedPosition,
+    HDSP_MS_PER_PERCENT,
+    HDSP_MIN_DURATION_MS,
     normalizeSlideRange,
     normalizeEnvelope,
     classifyHandyResponse,
@@ -193,17 +196,18 @@ describe('clampEndMargin', () => {
 });
 
 describe('hdspMove', () => {
-    it('brakes at the finger, and gives a full stroke time to arrive', () => {
+    it('brakes at the finger, and gives a full stroke one quick trip', () => {
         const first = hdspMove(5, -1);
         assert.equal(first.position, 5);
         assert.equal(first.stopOnTarget, true);
-        assert.ok(first.duration >= 800);
+        assert.equal(first.duration, 100 * HDSP_MS_PER_PERCENT);
+        assert.ok(first.duration > HDSP_MIN_DURATION_MS);
         const down = hdspMove(20, 95);
         assert.equal(down.position, 20);
         assert.equal(down.stopOnTarget, true);
-        assert.ok(down.duration >= 700);
+        assert.equal(down.duration, 75 * HDSP_MS_PER_PERCENT);
         const held = hdspMove(50, 50);
-        assert.equal(held.duration, 120);
+        assert.equal(held.duration, HDSP_MIN_DURATION_MS);
         const body = hdspBody(down);
         assert.equal(body.position, 20);
         assert.equal(body.xp, 20);
@@ -212,6 +216,18 @@ describe('hdspMove', () => {
         assert.equal(body.stop_on_target, true);
         assert.equal(firmwareMajor({ fwVersion: '4.2.2+44874492' }), 4);
         assert.equal(firmwareMajor({ fwVersion: '3.2.3' }), 3);
+    });
+
+    it('times the next move from where the carriage is, not from the last target', () => {
+        const leg = { from: 10, to: 90, duration: 320, sentAt: 1000 };
+        assert.equal(hdspEstimatedPosition(leg, 1000), 10);
+        assert.equal(hdspEstimatedPosition(leg, 1160), 50);
+        assert.equal(hdspEstimatedPosition(leg, 1400), 90);
+        assert.equal(hdspEstimatedPosition(null, 1160), -1);
+        // Halfway along that trip the finger is already at 20. The remaining
+        // distance is 30 percent, not the 70 between the two targets.
+        const caught = hdspMove(20, hdspEstimatedPosition(leg, 1160));
+        assert.equal(caught.duration, 30 * HDSP_MS_PER_PERCENT);
     });
 });
 
