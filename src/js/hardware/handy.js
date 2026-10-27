@@ -30,6 +30,7 @@ import {
     describeSlideAdjustment,
     endMarginWindow,
     followPosition,
+    hdspMove,
     isHampModeError,
     normalizeSlideRange,
     parseBatteryLevel,
@@ -74,6 +75,8 @@ let hdspLastPosition = -1;
 let hdspSlide = { min: -1, max: -1 };
 let hdspSettled = false;
 let hdspFailed = false;
+let handyMotionError = '';
+const handyTrace = [];
 let handyStartInFlight = false;
 // True while the driver cannot tell whether the device is moving (a start
 // timed out on our side but may still have reached the device): the next
@@ -148,6 +151,43 @@ export function getHandyInfo() {
     return handyInfo;
 }
 
+function rememberHandyMove(move, error = '') {
+    const row = {
+        t: Date.now(),
+        drive: 'hdsp',
+        position: move.position,
+        duration: move.duration,
+        stop: move.stopOnTarget ? 1 : 0,
+        error: error ? String(error).slice(0, 32) : ''
+    };
+    handyTrace.push(row);
+    if (handyTrace.length > 48) handyTrace.splice(0, handyTrace.length - 48);
+    return row;
+}
+
+function handyFaultLabel(err) {
+    const code = err && err.code;
+    if (typeof code === 'number' && Number.isFinite(code)) return `hdsp ${code}`;
+    if (code === 'timeout' || (err && err.name === 'AbortError')) return 'timeout';
+    return 'hdsp failed';
+}
+
+// The last position command and the recent ones. No connection key.
+export function getHandyMotion() {
+    const last = handyTrace.length ? handyTrace[handyTrace.length - 1] : null;
+    return {
+        drive: handyDrive,
+        position: last ? last.position : -1,
+        duration: last ? last.duration : 0,
+        stop: last ? last.stop : 0,
+        error: handyMotionError
+    };
+}
+
+export function getHandyTrace() {
+    return handyTrace.map((item) => ({ ...item }));
+}
+
 export function isHandyMoving() {
     return handyIsHampRunning || handyDrive === 'hdsp';
 }
@@ -168,6 +208,7 @@ function clearHdspQueue() {
     hdspPending = null;
     hdspBusy = false;
     hdspSettled = false;
+    hdspLastPosition = -1;
     if (hdspTimer) {
         clearTimeout(hdspTimer);
         hdspTimer = null;
@@ -238,6 +279,7 @@ async function handyRequest(path, { method = 'GET', body = undefined, key = hand
         noteFailure(path, msg, countFailure, tick);
         const err = new Error(msg);
         err.ambiguous = true;
+        if (e && e.name === 'AbortError') err.code = 'timeout';
         throw err;
     } finally {
         if (abortTimer !== null) clearTimeout(abortTimer);
@@ -249,7 +291,9 @@ async function handyRequest(path, { method = 'GET', body = undefined, key = hand
         // Every call the driver makes is one the session asked for, so a HAMP
         // refusal of it is worth explaining to the wearer.
         noteHampFault(verdict.code);
-        throw new Error(verdict.message);
+        const err = new Error(verdict.message);
+        err.code = verdict.code;
+        throw err;
     }
     if (countFailure) consecutiveDispatchFailures = 0;
     reportRecovered(path);
@@ -670,12 +714,12 @@ export function dispatchHandyFollow(percent, envMin = 0, envMax = 100, endMargin
     const bounds = endMarginWindow(envMin, envMax, endMargin);
     const position = followPosition(percent, envMin, envMax, endMargin);
     const now = Date.now();
-    const origin = hdspLastPosition >= 0 ? hdspLastPosition : position;
     if (!hdspPending) {
         hdspPending = { position, slide: bounds, at: now };
-    } else if (Math.abs(position - origin) >= Math.abs(hdspPending.position - origin)) {
-        // Keep the farthest point since the last command, so a quick
-        // up-and-down inside the rate-limit window is not flattened.
+    } else if (hdspLastPosition < 0 || Math.abs(position - hdspLastPosition) >= Math.abs(hdspPending.position - hdspLastPosition)) {
+        // Before the first command, follow the finger. After that, keep the
+        // farthest point still waiting, so a quick up-and-down inside the
+        // rate-limit window is not flattened.
         hdspPending.position = position;
         hdspPending.at = now;
         hdspPending.slide = bounds;
@@ -698,18 +742,11 @@ function pumpHdsp() {
         return;
     }
     const pending = hdspPending;
-    const position = pending.position;
-    const same = hdspLastPosition >= 0 && Math.abs(position - hdspLastPosition) < 1;
-    if (same && hdspSettled) return;
-    const movedFor = hdspLastSend ? pending.at - hdspLastSend : 0;
-    const duration = Math.max(40, Math.min(400, movedFor || HANDY_TIMINGS.hdspIntervalMs));
+    const slide = pending.slide;
     hdspLastSend = now;
-    hdspLastPosition = position;
-    hdspSettled = same;
     hdspBusy = true;
     const key = handyKey;
     const generation = commandGeneration;
-    const slide = pending.slide;
     const run = async () => {
         if (handyDrive !== 'hdsp' || slide.min !== hdspSlide.min || slide.max !== hdspSlide.max) {
             await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
@@ -724,18 +761,34 @@ function pumpHdsp() {
             handyIsHampRunning = false;
             handyLastVelocitySent = -1;
         }
+        // The finger can move while the mode switch is in flight. Send where
+        // it is now, and brake unless this is a short step in the middle.
+        const target = hdspPending ? hdspPending.position : pending.position;
+        const same = hdspLastPosition >= 0 && Math.abs(target - hdspLastPosition) < 1;
+        if (same && hdspSettled) return;
+        const move = hdspMove(target, hdspLastPosition, HANDY_TIMINGS.hdspIntervalMs);
+        const row = rememberHandyMove(move);
+        hdspLastPosition = move.position;
         await handyRequest('/hdsp/xpt', {
             method: 'PUT',
             key,
             body: {
-                position,
-                duration,
-                stopOnTarget: same,
+                position: move.position,
+                duration: move.duration,
+                stopOnTarget: move.stopOnTarget,
                 immediateResponse: true
             }
         });
+        hdspSettled = same || move.stopOnTarget;
+        handyMotionError = '';
+        row.error = '';
     };
-    run().catch(() => {
+    run().catch((err) => {
+        hdspLastPosition = -1;
+        hdspSettled = false;
+        handyMotionError = handyFaultLabel(err);
+        const row = handyTrace.length ? handyTrace[handyTrace.length - 1] : null;
+        if (row) row.error = handyMotionError;
         if (!hdspFailed) {
             hdspFailed = true;
             callHandler('onNotice', 'The Handy did not accept a position command. Loop needs the HDSP mode in its firmware.');
@@ -744,7 +797,8 @@ function pumpHdsp() {
     }).finally(() => {
         hdspBusy = false;
         if (generation !== commandGeneration || !hdspPending) return;
-        if (hdspPending.position !== position || handyDrive !== 'hdsp') pumpHdsp();
+        const pendingNow = hdspPending.position;
+        if (hdspLastPosition < 0 || Math.abs(pendingNow - hdspLastPosition) >= 1 || handyDrive !== 'hdsp') pumpHdsp();
     });
 }
 

@@ -685,6 +685,23 @@ describe('handy driver', () => {
         assert.equal(offline.length, 0);
     });
 
+    it('follows where the finger moved during the mode switch and brakes there', async () => {
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            await connectOk();
+            dispatchHandyFollow(0, 0, 100, 5);
+            dispatchHandyFollow(80, 0, 100, 5);
+            await tick(40);
+            const xpt = sent('/hdsp/xpt', 'PUT');
+            assert.equal(xpt.length, 1);
+            assert.equal(xpt[0].body.position, 77);
+            assert.equal(xpt[0].body.stopOnTarget, true);
+            assert.ok(xpt[0].body.duration >= 120);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
     it('follows a finger in HDSP, then a speed command returns to HAMP', async () => {
         HANDY_TIMINGS.hdspIntervalMs = 0;
         try {
@@ -697,7 +714,8 @@ describe('handy driver', () => {
             assert.equal(xpt.length, 1);
             assert.equal(xpt[0].body.position, 5);
             assert.equal(xpt[0].body.immediateResponse, true);
-            assert.equal(xpt[0].body.stopOnTarget, false);
+            assert.equal(xpt[0].body.stopOnTarget, true);
+            assert.ok(xpt[0].body.duration >= 120);
             calls = [];
             dispatchHandyFollow(100, 0, 100, 5);
             await tick(40);

@@ -138,6 +138,31 @@ export function followPosition(percent, envMin = 0, envMax = 100, margin = HANDY
     return Math.round(bounds.min + (p / 100) * span);
 }
 
+// How an HDSP move may be sent. `position` and `lastPosition` are percents of
+// the full stroke. `lastPosition` below 0 means the sleeve position is not
+// known yet. `intervalMs` is the soonest another command is allowed out.
+//
+// stopOnTarget false does not brake at the target. That is smooth only when
+// the next command arrives before `duration` ends. A short duration with that
+// flag carries the sleeve through the end stop, and the firmware then locks
+// it there. A move aimed at either end, a long move, or a held position
+// brakes. A short step in the middle may coast, and its duration is at least
+// the stream interval so the next point arrives while it is still moving.
+export function hdspMove(position, lastPosition, intervalMs) {
+    const pos = clampPercent(position, 0);
+    const known = Number.isFinite(Number(lastPosition)) && Number(lastPosition) >= 0;
+    const last = known ? clampPercent(lastPosition, 0) : pos;
+    const distance = known ? Math.abs(pos - last) : 40;
+    const interval = Math.max(40, Math.round(Number(intervalMs) || 250));
+    const travelMs = Math.round(distance * 12);
+    const streamMs = interval + 80;
+    const holding = known && distance < 1;
+    const nearEnd = pos <= 8 || pos >= 92;
+    const stopOnTarget = holding || nearEnd || travelMs > streamMs;
+    const duration = Math.round(Math.max(streamMs, Math.min(1600, holding ? streamMs : travelMs)));
+    return { position: pos, duration, stopOnTarget };
+}
+
 // The slide window HSP uses: the travel envelope, pulled off the mechanical
 // ends by the end margin, never narrower than the minimum stroke.
 

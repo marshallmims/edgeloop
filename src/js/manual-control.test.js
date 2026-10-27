@@ -17,7 +17,8 @@ import {
     sanitizeDeviceCatalog,
     manualSplit,
     sanitizeManualFrame,
-    sanitizeManualPattern
+    sanitizeManualPattern,
+    touchRelease
 } from './manual-control.js';
 
 describe('device catalog', () => {
@@ -207,5 +208,16 @@ describe('patterns', () => {
         const both = manualSplit(catalog, ['handy', 'intiface:1:vibrate:0']);
         assert.equal(both.full, true);
         assert.equal(both.engine, false);
+    });
+});
+
+describe('touch release', () => {
+    it('holds on float, repeats a moved loop, and returns to nothing otherwise', () => {
+        assert.equal(touchRelease('float', true), 'hold');
+        assert.equal(touchRelease('float', false), 'hold');
+        assert.equal(touchRelease('loop', true), 'loop');
+        assert.equal(touchRelease('loop', false), 'hold');
+        assert.equal(touchRelease('spring', true), 'spring');
+        assert.equal(touchRelease('spring', false), 'spring');
     });
 });

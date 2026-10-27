@@ -1,9 +1,10 @@
-// A Dev session log: what the session did, so a later look can tune it.
+// A session log: what the session did, so a later look can tune it.
 // Pure. The file it builds is an allowlist. A connection key, a device
 // token, a video address, or a script file name cannot ride along, even
-// when a caller hands one in.
+// when a caller hands one in. The live site stays out of it. This build,
+// including the GitHub Pages copy, can record one when asked.
 
-export const TELEMETRY_VERSION = 3;
+export const TELEMETRY_VERSION = 4;
 export const SERIES_INTERVAL_MS = 1000;
 export const MAX_SERIES = 4 * 60 * 60;
 export const MAX_EVENTS = 500;
@@ -49,8 +50,29 @@ const PAUSE_SOURCE = Object.freeze({
 });
 const MAC = /(?:[0-9a-f]{2}:){5}[0-9a-f]{2}/i;
 
+const PRODUCTION_LOG_HOSTS = new Set(['edgeloop.app', 'www.edgeloop.app']);
+
+// The live site does not offer a session log. Every other host this build
+// runs on does, including GitHub Pages and a local preview.
 export function isDevTelemetryHost(hostname) {
-    return String(hostname || '').toLowerCase() === 'dev.edgeloop.app';
+    const host = String(hostname || '').toLowerCase();
+    if (!host) return false;
+    return !PRODUCTION_LOG_HOSTS.has(host);
+}
+
+function handyFault(value) {
+    const text = shortText(value, 32);
+    if (!text) return '';
+    if (MAC.test(text)) return '';
+    if (/key|token|bearer|password/i.test(text)) return '';
+    if (!/^[a-z0-9 ._-]+$/i.test(text)) return '';
+    return text;
+}
+
+function handyPos(value) {
+    const n = Math.round(num(value, -1));
+    if (n < 0) return -1;
+    return Math.min(100, n);
 }
 
 function finite(n) {
@@ -125,12 +147,17 @@ function cleanPoint(point) {
         ceiling: Math.round(num(src.ceiling, 0)),
         primaryOn: flag(src.primaryOn),
         intensity: pct(src.intensity),
-        pauseReason: status === 'PAUSED' ? pauseReasonFromSource(src.pauseReason) : ''
+        pauseReason: status === 'PAUSED' ? pauseReasonFromSource(src.pauseReason) : '',
+        handyDrive: src.handyDrive === 'hdsp' ? 'hdsp' : (src.handyDrive === 'hamp' ? 'hamp' : ''),
+        handyPos: handyPos(src.handyPos),
+        handyMs: Math.max(0, Math.round(num(src.handyMs, 0))),
+        handyStop: flag(src.handyStop),
+        handyError: handyFault(src.handyError)
     };
 }
 
 function signature(point) {
-    return [point.status, point.mode, point.game, point.edged, point.orgasm, point.stall, point.edges, point.hrSignal, point.pauseReason].join('|');
+    return [point.status, point.mode, point.game, point.edged, point.orgasm, point.stall, point.edges, point.hrSignal, point.pauseReason, point.handyError].join('|');
 }
 
 // One running session. `observe` every sample tick; the series keeps one
@@ -273,7 +300,12 @@ export function deviceSnapshot(raw) {
             maxCap: pct(handy.maxCap),
             beatSync: Boolean(handy.beatSync),
             firmware: publicDeviceName(handy.firmware).slice(0, 24),
-            model: publicDeviceName(handy.model).slice(0, 24)
+            model: publicDeviceName(handy.model).slice(0, 24),
+            drive: handy.drive === 'hdsp' ? 'hdsp' : (handy.drive === 'hamp' ? 'hamp' : ''),
+            position: handyPos(handy.position),
+            duration: Math.max(0, Math.round(num(handy.duration, 0))),
+            stop: flag(handy.stop),
+            error: handyFault(handy.error)
         },
         heartRate: {
             connected: Boolean(hr.connected),
@@ -329,6 +361,22 @@ function summarize(series) {
     };
 }
 
+function cleanHandyTrace(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.slice(-48).map((item) => {
+        const src = item && typeof item === 'object' ? item : {};
+        const drive = src.drive === 'hdsp' ? 'hdsp' : 'hamp';
+        return {
+            t: Math.max(0, Math.round(num(src.t, 0))),
+            drive,
+            position: handyPos(src.position),
+            duration: Math.max(0, Math.round(num(src.duration, 0))),
+            stop: flag(src.stop),
+            error: handyFault(src.error)
+        };
+    });
+}
+
 // The downloadable log. Anything not on the allowlist is dropped.
 export function buildSessionExport(input = {}) {
     const trace = input.trace && typeof input.trace === 'object' ? input.trace : {};
@@ -352,7 +400,8 @@ export function buildSessionExport(input = {}) {
     return {
         telemetryVersion: TELEMETRY_VERSION,
         appVersion: shortText(input.appVersion, 16),
-        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the intensity slider, why a pause happened, the script clock, how far a funscript was opened, and the make and model of the toys. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
+        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the intensity slider, why a pause happened, the script clock, how far a funscript was opened, the make and model of the toys, and the recent Handy position commands. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
+        handyTrace: cleanHandyTrace(input.handyTrace),
         session: cleanSession(input.session),
         summary: summarize(series),
         settings: pickSettings(input.settings),

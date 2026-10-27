@@ -268,7 +268,10 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   await step('open Guide / History / Share', async () => {
     await page.locator('#guideBtn').click(); await sleep(250); await shot('06-guide'); await closeModal();
-    await page.locator('#historyBtn').click(); await sleep(250); await shot('07-history'); await closeModal();
+    await page.locator('#historyBtn').click(); await sleep(250);
+    if (!(await page.locator('#sessionLogPanel').isVisible())) throw new Error('session log switch hidden on this build');
+    if (!(await page.locator('#sessionLogDownload').isVisible())) throw new Error('debug log download hidden on this build');
+    await shot('07-history'); await closeModal();
     const soloLabel = (await page.locator('#soloModeBtn').textContent() || '').trim();
     if (!/solo/i.test(soloLabel)) throw new Error('Solo mode button missing: ' + soloLabel);
     const videoLabel = (await page.locator('#playerHeaderBtn').textContent() || '').trim();
@@ -485,11 +488,22 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame stayed up during Manual Control');
     if (!(await page.locator('#manualLive').isVisible())) throw new Error('manual controls stayed hidden');
     if (!(await page.locator('#manualSlowBtn').isVisible())) throw new Error('Slow missing from manual control');
+    if (!(await page.locator('#manualTraditionalBtn').isVisible())) throw new Error('Traditional missing from manual control');
+    if (!(await page.locator('#manualFloatBtn').isVisible())) throw new Error('Float missing from manual control');
     if (!(await page.locator('#manualLoopBtn').isVisible())) throw new Error('Loop missing from manual control');
-    await page.locator('#manualLoopBtn').click(); await sleep(150);
-    if (!(await page.locator('#manualLoopStage').isVisible())) throw new Error('Loop stage stayed hidden');
+    if (!(await page.locator('#manualLoopStage').isVisible())) throw new Error('touch stage hidden before Traditional');
+    await page.locator('#manualLoopBtn').click(); await sleep(100);
+    if ((await page.locator('#manualLoopBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Loop did not turn on');
+    await page.locator('#manualFloatBtn').click(); await sleep(100);
+    if ((await page.locator('#manualFloatBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Float did not turn on');
+    if ((await page.locator('#manualLoopBtn').getAttribute('aria-pressed')) !== 'false') throw new Error('Loop stayed on beside Float');
+    await page.screenshot({ path: path.join(OUT, '12-controller-touch.png'), fullPage: true });
+    await page.locator('#manualTraditionalBtn').click(); await sleep(150);
+    if ((await page.locator('#manualTraditionalBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Traditional did not turn on');
+    if (await page.locator('#manualTouch').isVisible()) throw new Error('Traditional left the dot panel up');
+    if (await page.locator('#manualFloatBtn').isVisible()) throw new Error('Float stayed up in Traditional');
+    await page.screenshot({ path: path.join(OUT, '12-controller-traditional.png'), fullPage: true });
     await page.screenshot({ path: path.join(OUT, '12-controller-manual.png'), fullPage: true });
-    await page.screenshot({ path: path.join(OUT, '12-controller-loop.png'), fullPage: true });
     await manualBtn.click(); await sleep(200);
     if (await page.locator('#manualLive').isVisible()) throw new Error('EdgeLoop Control left the manual controls open');
     if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after EdgeLoop Control');

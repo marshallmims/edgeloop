@@ -1079,18 +1079,20 @@
               <button id="manualSlowBtn" type="button" class="min-h-[3rem] bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-sm cursor-pointer">Slow</button>
               <button id="manualStopBtn" type="button" class="min-h-[3rem] bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-sm cursor-pointer">Stop</button>
             </div>
+            <div id="manualModes" class="flex flex-wrap gap-1.5">
+              <button id="manualTraditionalBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Traditional</button>
+              <button id="manualFloatBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Float</button>
+              <button id="manualLoopBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Loop</button>
+            </div>
+            <div id="manualTouch" class="space-y-1.5">
+              <div id="manualLoopStage" class="relative h-44 rounded-xl border border-slate-700 bg-slate-950 touch-none" aria-label="Drag a dot. Higher is more. The bottom is nothing."></div>
+              <div id="manualViz" class="min-h-[2.5rem]"></div>
+              <p id="manualTouchHint" class="text-[9px] text-slate-500 leading-snug">Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. The line under each toy is what it is doing.</p>
+            </div>
             <div id="manualDevices" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
-            <div>
+            <div id="manualPatternBlock">
               <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loops</p>
               <div id="manualPatterns" class="flex flex-wrap gap-1.5"></div>
-            </div>
-            <div class="space-y-1.5">
-              <div class="flex items-center justify-between gap-2">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Loop</p>
-                <button id="manualLoopBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Loop</button>
-              </div>
-              <div id="manualLoopStage" class="hidden relative h-40 rounded-xl border border-slate-700 bg-slate-950 touch-none" aria-label="Loop. Drag a dot up and down. The toy follows, then repeats when you let go."></div>
-              <p class="text-[9px] text-slate-500 leading-snug">Loop gives each toy you are driving a dot. Up is stronger on a vibrator. Up is the top of the stroke on The Handy. It follows your hand. Letting go repeats that movement.</p>
             </div>
           </div>
         </section>
@@ -1356,7 +1358,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.05</span>
+        <span id="appVersion" class="font-mono">v1.1.5.06</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1717,11 +1719,12 @@
             </span>
           </label>
           <p class="text-[9px] text-slate-400 leading-snug">
-            Off until you turn it on. The log stays in this browser. EdgeLoop does not upload it, and it has no account to attach it to. Stop a session and a JSON download appears on that row. Post it in <a href="https://discord.gg/ZFrkehxAC" target="_blank" rel="noopener noreferrer" class="underline text-amber-200/90 hover:text-white">Discord</a> if you want a hand reading what the toys did.
+            Off until you turn it on. The log stays in this browser. EdgeLoop does not upload it, and it has no account to attach it to. Stop a session and a JSON download appears on that row. Download debug log saves what The Handy was just sent, even mid-session. Post it in <a href="https://discord.gg/ZFrkehxAC" target="_blank" rel="noopener noreferrer" class="underline text-amber-200/90 hover:text-white">Discord</a> if you want a hand reading what the toys did.
           </p>
           <p class="text-[9px] text-slate-400 leading-snug">
-            The file has your heart rate once a second, the speeds sent to the toys, your session settings, and the make and model of the toys that were on. It leaves out Handy keys, device tokens, Bluetooth addresses, and the names of videos and scripts.
+            The file has your heart rate once a second, the speeds sent to the toys, your session settings, the make and model of the toys that were on, and the recent Handy position commands. It leaves out Handy keys, device tokens, Bluetooth addresses, and the names of videos and scripts. The live edgeloop.app site leaves this off.
           </p>
+          <button id="sessionLogDownload" type="button" class="px-2.5 py-1.5 rounded-lg bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-100 text-[10px] font-bold cursor-pointer">Download debug log</button>
         </div>
         <div id="historyList" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar scroll-smooth pr-0.5">
           <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 text-xs text-center italic">

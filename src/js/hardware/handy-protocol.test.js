@@ -10,6 +10,7 @@ import {
     clampEndMargin,
     applyEndMargin,
     followPosition,
+    hdspMove,
     normalizeSlideRange,
     normalizeEnvelope,
     classifyHandyResponse,
@@ -186,6 +187,22 @@ describe('clampEndMargin', () => {
         // A corrupt stored value protects the wearer rather than disabling
         // the guard silently; only a typed 0 turns it off.
         assert.equal(clampEndMargin(NaN), HANDY_DEFAULT_END_MARGIN);
+    });
+});
+
+describe('hdspMove', () => {
+    it('brakes at an end and coasts only on a short step in the middle', () => {
+        const first = hdspMove(5, -1, 250);
+        assert.equal(first.position, 5);
+        assert.equal(first.stopOnTarget, true);
+        assert.ok(first.duration >= 330);
+        const coast = hdspMove(58, 50, 250);
+        assert.equal(coast.stopOnTarget, false);
+        assert.ok(coast.duration >= 330);
+        const jump = hdspMove(90, 20, 250);
+        assert.equal(jump.stopOnTarget, true);
+        const top = hdspMove(95, 90, 250);
+        assert.equal(top.stopOnTarget, true);
     });
 });
 

@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.06
+
+- **Traditional is the sliders.** Manual Control opens on the dots. Higher is more, and the bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. A line under each toy shows what it is doing. Traditional switches to the sliders and hides Float and Loop.
+- **The Handy brakes at the position you ask for.** A Loop drag was sending it through the bottom end stop, and the firmware then locked the slider there. The command now uses where your finger is when it is sent, and it stops at the target instead of coasting past the end.
+- **A session log on this build.** History has the switch and a debug download, including on the GitHub Pages copy. edgeloop.app still leaves it off. The file adds the Handy mode, the position commands, and the last error, and it leaves out the connection key.
+
 ## 1.1.5.05
 
 - **The Linux Chrome flag under Scan & Pair can be copied.** When Bluetooth is hidden on Linux, the flag address sits under that button. Copy puts it on the clipboard. Paste it into the address bar. The same address in the pairing guide copies too.

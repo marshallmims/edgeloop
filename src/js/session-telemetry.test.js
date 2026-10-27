@@ -10,11 +10,14 @@ import {
 } from './session-telemetry.js';
 
 describe('dev session log host', () => {
-    it('is only the dev site', () => {
+    it('is every host except the live site', () => {
         assert.equal(isDevTelemetryHost('dev.edgeloop.app'), true);
         assert.equal(isDevTelemetryHost('DEV.EDGELOOP.APP'), true);
+        assert.equal(isDevTelemetryHost('marshallmims.github.io'), true);
+        assert.equal(isDevTelemetryHost('localhost'), true);
+        assert.equal(isDevTelemetryHost('127.0.0.1'), true);
         assert.equal(isDevTelemetryHost('edgeloop.app'), false);
-        assert.equal(isDevTelemetryHost('localhost'), false);
+        assert.equal(isDevTelemetryHost('www.edgeloop.app'), false);
         assert.equal(isDevTelemetryHost(''), false);
     });
 });
@@ -66,7 +69,7 @@ describe('the one-second series', () => {
         const exported = buildSessionExport({ trace: snap });
         assert.equal(exported.events[1].pauseReason, 'hr-signal');
         assert.equal(exported.series[2].intensity, 100);
-        assert.equal(exported.telemetryVersion, 3);
+        assert.equal(exported.telemetryVersion, 4);
     });
 });
 
@@ -183,6 +186,25 @@ describe('buildSessionExport', () => {
     });
 });
 
+describe('handy position commands in the log', () => {
+    it('keeps the move and drops a connection key', () => {
+        const exported = buildSessionExport({
+            devices: { handy: { connected: true, drive: 'hdsp', position: 40, duration: 480, stop: 1, error: 'hdsp 5000' } },
+            handyTrace: [
+                { t: 10, drive: 'hdsp', position: 5, duration: 480, stop: 1, error: '' },
+                { t: 20, drive: 'hdsp', position: 70, duration: 330, stop: 0, error: 'key abcdef' }
+            ]
+        });
+        assert.equal(exported.devices.handy.drive, 'hdsp');
+        assert.equal(exported.devices.handy.position, 40);
+        assert.equal(exported.devices.handy.error, 'hdsp 5000');
+        assert.equal(exported.handyTrace.length, 2);
+        assert.equal(exported.handyTrace[0].position, 5);
+        assert.equal(exported.handyTrace[1].error, '');
+        assert.equal(JSON.stringify(exported).includes('abcdef'), false);
+    });
+});
+
 describe('the history opt-in', () => {
     it('is a switch on the history screen, off until the page turns recording on', () => {
         const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
@@ -194,5 +216,8 @@ describe('the history opt-in', () => {
         assert.match(app, /sessionLogWanted\(\)/);
         assert.match(app, /edgeloop_session_log/);
         assert.match(app, /safeParse\(SESSION_LOG_KEY, false\) === true/);
+        assert.match(html, /id="sessionLogDownload"/);
+        assert.match(html, /id="manualTraditionalBtn"/);
+        assert.match(html, /id="manualFloatBtn"/);
     });
 });

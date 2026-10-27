@@ -72,7 +72,7 @@ import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError, linuxDesktop, CHROME_BLUETOOTH_FLAG } from './hardware/ble-protocol.js';
 import { createHrWatchdog, clampStaleSeconds } from './hr-watchdog.js';
-import { connectHandy, disconnectHandy, dispatchHandy, dispatchHandyFollow, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey, getHandyInfo } from './hardware/handy.js';
+import { connectHandy, disconnectHandy, dispatchHandy, dispatchHandyFollow, stopHandyOnUnload, handyConnected, setHandyHandlers, getHandyKey, getHandyInfo, getHandyMotion, getHandyTrace } from './hardware/handy.js';
 import { createHandyHsp } from './hardware/handy-hsp.js';
 import { handyScriptRoute, resolveApplicationId, HANDY_APP_ID_STORAGE_KEY } from './hardware/handy-hsp-protocol.js';
 import { normalizeEnvelope, applyEndMargin, clampEndMargin } from './hardware/handy-protocol.js';
@@ -87,6 +87,7 @@ import {
     loopFromTracks,
     manualSplit,
     orderStroke,
+    touchRelease,
     MANUAL_LINK_MS,
     parseDeviceId,
     PATTERN_CHOICES,
@@ -2516,6 +2517,7 @@ function sessionLogFields(now = Date.now()) {
     const paused = state.sessionStatus === 'PAUSED';
     const range = effectiveStrokeRange(state.strokeMin, state.strokeMax);
     const started = funscriptSessionStart || now;
+    const motion = handyMotionNow();
     return {
         t: Math.max(0, now - started),
         hr: state.sensorHr,
@@ -2540,8 +2542,21 @@ function sessionLogFields(now = Date.now()) {
         ceiling: state.effectiveMaxHr,
         primaryOn: primaryStrokeLive(),
         intensity: state.intensityValue,
-        pauseReason: paused ? state.pauseReason : ''
+        pauseReason: paused ? state.pauseReason : '',
+        handyDrive: motion.drive,
+        handyPos: motion.position,
+        handyMs: motion.duration,
+        handyStop: motion.stop,
+        handyError: motion.error
     };
+}
+
+function handyMotionNow() {
+    try {
+        return getHandyMotion();
+    } catch (e) {
+        return { drive: '', position: -1, duration: 0, stop: 0, error: '' };
+    }
 }
 
 function captureSessionLog(now = Date.now()) {
@@ -6146,7 +6161,12 @@ function handyLogFields() {
         maxCap: state.handyMaxCap,
         beatSync: Boolean(handyHsp && handyHsp.beatSync()),
         firmware: fw ? String(fw) : '',
-        model: model ? String(model) : ''
+        model: model ? String(model) : '',
+        drive: handyMotionNow().drive,
+        position: handyMotionNow().position,
+        duration: handyMotionNow().duration,
+        stop: handyMotionNow().stop,
+        error: handyMotionNow().error
     };
 }
 
@@ -6237,7 +6257,8 @@ function saveSessionToHistory(outcome) {
             settings: advancedSettings,
             devices: deviceLogSnapshot(),
             script: scriptLogSnapshot(),
-            trace: sessionLog.snapshot()
+            trace: sessionLog.snapshot(),
+            handyTrace: getHandyTrace()
         });
     }
     history.unshift(entry);
@@ -6266,7 +6287,7 @@ window.downloadSessionTelemetry = (sessionId) => {
     if (!isDevTelemetryHost(location.hostname)) return;
     const history = safeParse('edgeloop_history', []);
     const session = history.find(s => s.id === sessionId);
-    if (!session || !session.telemetry) return alert('This session has no Dev session log.');
+    if (!session || !session.telemetry) return alert('This session has no session log. Turn on Record a session log before the session, or use Download debug log.');
     const stored = session.telemetry;
     const clean = buildSessionExport({
         appVersion: stored.appVersion,
@@ -6274,7 +6295,8 @@ window.downloadSessionTelemetry = (sessionId) => {
         settings: stored.settings,
         devices: stored.devices,
         script: stored.script,
-        trace: { series: stored.series, events: stored.events }
+        trace: { series: stored.series, events: stored.events },
+        handyTrace: stored.handyTrace
     });
     const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -6321,6 +6343,39 @@ function paintSessionLogOptIn() {
     }
 }
 
+function downloadDebugLog() {
+    if (!isDevTelemetryHost(location.hostname)) return;
+    const clean = buildSessionExport({
+        appVersion: APP_VERSION,
+        session: {
+            id: Date.now(),
+            date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            duration: state.sessionSeconds,
+            edges: state.edges,
+            pauses: state.pauses,
+            peakHr: state.peakHr,
+            outcome: 'debug',
+            intensity: state.intensityValue,
+            targetSeconds: state.chosenTargetSeconds,
+            videoClock: state.scriptVideoClock
+        },
+        settings: advancedSettings,
+        devices: deviceLogSnapshot(),
+        script: scriptLogSnapshot(),
+        trace: sessionLog.snapshot(),
+        handyTrace: getHandyTrace()
+    });
+    const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `edgeloop_debug_${clean.session.id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 window.setSessionLogOptIn = (on) => {
     sessionLogOptIn = Boolean(on);
     safeSet(SESSION_LOG_KEY, sessionLogOptIn);
@@ -6363,6 +6418,7 @@ function renderHistory() {
         list.appendChild(item);
     });
 }
+document.getElementById('sessionLogDownload')?.addEventListener('click', downloadDebugLog);
 document.getElementById('clearHistoryBtn')?.addEventListener('click', () => {
     safeRemove('edgeloop_history');
     renderHistory();
@@ -6666,6 +6722,12 @@ const manualReleased = new Set();
 let manualGesture = null;
 let manualPatternOn = false;
 let manualPatternCmd = null;
+let manualTraditional = false;
+let manualTouchMode = 'spring';
+let manualReturnTimer = null;
+let manualVizRaf = 0;
+let manualVizStarted = 0;
+const vizTrail = new Map();
 
 function setManualModeUi(on, fromHost = false) {
     if (fromHost && on === false && Date.now() < manualUiHoldUntil) return;
@@ -6674,8 +6736,15 @@ function setManualModeUi(on, fromHost = false) {
     if (!manualDriving) {
         manualPatternOn = false;
         manualPatternCmd = null;
+        manualTouchMode = 'spring';
+        cancelTouchReturn();
+        stopTouchViz();
+    } else {
+        renderLoopLanes();
+        startTouchViz();
     }
     setManualKeepalive(manualDriving);
+    paintManualChrome();
     const btn = document.getElementById('manualModeBtn');
     const live = document.getElementById('manualLive');
     const hint = document.getElementById('manualHint');
@@ -6691,7 +6760,7 @@ function setManualModeUi(on, fromHost = false) {
     live?.classList.toggle('hidden', !manualDriving);
     if (hint) {
         hint.textContent = manualDriving
-            ? 'You has the sliders. EdgeLoop on a toy opens the play styles. Loop follows your hand, then repeats it. Slow and Stop are immediate.'
+            ? 'Traditional is the sliders. Off, each toy you drive is a dot: higher is more and the bottom is nothing. Float holds, Loop repeats, and letting go otherwise returns to nothing. Slow and Stop are immediate.'
             : 'EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.';
     }
 }
@@ -7049,6 +7118,7 @@ function renderManualDevices(devices) {
     }
     paintManualStyleButtons();
     renderLoopLanes();
+    paintManualChrome();
     if (claimNew && manualDriving) scheduleManualFrame(true);
 }
 
@@ -7065,6 +7135,7 @@ function startManualPattern(id, extra = {}) {
     }
     manualEpoch += 1;
     manualPatternOn = true;
+    manualVizStarted = Date.now();
     manualPatternCmd = {
         type: 'MANUAL_PATTERN',
         epoch: manualEpoch,
@@ -7075,6 +7146,81 @@ function startManualPattern(id, extra = {}) {
     if (extra.drawn) manualPatternCmd.drawn = extra.drawn;
     if (extra.tracks) manualPatternCmd.tracks = extra.tracks;
     sendPeerCommand(manualPatternCmd);
+}
+
+function modeButtonClass(on) {
+    return on
+        ? 'px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer'
+        : 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer';
+}
+
+function paintManualChrome() {
+    const traditional = manualTraditional;
+    document.getElementById('manualTouch')?.classList.toggle('hidden', traditional);
+    const traditionalBtn = document.getElementById('manualTraditionalBtn');
+    const floatBtn = document.getElementById('manualFloatBtn');
+    const loopBtn = document.getElementById('manualLoopBtn');
+    traditionalBtn?.setAttribute('aria-pressed', traditional ? 'true' : 'false');
+    floatBtn?.setAttribute('aria-pressed', !traditional && manualTouchMode === 'float' ? 'true' : 'false');
+    loopBtn?.setAttribute('aria-pressed', !traditional && manualTouchMode === 'loop' ? 'true' : 'false');
+    if (traditionalBtn) traditionalBtn.className = modeButtonClass(traditional);
+    if (floatBtn) floatBtn.className = modeButtonClass(!traditional && manualTouchMode === 'float') + (traditional ? ' hidden' : '');
+    if (loopBtn) loopBtn.className = modeButtonClass(!traditional && manualTouchMode === 'loop') + (traditional ? ' hidden' : '');
+    document.querySelectorAll('[data-own-controls]').forEach((el) => {
+        const id = el.getAttribute('data-own-controls');
+        const you = manualOwned.has(id);
+        el.classList.toggle('hidden', !you || !traditional);
+    });
+    const hint = document.getElementById('manualTouchHint');
+    if (hint) {
+        hint.textContent = manualTouchMode === 'float'
+            ? 'Float holds the dot where you leave it. Higher is more. The bottom is nothing. The line under each toy is what it is doing.'
+            : manualTouchMode === 'loop'
+                ? 'Loop repeats the shape you draw. Higher is more. The bottom is nothing. The line under each toy is the pattern it is playing.'
+                : 'Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it. Loop repeats the shape. Traditional is the sliders.';
+    }
+}
+
+function setTraditional(on) {
+    const next = Boolean(on);
+    if (next === manualTraditional) {
+        paintManualChrome();
+        return;
+    }
+    if (next) {
+        syncDraftsFromPattern();
+        manualPatternOn = false;
+        manualPatternCmd = null;
+        manualVizStarted = 0;
+        cancelTouchReturn();
+        for (const draft of ownedDrafts()) delete draft.position;
+        scheduleManualFrame(true);
+    }
+    manualTraditional = next;
+    manualTouchMode = 'spring';
+    paintManualChrome();
+    if (!next) renderLoopLanes();
+}
+
+function setTouchMode(mode) {
+    if (manualTraditional) return;
+    const next = manualTouchMode === mode ? 'spring' : mode;
+    const leavingLoop = manualTouchMode === 'loop' && next !== 'loop';
+    if (leavingLoop) {
+        syncDraftsFromPattern();
+        manualPatternOn = false;
+        manualPatternCmd = null;
+        manualVizStarted = 0;
+        if (next === 'spring') {
+            easeToRest(loopDevices());
+        } else {
+            cancelTouchReturn();
+            scheduleManualFrame(true);
+        }
+    }
+    manualTouchMode = next;
+    paintManualChrome();
+    renderLoopLanes();
 }
 
 function loopDevices() {
@@ -7090,15 +7236,42 @@ function loopMagnitude(device) {
 
 function placeLoopDot(id, value) {
     const dot = document.querySelector(`[data-loop-dot="${CSS.escape(id)}"]`);
-    if (!dot) return;
     const v = Math.max(0, Math.min(100, Number(value) || 0));
-    dot.style.top = `calc(${(100 - v) * 0.78}% + 6px)`;
+    if (dot) dot.style.top = `calc(${(100 - v) * 0.78}% + 6px)`;
+    const fill = document.querySelector(`[data-loop-fill="${CSS.escape(id)}"]`);
+    if (fill) fill.style.height = `${v}%`;
+    pushViz(id, v);
+}
+
+function renderVizRow(devices) {
+    const root = document.getElementById('manualViz');
+    if (!root) return;
+    const key = devices.map((item) => item.id).join('|');
+    if (root.dataset.key === key && root.childElementCount) return;
+    root.dataset.key = key;
+    root.replaceChildren();
+    if (!devices.length) return;
+    root.className = 'grid gap-1';
+    root.style.gridTemplateColumns = `repeat(${devices.length}, minmax(0, 1fr))`;
+    for (const device of devices) {
+        const cell = document.createElement('div');
+        cell.className = 'min-w-0';
+        const canvas = document.createElement('canvas');
+        canvas.className = 'block w-full h-10 rounded-md bg-slate-950 border border-slate-800';
+        canvas.setAttribute('data-viz', device.id);
+        const name = document.createElement('div');
+        name.className = 'text-[8px] text-slate-500 truncate text-center';
+        name.textContent = device.name;
+        cell.append(canvas, name);
+        root.append(cell);
+    }
 }
 
 function renderLoopLanes() {
     const stage = document.getElementById('manualLoopStage');
-    if (!stage || stage.classList.contains('hidden')) return;
+    if (!stage || manualTraditional) return;
     const devices = loopDevices();
+    renderVizRow(devices);
     const key = devices.map((item) => item.id).join('|');
     if (stage.dataset.key === key && stage.childElementCount) {
         for (const device of devices) placeLoopDot(device.id, loopMagnitude(device));
@@ -7119,13 +7292,16 @@ function renderLoopLanes() {
         const lane = document.createElement('div');
         lane.className = 'relative flex-1 min-w-0 border-l border-slate-800 first:border-l-0 cursor-ns-resize';
         lane.setAttribute('data-loop-lane', device.id);
+        const fill = document.createElement('div');
+        fill.className = 'absolute left-0 right-0 bottom-0 bg-purple-900/50 pointer-events-none';
+        fill.setAttribute('data-loop-fill', device.id);
         const dot = document.createElement('div');
         dot.className = 'absolute left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-purple-400 border-2 border-white shadow pointer-events-none';
         dot.setAttribute('data-loop-dot', device.id);
         const label = document.createElement('div');
         label.className = 'absolute bottom-1 left-0 right-0 px-0.5 text-center text-[8px] text-slate-400 truncate pointer-events-none';
         label.textContent = device.name;
-        lane.append(dot, label);
+        lane.append(fill, dot, label);
         lane.addEventListener('pointerdown', (event) => startLoopDrag(device, lane, event));
         row.append(lane);
     }
@@ -7163,10 +7339,72 @@ function applyLoopValue(device, value) {
     placeLoopDot(device.id, value);
 }
 
+function pushViz(id, value) {
+    const now = Date.now();
+    const trail = vizTrail.get(id) || [];
+    const last = trail[trail.length - 1];
+    if (!last || now - last.t >= 40 || Math.abs(last.v - value) >= 1) trail.push({ t: now, v: value });
+    const cutoff = now - 4000;
+    while (trail.length && trail[0].t < cutoff) trail.shift();
+    vizTrail.set(id, trail);
+}
+
+function cancelTouchReturn() {
+    if (manualReturnTimer) {
+        clearInterval(manualReturnTimer);
+        manualReturnTimer = null;
+    }
+}
+
+function syncDraftsFromPattern() {
+    if (!manualPatternCmd || !manualPatternCmd.tracks) return;
+    const frame = frameFromPattern(manualPatternCmd, Math.max(0, Date.now() - manualVizStarted));
+    for (const output of frame.devices) {
+        const device = manualDevices.find((item) => item.id === output.id);
+        if (!device) continue;
+        const value = Number.isFinite(Number(output.position)) ? output.position
+            : Number.isFinite(Number(output.level)) ? output.level
+            : output.speed;
+        applyLoopValue(device, value);
+    }
+}
+
+function easeToRest(devices) {
+    const list = (Array.isArray(devices) ? devices : [devices]).map((device) => ({
+        device,
+        from: loopMagnitude(device)
+    }));
+    const began = Date.now();
+    cancelTouchReturn();
+    const tick = () => {
+        const k = Math.min(1, (Date.now() - began) / 450);
+        for (const item of list) {
+            const value = Math.round(item.from * (1 - k));
+            applyLoopValue(item.device, value);
+            if (k >= 1 && item.device.kind === 'stroke') {
+                const draft = ensureDraft(item.device);
+                draft.position = 0;
+                draft.speed = 0;
+                draft.level = 0;
+            }
+        }
+        scheduleManualFrame(k >= 1);
+        if (k >= 1) cancelTouchReturn();
+    };
+    manualReturnTimer = setInterval(tick, 50);
+    tick();
+}
+
 function startLoopDrag(device, lane, event) {
-    if (!manualDriving) return;
+    if (!manualDriving || manualTraditional) return;
     event.preventDefault();
     lane.setPointerCapture(event.pointerId);
+    cancelTouchReturn();
+    if (manualPatternOn) {
+        manualPatternOn = false;
+        manualPatternCmd = null;
+        manualVizStarted = 0;
+    }
     const valueOf = (ev) => {
         const rect = lane.getBoundingClientRect();
         const y = rect.height ? (ev.clientY - rect.top) / rect.height : 1;
@@ -7174,7 +7412,7 @@ function startLoopDrag(device, lane, event) {
     };
     const started = Date.now();
     applyLoopValue(device, valueOf(event));
-    manualGesture = { started, samples: [loopSnapshot(0)] };
+    manualGesture = { deviceId: device.id, started, samples: [loopSnapshot(0)] };
     scheduleManualFrame(true);
     const move = (ev) => {
         if (!manualGesture) return;
@@ -7198,32 +7436,118 @@ function startLoopDrag(device, lane, event) {
             const b = current.position ?? current.level ?? current.speed ?? 0;
             return Math.abs(a - b) >= 3;
         });
-        const loop = moved ? loopFromTracks(samples, elapsed) : null;
-        for (const draft of ownedDrafts()) delete draft.position;
-        if (loop) {
-            startManualPattern('drawn', {
-                periodMs: loop.periodMs,
-                tracks: loop.tracks,
-                devices: ownedDrafts().map((draft) => ({ ...draft }))
-            });
+        const action = touchRelease(manualTouchMode, moved);
+        if (action === 'loop') {
+            const loop = loopFromTracks(samples, elapsed);
+            if (loop) {
+                for (const draft of ownedDrafts()) delete draft.position;
+                startManualPattern('drawn', {
+                    periodMs: loop.periodMs,
+                    tracks: loop.tracks,
+                    devices: ownedDrafts().map((draft) => ({ ...draft }))
+                });
+                manualVizStarted = Date.now();
+                return;
+            }
+        }
+        if (action === 'hold') {
+            scheduleManualFrame(true);
             return;
         }
-        scheduleManualFrame(true);
+        easeToRest(device);
     };
     lane.addEventListener('pointermove', move);
     lane.addEventListener('pointerup', finish);
     lane.addEventListener('pointercancel', finish);
 }
 
-function setLoopOpen(on) {
-    const stage = document.getElementById('manualLoopStage');
-    const btn = document.getElementById('manualLoopBtn');
-    stage?.classList.toggle('hidden', !on);
-    btn?.setAttribute('aria-pressed', on ? 'true' : 'false');
-    if (btn) btn.className = on
-        ? 'px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer'
-        : 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer';
-    if (on) renderLoopLanes();
+function paintVizCanvas(canvas) {
+    const id = canvas.getAttribute('data-viz');
+    const width = canvas.clientWidth || 80;
+    const height = canvas.clientHeight || 40;
+    const dpr = window.devicePixelRatio || 1;
+    const pxW = Math.max(1, Math.floor(width * dpr));
+    const pxH = Math.max(1, Math.floor(height * dpr));
+    if (canvas.width !== pxW || canvas.height !== pxH) {
+        canvas.width = pxW;
+        canvas.height = pxH;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    const yOf = (value) => height - (Math.max(0, Math.min(100, value)) / 100) * (height - 4) - 2;
+    const pattern = manualPatternOn && manualPatternCmd && Array.isArray(manualPatternCmd.tracks)
+        ? manualPatternCmd.tracks.find((track) => track.id === id)
+        : null;
+    if (pattern && pattern.points.length) {
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        pattern.points.forEach((point, index) => {
+            const value = point.position ?? point.level ?? point.speed ?? 0;
+            const x = point.t * width;
+            const y = yOf(value);
+            if (index === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        const period = Math.max(1, Number(manualPatternCmd.periodMs) || 1);
+        const phase = ((Date.now() - manualVizStarted) % period) / period;
+        ctx.strokeStyle = '#f5d0fe';
+        ctx.beginPath();
+        ctx.moveTo(phase * width, 0);
+        ctx.lineTo(phase * width, height);
+        ctx.stroke();
+        return;
+    }
+    const trail = vizTrail.get(id) || [];
+    if (!trail.length) return;
+    const now = Date.now();
+    const windowMs = 2000;
+    ctx.strokeStyle = '#c084fc';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    trail.forEach((point, index) => {
+        const x = ((point.t - (now - windowMs)) / windowMs) * width;
+        const y = yOf(point.v);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    const last = trail[trail.length - 1];
+    ctx.fillStyle = '#e9d5ff';
+    ctx.beginPath();
+    ctx.arc(Math.min(width - 3, ((last.t - (now - windowMs)) / windowMs) * width), yOf(last.v), 2.5, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function paintTouchViz() {
+    if (manualPatternOn && manualPatternCmd) {
+        const frame = frameFromPattern(manualPatternCmd, Math.max(0, Date.now() - manualVizStarted));
+        for (const output of frame.devices) {
+            const value = Number.isFinite(Number(output.position)) ? output.position
+                : Number.isFinite(Number(output.level)) ? output.level
+                : output.speed;
+            placeLoopDot(output.id, value);
+        }
+    }
+    document.querySelectorAll('[data-viz]').forEach((canvas) => paintVizCanvas(canvas));
+}
+
+function startTouchViz() {
+    if (manualVizRaf || typeof requestAnimationFrame !== 'function') return;
+    const tick = () => {
+        manualVizRaf = requestAnimationFrame(tick);
+        if (!manualDriving || manualTraditional) return;
+        paintTouchViz();
+    };
+    manualVizRaf = requestAnimationFrame(tick);
+}
+
+function stopTouchViz() {
+    if (manualVizRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(manualVizRaf);
+    manualVizRaf = 0;
 }
 
 function initManualPanel() {
@@ -7250,6 +7574,8 @@ function initManualPanel() {
     document.getElementById('manualSlowBtn')?.addEventListener('click', () => {
         manualPatternOn = false;
         manualPatternCmd = null;
+        manualVizStarted = 0;
+        cancelTouchReturn();
         for (const draft of ownedDrafts()) {
             draft.speed = Math.min(draft.speed, 12);
             draft.level = Math.min(draft.level, 12);
@@ -7262,29 +7588,27 @@ function initManualPanel() {
         manualEpoch += 1;
         manualPatternOn = false;
         manualPatternCmd = null;
+        manualVizStarted = 0;
+        cancelTouchReturn();
         for (const draft of manualDraft.values()) {
             draft.speed = 0;
             draft.level = 0;
             delete draft.position;
         }
         writeDraftInputs();
+        for (const draft of manualDraft.values()) placeLoopDot(draft.id, 0);
         if (manualSendTimer) {
             clearTimeout(manualSendTimer);
             manualSendTimer = null;
         }
         sendPeerCommand({ type: 'MANUAL_STOP', epoch: manualEpoch });
     });
-    document.getElementById('manualLoopBtn')?.addEventListener('click', () => {
-        const stage = document.getElementById('manualLoopStage');
-        const open = stage ? stage.classList.contains('hidden') : false;
-        if (!open) {
-            manualPatternOn = false;
-            manualPatternCmd = null;
-            for (const draft of ownedDrafts()) delete draft.position;
-            scheduleManualFrame(true);
-        }
-        setLoopOpen(open);
+    document.getElementById('manualTraditionalBtn')?.addEventListener('click', () => {
+        setTraditional(!manualTraditional);
     });
+    document.getElementById('manualFloatBtn')?.addEventListener('click', () => setTouchMode('float'));
+    document.getElementById('manualLoopBtn')?.addEventListener('click', () => setTouchMode('loop'));
+    paintManualChrome();
 }
 
 function applyRemoteTelemetry(data) {

@@ -490,6 +490,14 @@ export function decayFrame(frame, ageMs, holdMs = MANUAL_HOLD_MS, fadeMs = MANUA
     };
 }
 
+// What a finger-up does. Float keeps the dot. Loop keeps a still dot and
+// repeats a dot that actually moved. No mode returns it to nothing.
+export function touchRelease(mode, moved) {
+    if (mode === 'float') return 'hold';
+    if (mode === 'loop') return moved ? 'loop' : 'hold';
+    return 'spring';
+}
+
 export function frameIsStopped(frame) {
     const devices = frame && Array.isArray(frame.devices) ? frame.devices : [];
     return devices.every((device) => {
