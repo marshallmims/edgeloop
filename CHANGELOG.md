@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.4.32
+
+- **The page says when it is not the focused window.** The screen blurs and a banner stays up until you click back. Space and the other keys are going to the other window, and toy updates can slow down while the page is in the background.
+
 ## 1.1.4.31
 
 This build is the live release on edgeloop.app. The install uses the plain heartbeat icon. The DEV badge stays on dev.edgeloop.app only.
