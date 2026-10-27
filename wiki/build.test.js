@@ -37,6 +37,8 @@ describe('wiki build', () => {
                 assert.match(html, new RegExp(`<title>[^<]*${page.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
                 assert.match(html, /aria-current="page"/);
                 assert.match(html, /class="edition"/);
+                assert.match(html, /href="https:\/\/discord\.gg\/ZSqmV7ctcU"/);
+                assert.doesNotMatch(html, /discord\.gg\/ZFrkehxAC/);
                 assert.match(html, />Main</);
                 assert.match(html, />Dev</);
                 assert.match(html, />Desktop</);
