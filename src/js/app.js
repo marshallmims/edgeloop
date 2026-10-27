@@ -101,7 +101,9 @@ import {
     DEFAULT_INTIFACE_URL,
     ALTERNATE_SECONDS_MIN,
     ALTERNATE_SECONDS_MAX,
-    INTIFACE_STORAGE_KEY
+    INTIFACE_STORAGE_KEY,
+    INTIFACE_URL_KEY,
+    describeIntifaceTarget
 } from './hardware/intiface.js';
 import { PULSE_PERIODS_MS } from './hardware/vibe-pulse.js';
 import {
@@ -5181,9 +5183,24 @@ function renderIntifaceStatus(status) {
     renderIntifaceSummaryBadge();
 }
 
+(function restoreIntifaceUrl() {
+    const input = document.getElementById('modalIntifaceUrl');
+    if (!input) return;
+    const saved = safeGet(INTIFACE_URL_KEY);
+    if (!saved) return;
+    const described = describeIntifaceTarget(saved);
+    if (described.ok) input.value = described.url;
+})();
+
 document.getElementById('modalIntifaceConnectBtn')?.addEventListener('click', () => {
-    const url = document.getElementById('modalIntifaceUrl')?.value.trim() || DEFAULT_INTIFACE_URL;
-    connectIntifaceServer(url, {
+    const input = document.getElementById('modalIntifaceUrl');
+    const raw = input?.value.trim() || DEFAULT_INTIFACE_URL;
+    const described = describeIntifaceTarget(raw);
+    if (described.ok) {
+        if (input) input.value = described.url;
+        safeSet(INTIFACE_URL_KEY, described.url);
+    }
+    connectIntifaceServer(raw, {
         onStatus: renderIntifaceStatus,
         onDevicesChanged: () => {
             renderIntifaceDevices();

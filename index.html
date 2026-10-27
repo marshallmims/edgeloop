@@ -26,6 +26,77 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+    /* Desktop shell. Hidden without Tailwind, and still hidden on the
+       website. shell.js adds class="shell" only when the address has ?shell=1.
+       The 1.1.4.13 player and device row keep their own rules below. */
+    #shellNav, #shellDeviceSlot, #shellLibrary, #shellSession, #shellEdition { display: none; }
+    html.shell #shellEdition {
+      display: inline-block !important;
+      padding: 0.1rem 0.35rem;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #cbd5e1;
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      vertical-align: 1px;
+    }
+    html.shell #shellNav { display: flex !important; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    html.shell #shellTabs {
+      display: flex;
+      flex: 1 1 16rem;
+      max-width: 28rem;
+      padding: 3px;
+      gap: 2px;
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+    }
+    html.shell #shellTabs [role="tab"] {
+      flex: 1;
+      min-height: 40px;
+      padding: 0 0.6rem;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    html.shell #shellTabs [role="tab"][aria-selected="true"] {
+      background: #f1f5f9;
+      color: #020617;
+    }
+    html.shell #shellTabs [role="tab"]:focus-visible {
+      outline: 2px solid #38bdf8;
+      outline-offset: 1px;
+    }
+    html.shell .shell-live {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-left: 6px;
+      border-radius: 99px;
+      background: #34d399;
+      vertical-align: 1px;
+    }
+    html.shell .shell-live[hidden] { display: none !important; }
+    html.shell #shellTools { display: flex; align-items: center; gap: 0.35rem; }
+    html.shell #shellTools #guideBtn span,
+    html.shell #shellTools #historyBtn span,
+    html.shell #shellTools #partnerShareBtn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    html.shell #shellDeviceSlot { display: block !important; }
+    html.shell [data-shell] { display: none !important; }
+    html.shell[data-page="session"] [data-shell="session"] { display: block !important; }
+    html.shell[data-page="library"] [data-shell="library"] { display: block !important; }
+    html.shell[data-page="session"] #playerSection,
+    html.shell[data-page="session"] #cockpit,
+    html.shell[data-page="library"] #playerSection,
+    html.shell[data-page="library"] #cockpit { display: none !important; }
+    html.shell #playerHeaderBtn,
+    html.shell #sessionParamsHeaderBtn { display: none !important; }
     /* Theater stays in the page. The stage fills the window under the
        header. The file panel and the controls move underneath, so they
        cannot paint on the letterbox. */
@@ -423,6 +494,7 @@
         <div>
           <div class="flex items-center gap-1.5">
             <h1 class="text-lg sm:text-xl font-black tracking-wide text-rose-500">EDGE<span class="text-white">LOOP</span></h1>
+            <span id="shellEdition">2.0</span>
             <span id="roleIndicator" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 uppercase">Local Host</span>
           </div>
           <p class="text-[9px] sm:text-[10px] text-slate-500">Autonomous Biofeedback Edging System</p>
@@ -453,7 +525,7 @@
         </button>
 
         <!-- Share Remote Control -->
-        <div class="relative">
+        <div id="shareControlWrap" class="relative">
           <button id="partnerShareBtn" class="bg-purple-950/60 hover:bg-purple-900 border border-purple-800 px-2.5 py-1.5 rounded-xl text-purple-300 transition flex items-center gap-1 text-xs font-semibold cursor-pointer">
             <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
             <span class="hidden sm:inline">Share Control</span>
@@ -468,6 +540,74 @@
         </div>
       </div>
     </header>
+
+    <!-- Desktop shell. Hidden on the website. shell.js shows it only for ?shell=1.
+         The four tabs stay mounted: flipping does not stop a session or a video. -->
+    <nav id="shellNav" class="hidden" aria-label="EdgeLoop">
+      <div id="shellTabs" role="tablist" aria-label="Sections">
+        <button type="button" role="tab" id="shellTabLoop" data-page="loop" aria-selected="true" aria-controls="cockpit">Loop<span class="shell-live" data-live="loop" hidden></span></button>
+        <button type="button" role="tab" id="shellTabVideo" data-page="video" aria-selected="false" aria-controls="playerSection">Video<span class="shell-live" data-live="video" hidden></span></button>
+        <button type="button" role="tab" id="shellTabSession" data-page="session" aria-selected="false" aria-controls="shellSession">Session</button>
+        <button type="button" role="tab" id="shellTabLibrary" data-page="library" aria-selected="false" aria-controls="shellLibrary">Library</button>
+      </div>
+      <span id="shellClockLine" class="text-[10px] text-slate-400 font-mono ml-auto">Headset clock off</span>
+      <div id="shellTools"></div>
+    </nav>
+    <div id="shellDeviceSlot" class="hidden"></div>
+
+    <section id="shellLibrary" data-shell="library" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+      <div class="space-y-1">
+        <h2 class="text-sm font-bold text-slate-100">Library</h2>
+        <p class="text-[11px] text-slate-400 leading-snug">Point at a folder. Each video is paired with a stroker script and a secondary script when the names agree, including a resolution or a codec that the video has and the script does not. A share on the network is the same idea, once this computer can list it.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="shellFolderBtn" type="button" class="min-h-[44px] px-3 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold cursor-pointer">Choose a folder</button>
+        <input id="shellFolderInput" type="file" webkitdirectory multiple class="hidden">
+      </div>
+      <div class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Network share</p>
+        <p id="shellHostNote" class="text-[10px] text-slate-500 leading-snug">Checking whether this computer can list a share…</p>
+        <input id="shellSmbAddress" type="text" placeholder="smb://nas/videos or \\nas\videos" aria-label="Share address" class="w-full min-h-[44px] bg-slate-900 border border-slate-700 rounded-lg px-2 text-xs text-slate-200 outline-none focus:border-sky-500">
+        <div class="flex flex-wrap gap-2">
+          <input id="shellSmbUser" type="text" placeholder="User" aria-label="Share user" autocomplete="username" class="flex-1 min-h-[44px] min-w-[8rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-xs text-slate-200 outline-none focus:border-sky-500">
+          <input id="shellSmbPass" type="password" placeholder="Password" aria-label="Share password" autocomplete="current-password" class="flex-1 min-h-[44px] min-w-[8rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-xs text-slate-200 outline-none focus:border-sky-500">
+          <button id="shellSmbBtn" type="button" class="min-h-[44px] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold cursor-pointer">Open share</button>
+        </div>
+      </div>
+      <p id="shellLibrarySummary" class="text-[11px] text-slate-300"></p>
+      <div id="shellLibraryList" class="space-y-2"></div>
+      <div class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Play on a television</p>
+        <p class="text-[10px] text-slate-500 leading-snug">Serves a file that is already on this computer. A television that can open a link can play that address. The toys follow the video in this app. One-tap casting, where the television and the toys share one playhead, is the next piece.</p>
+        <div class="flex flex-wrap gap-2">
+          <input id="shellCastPath" type="text" placeholder="/path/to/video.mp4" aria-label="Video file on this computer" class="flex-1 min-h-[44px] min-w-[12rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-xs text-slate-200 outline-none focus:border-sky-500">
+          <button id="shellCastBtn" type="button" class="min-h-[44px] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold cursor-pointer">Serve</button>
+        </div>
+        <p id="shellCastUrl" class="text-[10px] font-mono text-sky-300 break-all"></p>
+      </div>
+      <div class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Headset clock</p>
+        <p class="text-[10px] text-slate-500 leading-snug">HereSphere and DeoVR host the timestamp server. Put the headset's IP here and this app reads the playhead, the same way ScriptPlayer does. Hosting a clock lets a tool that already follows DeoVR follow a video playing in this app. The toys do not follow the headset yet. That is the next piece.</p>
+        <div class="flex flex-wrap gap-2">
+          <input id="shellFollowHost" type="text" placeholder="192.168.1.30" aria-label="Headset IP" class="flex-1 min-h-[44px] min-w-[10rem] bg-slate-900 border border-slate-700 rounded-lg px-2 text-xs text-slate-200 outline-none focus:border-sky-500">
+          <input id="shellFollowPort" type="number" value="23554" aria-label="Timestamp port" class="w-24 min-h-[44px] bg-slate-900 border border-slate-700 rounded-lg px-2 text-xs text-slate-200 outline-none focus:border-sky-500">
+          <button id="shellFollowBtn" type="button" class="min-h-[44px] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold cursor-pointer">Follow headset</button>
+          <button id="shellFollowStop" type="button" class="min-h-[44px] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">Stop</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="shellHostBtn" type="button" class="min-h-[44px] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold cursor-pointer">Host a clock</button>
+          <button id="shellHostStop" type="button" class="min-h-[44px] px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">Stop hosting</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="shellSession" data-shell="session" class="hidden">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+        <h2 class="text-sm font-bold text-slate-100">Session setup</h2>
+        <p class="text-[11px] text-slate-400 leading-snug">Duration, guards, voice, and backup. Devices stay in the bar. Loop and Video do not carry these.</p>
+        <div id="shellSessionHost"></div>
+      </div>
+    </section>
 
     <div id="deviceBar" class="space-y-1.5">
           <div class="flex items-center justify-between gap-2">
@@ -1432,6 +1572,7 @@
       <!-- 3. Intiface Central Modal (Natural Smooth Scrolling Tray) -->
       <div id="modalBodyIntiface" class="space-y-3 hidden">
         <p class="text-xs text-slate-400">Bridge toys via Intiface Central (server started, URL <span class="font-mono">ws://</span> not <span class="font-mono">wss://</span> for localhost). OSR2 / SR6 / OSSM: add the serial/T-code device in Intiface first, connect EdgeLoop to <span class="font-mono">ws://localhost:12345</span>, then use <strong>Test</strong> on each Linear and Rotate axis. Stroke maps to Linear; twist/roll map to Rotate. Assign leftover axes Secondary or OFF. Roles, caps and rotation settings are remembered per toy.</p>
+        <p class="text-xs text-slate-400">The address can be a tablet or phone next to you that is running Intiface, for example <span class="font-mono">192.168.1.20</span>. Start the server on that device. A phone or tablet already listens for other devices. Intiface on a computer needs Settings, then <strong>Listen on all network interfaces</strong>, before the server is started. The address is remembered here. A site opened with https cannot reach that tablet. The desktop app can.</p>
         <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
           <div class="flex justify-between items-center">
             <span class="text-[10px] font-semibold text-slate-300">WebSocket URL</span>
@@ -2116,5 +2257,15 @@ python3 -m http.server 8787</pre>
 
   <!-- Module Entrypoint -->
   <script type="module" src="./src/js/app.js"></script>
+  <script>
+    // The paged shell is a different window from the site. dev.edgeloop.app
+    // and edgeloop.app never ask for it, so they never load it.
+    if (new URLSearchParams(location.search).get('shell') === '1') {
+      const shellScript = document.createElement('script');
+      shellScript.type = 'module';
+      shellScript.src = './src/js/desktop/shell.js';
+      document.body.appendChild(shellScript);
+    }
+  </script>
 </body>
 </html>

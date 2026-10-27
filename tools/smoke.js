@@ -162,11 +162,11 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   await step('open Handy modal', async () => { await page.locator('#cardHandy').click(); await sleep(300); await shot('03-handy-modal'); await closeModal(); });
   await step('open Intiface modal', async () => { await page.locator('#cardIntiface').click(); await sleep(300); await shot('04-intiface-modal'); await closeModal(); });
-  await step('intiface connect with a scheme-less URL shows the invalid-URL status', async () => {
+  await step('intiface connect with an http URL shows the invalid-URL status', async () => {
     await page.locator('#cardIntiface').click(); await sleep(300);
     try {
-      // Browsers resolve "localhost:12345" relative to the page; the driver must refuse it itself.
-      await page.locator('#modalIntifaceUrl').fill('localhost:12345');
+      // An http address must be refused. A host with no scheme is a tablet address and is kept.
+      await page.locator('#modalIntifaceUrl').fill('http://localhost:12345');
       await page.locator('#modalIntifaceConnectBtn').click(); await sleep(300);
       const txt = (await page.locator('#modalIntifaceStatusText').textContent() || '').trim();
       if (!/invalid websocket url/i.test(txt)) throw new Error('expected an invalid-URL status, got: ' + txt);

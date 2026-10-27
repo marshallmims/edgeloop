@@ -50,6 +50,7 @@ import { createScriptPlanner, liveFeed } from './script-planner.js';
 import { readVibeMode, readPulsePeriod, pulsePhase, pulseLevel, DEFAULT_VIBE_MODE, DEFAULT_PULSE_PERIOD_MS } from './vibe-pulse.js';
 
 export const INTIFACE_STORAGE_KEY = 'edgeloop_intiface_devices';
+export const INTIFACE_URL_KEY = 'edgeloop_intiface_url';
 export const DEFAULT_INTIFACE_URL = 'ws://localhost:12345';
 export const ALTERNATE_SECONDS_MIN = 5;
 export const ALTERNATE_SECONDS_MAX = 60;
@@ -67,6 +68,7 @@ export const INTIFACE_TIMINGS = {
 export const HELD_SEGMENT_MS = 200;
 
 export const INVALID_URL_TEXT = 'Invalid WebSocket URL: it must start with ws:// (or wss:// for a remote server with TLS), e.g. ws://localhost:12345.';
+export const REMOTE_WS_BLOCKED_TEXT = 'This page is https, so the browser will not open ws:// to another device. The desktop app can: npm run desktop, then use the tablet address. A wss:// address still works from this page when that server has TLS.';
 export const HANDSHAKE_TIMEOUT_TEXT = 'Handshake timed out. Make sure Intiface Central is running and its server is started; for localhost the URL must be ws://, not wss://.';
 export const CONNECT_FAILED_TEXT = 'Connection failed. Make sure Intiface Central is running and its server is started; for localhost the URL must be ws://, not wss://.';
 
@@ -251,21 +253,80 @@ function finishSession(s, reason, text) {
 
 // Browsers resolve a scheme-less WebSocket URL ("localhost:12345") against
 // the page origin instead of throwing, which ends in a confusing HTTP 404.
-// Only absolute ws:// or wss:// URLs are accepted.
+// A host, or a host and port, is turned into ws:// before the socket sees it.
+// An http:// address is still refused.
 export function isValidIntifaceUrl(url) {
     return typeof url === 'string' && /^wss?:\/\/\S+$/i.test(url.trim());
+}
+
+function isLoopbackHost(hostname) {
+    const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+
+function pageHrefOf(pageHref) {
+    if (typeof pageHref === 'string' && pageHref) return pageHref;
+    try {
+        if (typeof location !== 'undefined' && location.href) return location.href;
+    } catch (e) { /* not a browser */ }
+    return 'http://127.0.0.1/';
+}
+
+// A bare address gets the Intiface port. A full ws:// or wss:// address is
+// kept, including a port the user typed.
+export function normalizeIntifaceUrl(raw) {
+    const text = String(raw ?? '').trim();
+    if (!text) return { ok: true, url: DEFAULT_INTIFACE_URL };
+    if (/^https?:\/\//i.test(text)) return { ok: false, url: '' };
+    let candidate = text;
+    if (!/^wss?:\/\//i.test(candidate)) {
+        if (/[\s/?#]/.test(candidate)) return { ok: false, url: '' };
+        candidate = `ws://${candidate}`;
+    }
+    let parsed;
+    try { parsed = new URL(candidate); } catch (e) { return { ok: false, url: '' }; }
+    if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') return { ok: false, url: '' };
+    if (!parsed.hostname) return { ok: false, url: '' };
+    if (!parsed.port) parsed.port = '12345';
+    const url = parsed.href;
+    if (!isValidIntifaceUrl(url)) return { ok: false, url: '' };
+    return { ok: true, url };
+}
+
+// An https page may open ws://localhost. It may not open ws:// to a tablet
+// on the network. The desktop app is served from http://127.0.0.1, which can.
+export function remotePlainSocketBlocked(url, pageHref) {
+    let dest;
+    let page;
+    try {
+        dest = new URL(url);
+        page = new URL(pageHrefOf(pageHref));
+    } catch (e) { return false; }
+    if (dest.protocol !== 'ws:') return false;
+    if (isLoopbackHost(dest.hostname)) return false;
+    return page.protocol === 'https:';
+}
+
+export function describeIntifaceTarget(raw, pageHref) {
+    const normalized = normalizeIntifaceUrl(raw);
+    if (!normalized.ok) return { ok: false, url: '', message: INVALID_URL_TEXT };
+    if (remotePlainSocketBlocked(normalized.url, pageHref)) {
+        return { ok: false, url: normalized.url, message: REMOTE_WS_BLOCKED_TEXT };
+    }
+    return { ok: true, url: normalized.url, message: '' };
 }
 
 // Open a socket to Intiface Central. Any previous socket is closed first
 // (detached, so its close cannot wipe the new connection's device list).
 // Returns false when the URL is rejected synchronously.
-export function connectIntifaceServer(url, newHandlers) {
+export function connectIntifaceServer(url, newHandlers, pageHref) {
     if (newHandlers) setIntifaceHandlers(newHandlers);
-    const target = typeof url === 'string' && url.trim() ? url.trim() : DEFAULT_INTIFACE_URL;
-    if (!isValidIntifaceUrl(target)) {
-        setStatus('error', INVALID_URL_TEXT);
+    const described = describeIntifaceTarget(url, pageHref);
+    if (!described.ok) {
+        setStatus('error', described.message);
         return false;
     }
+    const target = described.url;
 
     if (session) finishSession(session, 'user');
 
