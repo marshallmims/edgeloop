@@ -4,6 +4,168 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.13
+
+- **The Handy uses the whole stroke again.** Each new position was only given about a tenth of a second, and the carriage brakes at the end of that, so a full sweep only covered a short slice. A long move now has time to arrive, and position mode opens the full travel window first.
+- **The line under each toy stays a line.** The tip was a dot that slid off the last sample and snapped back to the edge while a toy sat still.
+
+## 1.1.5.12
+
+- **Manual follow no longer waits on a background timer.** With the controller on screen, the host tab was only allowed to run a timer about once a second, so The Handy and the Lovense motors stepped once a second. Finger messages now carry the next position and speed.
+- **Stop freezes a Loop.** The toy was stopping while the drawn loop kept playing. Stop also cuts a motor that was still repeating its last speed.
+- **A controller link opens on Manual.** EdgeLoop Control is still one tap away.
+
+## 1.1.5.11
+
+- **Firmware 4 position is a fraction.** The dot was sending 5–95. That firmware reads 1 as the top, so every one of those numbers ran the carriage to the top and later moves did nothing. It now sends 0.05–0.95 and does not reset the stroke zone, which was also driving it to the top.
+- **A Lovense slider repeats the latest level.** Quick moves were landing about once a second because the motor was still finishing the previous command. The latest level is sent again at a steady pace.
+
+## 1.1.5.10
+
+- **The Handy dot uses absolute position on firmware 4.** The box is the stroke. Top stays at the top, the middle stays in the middle, and the bottom stays at the bottom. A loop plays that shape back.
+- **Each toy's loop keeps its own clock.** Drawing a loop on a second toy no longer restarts the first, and the playhead does not speed up.
+- **Stop stays in Manual Control.** The toys stop. The page does not switch back to EdgeLoop Control.
+- **Manual Control hides the channel bars and Stimulation Intensity.** The Slow and Stop buttons in that panel are gone.
+
+## 1.1.5.09
+
+- **Came Early and Force Orgasm are one line each.** The small words above them are gone.
+
+## 1.1.5.08
+
+- **Each EdgeLoop toy keeps its own play style.** Setting one vibrator to Milker and the other to Classic no longer changes both.
+- **The Handy dot is an absolute position.** Top of the box is the top of the stroke and it stays there. Middle stays in the middle. Bottom stays at the bottom. A loop plays those positions back. The move is given time to arrive, so it does not slam into an end and lock. Firmware 4 gets the position fields it expects.
+- **Start, Edged, Came Early, Force Orgasm, Stop.** The row uses the same green-to-red ramp as the stimulation slider. Start is green. Stop is red. The three between sit on the ramp.
+
+## 1.1.5.07
+
+- **A slider holds the level it shows.** The Edge was still running its pulse phrase under Manual Control, so a steady slider or Float ramped up, rested, and ramped again. The level you set is now the level the toy holds. The pulse phrase stays with EdgeLoop when it is driving.
+- **The Handy dot follows in both directions.** Middle of the dot is the middle of the stroke, the top is the top, and the bottom is the bottom. A move brakes at that spot instead of coasting into an end stop and locking there. Traditional is unchanged.
+- **Slider, Float, Loop, then Traditional.** Slider is the dots. Float and Loop turn on with it, and either one turns off if you select it again. Traditional clears all three and shows the sliders.
+
+## 1.1.5.06
+
+- **Traditional is the sliders.** Manual Control opens on the dots. Higher is more, and the bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. A line under each toy shows what it is doing. Traditional switches to the sliders and hides Float and Loop.
+- **The Handy brakes at the position you ask for.** A Loop drag was sending it through the bottom end stop, and the firmware then locked the slider there. The command now uses where your finger is when it is sent, and it stops at the target instead of coasting past the end.
+- **A session log on this build.** History has the switch and a debug download, including on the GitHub Pages copy. edgeloop.app still leaves it off. The file adds the Handy mode, the position commands, and the last error, and it leaves out the connection key.
+
+## 1.1.5.05
+
+- **The Linux Chrome flag under Scan & Pair can be copied.** When Bluetooth is hidden on Linux, the flag address sits under that button. Copy puts it on the clipboard. Paste it into the address bar. The same address in the pairing guide copies too.
+- **The Handy stroke is one bar with two dots.** The left dot is the bottom of the stroke and the right dot is the top.
+- **EdgeLoop on a toy opens the play styles.** You keeps the sliders. The play style is the session's, so every toy left on EdgeLoop follows the one you pick.
+- **Loop follows your hand, then repeats it.** Each toy you are driving gets a dot. A vibrator matches the height. The Handy moves to that height on its stroke, so a quick short drag is a quick short stroke and a slow long drag is a slow long one. Letting go repeats the movement.
+
+## 1.1.5.04
+
+- **Solo, Video Player, and Share Control are the three modes.** Solo is the regular page. Video Player is the player. Share Control is the controllee page. Solo leaves Share Control.
+- **Manual Control replaces Play Style and Session Endgame.** The button then says EdgeLoop Control and puts those choices back. A stroker gets speed and the bottom and top of the stroke. A vibrator gets one slider, and a second vibrator gets its own. You drives that toy. EdgeLoop leaves it on their pulse.
+
+## 1.1.5.03
+
+- **Share Control toggles back to regular mode.** While control is shared the header button says Regular. Regular mode on the controllee page does the same.
+- **The header button is Advanced Session Settings.** It opens the same limits as before.
+- **Session Setup titles the play style and the ending.** On the controller, Manual and EdgeLoop sit in that block.
+
+## 1.1.5.02
+
+- **Share Control opens this page.** The 1-on-1 and group popup is gone. The controller link, Copy, and who is connected are on the controllee page.
+
+## 1.1.5.01
+
+- **Share Control changes the page you are on.** The person whose toys are connected sees the devices, whether a controller is connected, the timer, the heart rate and its graph, and what Primary and Secondary are doing. Play Style, Session Endgame, and Stimulation Intensity move to the controller. Stop on this page still stops the toys. Stop sharing puts those controls back.
+- **The controller gets the regular cockpit.** They can start, pause, stop, mark an edge, and force an orgasm. They set the play style, the ending, and the intensity. The device row shows the other person's connections.
+- **Manual control is on the controller.** Each connected toy gets the controls it actually has. A stroker gets speed and a stroke range. A vibrator gets one level. Pulse, Wave, Ramp, Edge, and Climb are loops. Drag the pad to draw a loop and it repeats. Slow and Stop land immediately. A slider that is held stays there. A silent link eases the toys off, and a loop stops if the controller goes quiet. Stroke commands stay inside the travel limits already set on the toys. If the controller drops, the toys stop.
+- **The heart rate is sent when a reading arrives.** The one-second clock still sends the rest of the session.
+
+## 1.1.4.31
+
+- **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.
+- **No Nut November does not offer an orgasm.** The mode is renamed from NNN practice. Reaching the day's edge quota eases the toys down and ends the session. The denial percent is gone.
+
+## 1.1.4.30
+
+- **A choice closes the lists.** Picking a play style or an ending rolls both lists up. The play style card keeps that mode's description. A mode with its own settings, such as NNN practice, keeps those settings in the same card.
+
+## 1.1.4.29
+
+- **Play Style and Session Endgame use the button row's frame.** The gap, padding, and corners match the buttons under them. The choice boxes are one size.
+- **A choice stays open.** Picking a play style or an ending leaves both lists up, so the other one can be set without opening it again. Tap the card to close them.
+
+## 1.1.4.28
+
+- **The video controls are one bar.** The scrub, the time, Theater, and Fullscreen sit on one line under the picture.
+- **Play Style and Session Endgame fill the width.** With Player closed they stretch across the row. Opening either one opens both, so the two lists stay side by side.
+
+## 1.1.4.27
+
+- **Session length sits with the heart rate.** Warm-up, resting, the two maxes, Calibrate, length, and the minute window are matching tiles on the heart-rate card. They stay there with Player open or closed. Play Style and Session Endgame sit side by side when Player is closed.
+
+## 1.1.4.26
+
+- **Edged stays on the row.** The button is there before a session starts, while one is running, and after a pause. A tap before the session starts does nothing.
+- **During Calibration, Edged is the edge.** It saves the heart rate you are on as the single or dual max and eases the toys down, before an orgasm. The app / Finished me is still the orgasm.
+- **Finisher holds the heart rate you set.** Under that number the stroke pushes to get you there. As your pulse arrives it eases off, and on the mark it holds instead of sitting at full speed. Crawl and Full Stop do not replace that hold. Room noise does not speed it up.
+
+## 1.1.4.25
+
+- **Edged stops the toys and counts the edge.** It pauses the same way Pause does, and it does not add a pause. The edge counts for the session and for NNN. A crossing the pulse already counted is left alone.
+- **The session buttons are one full-width row.** Pause, Stop, Edged, Came Early, and Force Orgasm sit under the player. Closing Player leaves that row and hides the picture. Edges and pauses sit on the heart-rate card. On a playing video the top readout stays up, and those buttons fade after a few seconds until the pointer moves or the screen is tapped.
+
+## 1.1.4.24
+
+- **Tap the edge count to record one the pulse missed.** It counts for the session and for NNN. A crossing that was already counted is left alone.
+- **Relube pauses without adding a pause.** Any pause already holds the timer. Relube stops the toys the same way and leaves the pause count alone.
+- **Fitbit does not pair.** Those watches do not broadcast the standard Heart Rate service. A Galaxy Watch does, through Heart for Bluetooth, and a chest strap does. A pulse that only climbs a little still works when Climax HR sits just above the highest number you actually see.
+
+## 1.1.4.23
+
+- **Crawl speed is a number.** Under Guards, Crawl is 1% to 30%. 10% is still the default. Full Stop is still a park at 0%. The intensity slider still scales the crawl.
+
+## 1.1.4.22
+
+- **Stops and pauses are logged.** When the app tells a toy to stop or pause, the dev log records that command and why. That is there so a later report can show whether the app ordered the stop.
+- **The pulse readout stays blank until a monitor is connected.** With nothing linked it shows --. 70 is the resting default, and it was reading like a live pulse. The readout stays -- until a strap sends a beat, or the simulator is on. Disconnecting the strap blanks it again.
+- **Adaptive decay still clears on Stop.** Loading the next script takes Stop, and Stop drops the decay because the decay is the session edge count. Keeping that decay across stops is still open.
+- **A marked climax can release the limiter at the mark.** Pre-Climax Ramp Up defaults to 45 seconds, which makes a cum-now mark a slow climb. Set it to 0. The hold after the mark already ignores the pulse cap for Climax Duration.
+- **Other requests are noted, and not in this build.** A noise gate that punishes volume, a spoken "close" or "edge" that drops to crawl, a separate limit per channel, and a crawl other than 10%.
+
+## 1.1.4.21
+
+- **Bratty Tease is an experimental play style.** The climb matches Ultimate Milker. Close to the edge it dips for a second and comes back, several times, then runs a longer stretch and dips again. At the ceiling that pattern keeps going.
+
+## 1.1.4.20
+
+- **NNN practice is easier to read.** The day's edge count, the dates, and the numbers are larger. Edge Training and Session Length use that same size. Nothing moved.
+
+## 1.1.4.19
+
+- **Simple Ramp is the plain stroke.** Speed starts high and ramps down as your pulse climbs, and the strokes stay the full length you set. It is the play style that was called Primary Ease.
+- **Session Endgame uses the same cards as Play Style.** Climax, Soft Landing, Strict Denial, and the games sit in one two-column list, the same size on each row. That list is the same on the main page and on the Player.
+
+## 1.1.4.18
+
+- **Session Length sits under Start and Stop.** Closing Player leaves that panel in the left column, under the controls. Play Style and Session Endgame stay together on the right.
+
+## 1.1.4.17
+
+- **The top row is split in half.** On Player, the picture and the file panel each take half the width, and the two cards meet at the same height.
+- **Session setup is one short card.** Session Length, Play Style, and Session Endgame sit together. The long descriptions stay inside the list you open.
+- **Primary Ease runs the primary toy.** It eases off as your pulse climbs. It is the play style that used to be called Classic Tease.
+- **The ending is Climax, Soft Landing, or Strict Denial.** Tease is gone from Session Endgame. Survival keeps climbing until you press Stop. Edge Training still uses those three when the timer runs out.
+
+## 1.1.4.16
+
+- **The controls stay in the left column.** Start, Stop, edges, pauses, Came Early, and Force Orgasm sit under the picture, the same width as that picture. Closing Player hides the picture and leaves that panel. Session Length, Play Style, and Session Endgame take the file panel’s place as one card. Theater, fullscreen, and the scrub bar come back with the picture.
+
+## 1.1.4.15
+
+- **The main page uses the Player layout.** Heart rate, both channels, and intensity stay wide. Start, Stop, edges, pauses, Came Early, and Force Orgasm sit in that same row on both screens. Player adds the picture above that menu, and the file panel takes Session Length’s place. Theater, fullscreen, and the scrub bar are put away.
+
+## 1.1.4.14
+
+- **Warm-up sits with the heart rate.** The switch and the minutes are to the left of Resting, above the readout, on the main page and on the Player.
+
 ## 1.1.4.13
 
 - **Beat sync is in The Handy settings.** Open The Handy from the device row. Off, it follows speed and depth. On, with a funscript and firmware 4, it plays each stroke in the file. Leave it off until you want that match.

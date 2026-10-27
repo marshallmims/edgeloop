@@ -128,8 +128,67 @@ export function applyEndMargin(range, margin = HANDY_DEFAULT_END_MARGIN, minGap 
     return { min: lo, max: hi };
 }
 
+// Where a 0–100 finger position lands inside the wearer's travel, pulled
+// off the mechanical ends by the end margin. 0 is the bottom of that
+// window and 100 is the top. HDSP position commands use the result.
+export function followPosition(percent, envMin = 0, envMax = 100, margin = HANDY_DEFAULT_END_MARGIN) {
+    const bounds = endMarginWindow(envMin, envMax, margin);
+    const span = bounds.max - bounds.min;
+    const p = clampPercent(percent, 0);
+    return Math.round(bounds.min + (p / 100) * span);
+}
+
+// How an HDSP move may be sent. `position` and `lastPosition` are percents of
+// the full stroke. `lastPosition` below 0 means the sleeve position is not
+// known yet. `intervalMs` is the soonest another command is allowed out.
+//
+// The carriage always brakes at the target. Leaving stopOnTarget off lets it
+// keep traveling after the target, through the end stop, and the firmware
+// then locks it there: at the bottom, or at the top, until it will not follow
+// the finger back. A longer move is given more time. A short one still lasts
+// at least the stream interval, so the next finger position can replace it.
+export function hdspMove(position, lastPosition) {
+    const pos = clampPercent(position, 0);
+    const known = Number.isFinite(Number(lastPosition)) && Number(lastPosition) >= 0;
+    const last = known ? clampPercent(lastPosition, 0) : pos;
+    // An unknown start is treated as a full-stroke move. A short duration
+    // from the wrong place runs the carriage into the end stop, and firmware
+    // 4 then holds it there.
+    const distance = known ? Math.abs(pos - last) : 100;
+    // The carriage brakes at the target. A tenth of a second is only enough
+    // for about a fifth of the rail, so the sleeve looked like it had a
+    // short stroke. A full trip is given long enough to actually arrive.
+    const duration = Math.round(Math.min(900, Math.max(120, distance * 10)));
+    return { position: pos, duration, stopOnTarget: true };
+}
+
+// v2 names the fields position/duration/stopOnTarget. Firmware 4 (API v3)
+// names them xp/t/stop_on_target. Send both. A server that understands one
+// ignores the other.
+export function firmwareMajor(info) {
+    const version = String((info && (info.fwVersion || info.fw_version)) || '').trim();
+    const match = /^(\d+)/.exec(version);
+    return match ? Number(match[1]) : null;
+}
+
+export function hdspBody(move) {
+    const position = clampPercent(move && move.position, 0);
+        const duration = Math.round(Math.min(900, Math.max(120, Number(move && move.duration) || 120)));
+    return {
+        position,
+        duration,
+        stopOnTarget: true,
+        immediateResponse: true,
+        xp: position,
+        t: duration,
+        stop_on_target: true,
+        immediate_rsp: true
+    };
+}
+
 // The slide window HSP uses: the travel envelope, pulled off the mechanical
 // ends by the end margin, never narrower than the minimum stroke.
+
 export function endMarginWindow(envMin = 0, envMax = 100, margin = HANDY_DEFAULT_END_MARGIN, minGap = HANDY_MIN_SLIDE_GAP) {
     const gap = Math.max(0, toInt(minGap, HANDY_MIN_SLIDE_GAP));
     const env = normalizeEnvelope(envMin, envMax, 'max', gap);

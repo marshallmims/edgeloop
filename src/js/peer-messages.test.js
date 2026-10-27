@@ -12,9 +12,23 @@ describe('sanitizeCommand', () => {
         assert.deepEqual(sanitizeCommand({ type: 'ORGASM_TOGGLE' }), { type: 'ORGASM_TOGGLE' });
         assert.deepEqual(sanitizeCommand({ type: 'MODE_CHANGE', mode: 'milker' }), { type: 'MODE_CHANGE', mode: 'milker' });
         assert.deepEqual(
+            sanitizeCommand({ type: 'MODE_CHANGE', mode: 'classic', device: 'intiface:0:scalar:1' }),
+            { type: 'MODE_CHANGE', mode: 'classic', device: 'intiface:0:scalar:1' }
+        );
+        assert.deepEqual(sanitizeCommand({ type: 'MODE_CHANGE', mode: 'milker', device: 'not-a-toy' }), { type: 'MODE_CHANGE', mode: 'milker' });
+        assert.deepEqual(
             sanitizeCommand({ type: 'MODE_CHANGE', mode: 'oracle', enabled: false }),
             { type: 'MODE_CHANGE', mode: 'oracle', enabled: false }
         );
+        assert.deepEqual(
+            sanitizeCommand({ type: 'MODE_CHANGE', mode: 'goal-off', enabled: true, endgame: 'denial' }),
+            { type: 'MODE_CHANGE', mode: 'goal-off', enabled: true, endgame: 'denial' }
+        );
+        assert.deepEqual(sanitizeCommand({ type: 'ENDGAME', endgame: 'rampdown' }), { type: 'ENDGAME', endgame: 'rampdown' });
+        assert.deepEqual(sanitizeCommand({ type: 'EDGE_MARK' }), { type: 'EDGE_MARK' });
+        assert.deepEqual(sanitizeCommand({ type: 'INTENSITY', value: 80 }), { type: 'INTENSITY', value: 80 });
+        assert.deepEqual(sanitizeCommand({ type: 'MANUAL_STOP', epoch: 3 }), { type: 'MANUAL_STOP', epoch: 3 });
+        assert.equal(sanitizeCommand({ type: 'MANUAL_ARM', on: true, epoch: 1 }).on, true);
     });
 
     it('strips every extra field so raw limits or speeds never reach the host', () => {
@@ -38,6 +52,9 @@ describe('sanitizeCommand', () => {
         assert.equal(sanitizeCommand({ type: 'SESSION_STATE', status: 'RUNNING' }, 'viewer'), null);
         assert.equal(sanitizeCommand({ type: 'ORGASM_TOGGLE' }, 'viewer'), null);
         assert.equal(sanitizeCommand({ type: 'SESSION_RESET' }, 'viewer'), null);
+        assert.equal(sanitizeCommand({ type: 'MANUAL_STOP', epoch: 1 }, 'viewer'), null);
+        assert.equal(sanitizeCommand({ type: 'EDGE_MARK' }, 'viewer'), null);
+        assert.equal(sanitizeCommand({ type: 'INTENSITY', value: 10 }, 'viewer'), null);
     });
 });
 
@@ -91,6 +108,9 @@ describe('sanitizeTelemetry', () => {
         assert.equal(t.ready, undefined);
         assert.equal(t.history, undefined);
         assert.equal(t.hrSignal, undefined);
+        assert.equal(t.hrSeen, undefined);
+        assert.equal(sanitizeTelemetry({ type: 'TELEMETRY', hrSeen: 'yes' }).hrSeen, undefined);
+        assert.equal(sanitizeTelemetry({ type: 'TELEMETRY', hrSeen: false }).hrSeen, false);
     });
 
     it('accepts known statuses, modes and booleans', () => {
@@ -109,6 +129,32 @@ describe('sanitizeTelemetry', () => {
         assert.equal(t.gameMode, 'off');
         assert.equal(t.orgasmMode, true);
         assert.equal(t.ready, false);
+    });
+
+    it('carries the device catalog, manual flag, and intensity', () => {
+        const t = sanitizeTelemetry({
+            type: 'TELEMETRY',
+            manual: true,
+            intensity: 70,
+            speedSlowest: 5,
+            speedFastest: 90,
+            strokeMin: 10,
+            strokeMax: 80,
+            devices: [
+                { id: 'handy', name: 'The Handy', connected: true, role: 'primary', kind: 'stroke' },
+                { id: '<bad>', name: 'no', connected: true, role: 'primary', kind: 'stroke' }
+            ]
+        });
+        assert.equal(t.manual, true);
+        assert.equal(t.intensity, 70);
+        assert.equal(t.speedSlowest, 5);
+        assert.equal(t.speedFastest, 90);
+        assert.equal(t.strokeMin, 10);
+        assert.equal(t.strokeMax, 80);
+        assert.equal(t.devices.length, 1);
+        assert.equal(t.devices[0].id, 'handy');
+        assert.equal(sanitizeTelemetry({ type: 'TELEMETRY' }).devices, undefined);
+        assert.equal(sanitizeTelemetry({ type: 'TELEMETRY' }).manual, undefined);
     });
 
     it('cleans the history and keeps only the newest 60 samples', () => {

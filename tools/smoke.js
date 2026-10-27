@@ -86,11 +86,20 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => {
-    if (m.type() === 'error') errors.push('console.error: ' + m.text());
+    if (m.type() === 'error') {
+      // A missing optional manifest is recorded on the response, below.
+      // The browser also prints a generic 404 line with no URL.
+      const text = m.text();
+      if (text.includes('Failed to load resource') && text.includes('404')) return;
+      errors.push('console.error: ' + text);
+    }
     else if (m.type() === 'warning') warnings.push(m.text());
   });
   page.on('requestfailed', r => { if (!r.url().includes('favicon')) errors.push('requestfailed: ' + r.url() + ' ' + (r.failure() || {}).errorText); });
-  page.on('response', r => { if (r.status() >= 400 && !r.url().includes('favicon')) errors.push(`http ${r.status()}: ${r.url()}`); });
+  page.on('response', r => {
+    // python http.server has no app manifest. The node host serves this path.
+    if (r.status() >= 400 && !r.url().includes('favicon') && !r.url().includes('/edgeloop-app.json')) errors.push(`http ${r.status()}: ${r.url()}`);
+  });
 
   // The Handy cloud API is mocked inside the browser, so the transport can be driven end to end
   // without hardware: every request is answered the way the real API v2 would, and recorded, so the
@@ -117,7 +126,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
         }).map(d => (d.id || '') + '.' + d.className.split(' ').slice(0, 4).join('.')));
         await page.screenshot({ path: path.join(OUT, 'fail-' + name.replace(/[^a-z0-9]+/gi, '_') + '.png') });
       } catch (e2) {}
-      steps.push({ name, ok: false, error: e.message.split('\n')[0], overlays });
+      steps.push({ name, ok: false, error: e.message.split('\n').slice(0, 6).join(' | '), overlays });
     }
   };
   const shot = (n) => page.screenshot({ path: path.join(OUT, n + '.png') });
@@ -233,6 +242,8 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   await step('open Session Setup', async () => {
     await page.locator('#sessionParamsHeaderBtn').click(); await sleep(300); await shot('05-session-setup');
+    const setupTitle = (await page.locator('#modalTitle').textContent() || '').trim();
+    if (!/advanced session settings/i.test(setupTitle)) throw new Error('modal title: ' + setupTitle);
     const tabs = page.locator('#modalOverlay button');
     const n = await tabs.count();
     for (let i = 0; i < Math.min(n, 12); i++) { const t = tabs.nth(i); const txt = (await t.textContent() || '').trim(); if (/guards|duration|motion|audio|profiles|tuning|general|backup/i.test(txt)) { await t.click().catch(() => {}); await sleep(150); } }
@@ -257,14 +268,43 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   });
   await step('open Guide / History / Share', async () => {
     await page.locator('#guideBtn').click(); await sleep(250); await shot('06-guide'); await closeModal();
-    await page.locator('#historyBtn').click(); await sleep(250); await shot('07-history'); await closeModal();
-    await page.getByText(/share control/i).first().click(); await sleep(400); await shot('08-share');
+    await page.locator('#historyBtn').click(); await sleep(250);
+    if (!(await page.locator('#sessionLogPanel').isVisible())) throw new Error('session log switch hidden on this build');
+    if (!(await page.locator('#sessionLogDownload').isVisible())) throw new Error('debug log download hidden on this build');
+    await shot('07-history'); await closeModal();
+    const soloLabel = (await page.locator('#soloModeBtn').textContent() || '').trim();
+    if (!/solo/i.test(soloLabel)) throw new Error('Solo mode button missing: ' + soloLabel);
+    const videoLabel = (await page.locator('#playerHeaderBtn').textContent() || '').trim();
+    if (!/video player/i.test(videoLabel)) throw new Error('Video Player button missing: ' + videoLabel);
+    if (await page.locator('#controlleeStopBtn').count()) throw new Error('controllee banner still has a Regular mode button');
+    await page.getByText(/share control/i).first().click(); await sleep(400);
+    if (await page.locator('#modalOverlay').isVisible()) throw new Error('Share Control opened a popup');
+    if (!(await page.locator('#controlleeBanner').isVisible())) throw new Error('controllee banner missing after Share Control');
+    const sharingPressed = await page.locator('#partnerShareBtn').getAttribute('aria-pressed');
+    if (sharingPressed !== 'true') throw new Error('Share Control was not selected: ' + sharingPressed);
+    const soloPressed = await page.locator('#soloModeBtn').getAttribute('aria-pressed');
+    if (soloPressed === 'true') throw new Error('Solo stayed selected while sharing');
+    if (await page.locator('#playStylePanel').isVisible()) throw new Error('play style should be hidden while sharing');
+    if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame should be hidden while sharing');
+    if (await page.locator('#intensityPanel').isVisible()) throw new Error('intensity should be hidden while sharing');
+    if (!(await page.locator('#hrChart').isVisible())) throw new Error('heart-rate graph missing on the controllee');
+    const blockTitle = (await page.locator('#sessionSetupTitle').textContent() || '').trim();
+    if (!/session setup/i.test(blockTitle)) throw new Error('Session Setup title missing: ' + blockTitle);
+    await page.screenshot({ path: path.join(OUT, '08-share.png'), fullPage: true });
     // Copy-link buttons must never throw (clipboard may be denied; execCommand fallback).
-    await page.locator('#copyShareUrlBtn').click().catch(() => {}); await sleep(150);
-    const groupTab = page.locator('#partnerTabGroupBtn, button:has-text("Group"), button:has-text("Viewer")').first();
-    if (await groupTab.count()) await groupTab.click().catch(() => {});
-    await page.locator('#copyGroupUrlBtn').click().catch(() => {}); await sleep(150);
-    await closeModal();
+    await page.locator('#controlleeCopyBtn').click().catch(() => {}); await sleep(150);
+    // Solo is the regular page. Share Control stays Share Control.
+    await page.locator('#soloModeBtn').click(); await sleep(250);
+    if (await page.locator('#controlleeBanner').isVisible()) throw new Error('Solo left the controllee banner up');
+    if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after Solo');
+    if (!(await page.locator('#sessionSetupTitle').isVisible())) throw new Error('Session Setup title hidden after Solo');
+    const soloBack = await page.locator('#soloModeBtn').getAttribute('aria-pressed');
+    if (soloBack !== 'true') throw new Error('Solo was not selected after returning');
+    const shareBack = await page.locator('#partnerShareBtn').getAttribute('aria-pressed');
+    if (shareBack === 'true') throw new Error('Share Control stayed selected after Solo');
+    const role = (await page.locator('#roleIndicator').textContent() || '').trim();
+    if (!/local host/i.test(role)) throw new Error('role did not return: ' + role);
+    await page.screenshot({ path: path.join(OUT, '08b-regular.png'), fullPage: true });
   });
   await step('drive HR above ceiling via simulator', async () => {
     await page.locator('#cardBle').click(); await sleep(200);
@@ -275,18 +315,50 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   await step('mode cards click', async () => {
     if (await page.locator('#expTabGameBtn').count()) throw new Error('modes/games tabs should be gone');
     if (!(await page.locator('#playStyleName').isVisible())) throw new Error('play style missing');
-    await page.locator('#playStyleToggle').click(); await sleep(150);
+    // One tap opens both lists. A second tap closes both, so the goal row
+    // is checked while the first open is still up.
+    await page.locator('#playStyleSelected').click(); await sleep(150);
     if (!(await page.locator('#bioProfilesGrid').isVisible())) throw new Error('stroke row hidden');
-    await page.locator('#endgameToggle').click(); await sleep(150);
     if (!(await page.locator('#gameModesGrid').isVisible())) throw new Error('goal row hidden');
     await page.getByText(/prostate milker/i).first().click().catch(() => {}); await sleep(200);
-    await page.locator('#playStyleToggle').click(); await sleep(150);
-    await page.getByText(/classic tease/i).first().click().catch(() => {}); await sleep(200);
+    await page.locator('#playStyleSelected').click(); await sleep(150);
+    await page.getByText(/simple ramp/i).first().click().catch(() => {}); await sleep(200);
     if (!(await page.locator('[data-mode="goal-off"]').count())) throw new Error('tease goal missing');
     if (!(await page.locator('[data-mode="edgetrain"]').count())) throw new Error('edge training game missing');
-    await page.locator('[data-mode="edgetrain"]').click(); await sleep(150);
+    if (!(await page.locator('#gameModesGrid').isVisible())) {
+      await page.locator('#playStyleSelected').click(); await sleep(150);
+    }
+    await page.locator('#gameModesGrid [data-mode="edgetrain"]').click(); await sleep(150);
     if (!(await page.locator('#trainHoldSecondsInput').isVisible())) throw new Error('edge training hold input missing');
-    await page.locator('[data-mode="goal-off"]').click(); await sleep(150);
+    if (!(await page.locator('#gameModesGrid').isVisible())) {
+      await page.locator('#playStyleSelected').click(); await sleep(150);
+    }
+    await page.locator('#gameModesGrid [data-mode="goal-off"][data-endgame="orgasm"]').click(); await sleep(150);
+  });
+  await step('Linux Chrome flag sits under Scan and Pair', async () => {
+    await page.locator('#cardBle').click(); await sleep(200);
+    await page.locator('#bleTabRealBtn').click(); await sleep(200);
+    const flag = await page.evaluate(() => {
+      const ua = navigator.userAgent;
+      const linux = /Linux/i.test(ua) && !/Android/i.test(ua) && !/CrOS/i.test(ua);
+      const box = document.getElementById('bleLinuxFlag');
+      const input = document.getElementById('bleLinuxFlagUrl');
+      return {
+        expect: linux && !navigator.bluetooth,
+        hidden: !box || box.classList.contains('hidden'),
+        value: input ? input.value : '',
+        readonly: input ? input.readOnly === true : false
+      };
+    });
+    if (flag.expect) {
+      if (flag.hidden) throw new Error('Linux flag hint is hidden');
+      if (flag.value !== 'chrome://flags/#enable-experimental-web-platform-features') throw new Error('flag address: ' + flag.value);
+      if (!flag.readonly) throw new Error('flag address is not read-only');
+      await page.screenshot({ path: path.join(OUT, '13-linux-flag.png') });
+    } else if (!flag.hidden) {
+      throw new Error('flag hint is showing without a Linux browser that lacks Web Bluetooth');
+    }
+    await closeModal();
   });
   await step('connect the mocked Handy', async () => {
     await page.locator('#cardHandy').click(); await sleep(300);
@@ -307,7 +379,25 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (await play.count() !== 1) throw new Error('#sessionPlayPauseBtn missing');
     if (await play.isDisabled()) throw new Error('START is disabled: ' + await playText());
     handyCalls.length = 0;
-    await play.click(); await sleep(1500);
+    try {
+      await play.click();
+    } catch (err) {
+      const box = await play.evaluate((el) => {
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return {
+          display: style.display,
+          visibility: style.visibility,
+          opacity: style.opacity,
+          w: rect.width,
+          h: rect.height,
+          top: rect.top,
+          disabled: el.disabled
+        };
+      }).catch(() => null);
+      throw new Error(`${err.message.split('\n')[0]} ${JSON.stringify(box)}`);
+    }
+    await sleep(1500);
     if ((await playText()) !== 'PAUSE') throw new Error('expected PAUSE after START, got: ' + await playText());
     const cue = ((await page.locator('#mindgamePromptText').textContent()) || '').trim();
     if (!/Session started/i.test(cue)) throw new Error('dashboard cue did not say session start: ' + cue);
@@ -335,7 +425,8 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (!/START SESSION/i.test(await playText())) throw new Error('expected START SESSION after STOP, got: ' + await playText());
     const motion = handyCalls.filter(c => /^\/hamp\/(start|stop|velocity)$/.test(c.path));
     if (!motion.length || motion[motion.length - 1].path !== '/hamp/stop') throw new Error('the last motion command after STOP must be PUT /hamp/stop: ' + JSON.stringify(motion));
-    await page.locator('#sessionResetBtn').click({ force: true }); await sleep(300);
+    // Reset stays off the transport row. The handler is what the smoke needs.
+    await page.locator('#sessionResetBtn').evaluate((el) => el.click()); await sleep(300);
     const edges = (await page.locator('#edgeCount').textContent() || '').trim();
     const timer = (await page.locator('#sessionTimer').textContent() || '').trim();
     if (edges !== '0' || !/^00:00$/.test(timer)) throw new Error('Reset did not zero the counters: edges=' + edges + ' timer=' + timer);
@@ -382,6 +473,51 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     await sleep(1500);
     const role = await page.evaluate(() => document.querySelector('#roleIndicator')?.textContent?.trim() || '');
     if (!/remote controller/i.test(role)) throw new Error('controller badge missing: ' + role);
+    if (await page.locator('#manualPanel').isVisible()) throw new Error('manual controls should stay behind Manual Control');
+    const setupTitle = (await page.locator('#sessionSetupTitle').textContent() || '').trim();
+    if (!/session setup/i.test(setupTitle)) throw new Error('Session Setup title missing on the controller: ' + setupTitle);
+    const manualBtn = page.locator('#sessionSetupBar #manualModeBtn');
+    if (!(await manualBtn.isVisible())) throw new Error('manual switch missing from Session Setup');
+    const manualLabel = (await manualBtn.textContent() || '').trim();
+    if (!/manual control/i.test(manualLabel)) throw new Error('button should say Manual Control: ' + manualLabel);
+    if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style missing before Manual Control');
+    await manualBtn.click(); await sleep(200);
+    const flipped = (await manualBtn.textContent() || '').trim();
+    if (!/edgeloop control/i.test(flipped)) throw new Error('manual switch did not flip to EdgeLoop Control: ' + flipped);
+    if (await page.locator('#playStylePanel').isVisible()) throw new Error('play style stayed up during Manual Control');
+    if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame stayed up during Manual Control');
+    if (!(await page.locator('#manualLive').isVisible())) throw new Error('manual controls stayed hidden');
+    if (await page.locator('#manualSlowBtn').count()) throw new Error('Slow should not be in manual control');
+    if (await page.locator('#channelGauges').isVisible()) throw new Error('channel gauges stayed up during Manual Control');
+    if (await page.locator('#intensityPanel').isVisible()) throw new Error('intensity stayed up during Manual Control');
+    if (!(await page.locator('#manualSliderBtn').isVisible())) throw new Error('Slider missing from manual control');
+    if ((await page.locator('#manualSliderBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Slider should start selected');
+    if (!(await page.locator('#manualTraditionalBtn').isVisible())) throw new Error('Traditional missing from manual control');
+    if (!(await page.locator('#manualFloatBtn').isVisible())) throw new Error('Float missing from manual control');
+    if (!(await page.locator('#manualLoopBtn').isVisible())) throw new Error('Loop missing from manual control');
+    if (!(await page.locator('#manualLoopStage').isVisible())) throw new Error('touch stage hidden before Traditional');
+    await page.locator('#manualLoopBtn').click(); await sleep(100);
+    if ((await page.locator('#manualLoopBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Loop did not turn on');
+    if ((await page.locator('#manualSliderBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Loop cleared Slider');
+    await page.locator('#manualFloatBtn').click(); await sleep(100);
+    if ((await page.locator('#manualFloatBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Float did not turn on');
+    if ((await page.locator('#manualLoopBtn').getAttribute('aria-pressed')) !== 'false') throw new Error('Loop stayed on beside Float');
+    if ((await page.locator('#manualSliderBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Float cleared Slider');
+    await page.screenshot({ path: path.join(OUT, '12-controller-touch.png'), fullPage: true });
+    await page.locator('#manualTraditionalBtn').click(); await sleep(150);
+    if ((await page.locator('#manualTraditionalBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Traditional did not turn on');
+    if ((await page.locator('#manualSliderBtn').getAttribute('aria-pressed')) !== 'false') throw new Error('Traditional left Slider selected');
+    if ((await page.locator('#manualFloatBtn').getAttribute('aria-pressed')) !== 'false') throw new Error('Traditional left Float selected');
+    if ((await page.locator('#manualLoopBtn').getAttribute('aria-pressed')) !== 'false') throw new Error('Traditional left Loop selected');
+    if (await page.locator('#manualTouch').isVisible()) throw new Error('Traditional left the dot panel up');
+    if (!(await page.locator('#manualFloatBtn').isVisible())) throw new Error('Traditional hid Float');
+    await page.screenshot({ path: path.join(OUT, '12-controller-traditional.png'), fullPage: true });
+    await page.screenshot({ path: path.join(OUT, '12-controller-manual.png'), fullPage: true });
+    await manualBtn.click(); await sleep(200);
+    if (await page.locator('#manualLive').isVisible()) throw new Error('EdgeLoop Control left the manual controls open');
+    if (!(await page.locator('#playStylePanel').isVisible())) throw new Error('play style did not return after EdgeLoop Control');
+    if (await page.locator('#edgedBtn').isDisabled()) throw new Error('Edged should be usable by the controller');
+    if (await page.locator('#intensitySlider').isDisabled()) throw new Error('intensity should be usable by the controller');
     await page.locator('#stopBtn, #sessionStopBtn').first().click({ force: true }).catch(() => {});
     await page.locator('#resetBtn, #sessionResetBtn').first().click({ force: true }).catch(() => {});
     await shot('12-controller');

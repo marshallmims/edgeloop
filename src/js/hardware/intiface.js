@@ -207,6 +207,8 @@ function clearAxisTimers(dev) {
         if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
         if (axis.testTimer) { clearTimeout(axis.testTimer); axis.testTimer = null; }
         if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+        if (axis.steadyTimer) { clearTimeout(axis.steadyTimer); axis.steadyTimer = null; }
+        axis.steadyLevel = null;
         cutPulse(axis);
     });
 }
@@ -710,9 +712,9 @@ function silenced(axis) {
     return Boolean(axis.pair) && axis.role === 'off' && axis.pair.owner !== axis.kind;
 }
 
-function sendScalar(dev, axis, value) {
+function sendScalar(dev, axis, value, { force = false } = {}) {
     if (silenced(axis)) return false;
-    if (axis.lastSent === value) return false;
+    if (!force && axis.lastSent === value) return false;
     if (!sendDeviceCmd(dev, axis, buildScalarCmd(nextId(), dev.index, [{ index: axis.index, scalar: value, actuatorType: axis.type }]))) return false;
     axis.lastSent = value;
     noteDrove(axis, value > 0);
@@ -758,10 +760,41 @@ function armPulse(dev, axis, now) {
 // peak of a pulse train (Pulsed). The train starts on the first positive
 // level, at the peak at once, and any 0 cuts it: a stop, a pause, OFF, or
 // a cap of 0.
-function applyScalar(dev, axis, speed, now) {
+function applyScalar(dev, axis, speed, now, { steady = false } = {}) {
     const level = fullRail(axis) && !envelopeIsWhole(lastEnvelope) ? 0 : scalarFor(axis, speed);
+    // A slider, Float, or a dot is the level the toy should hold. The pulse
+    // phrase is the engine's pattern: ramp, rest, ramp again. Running that
+    // under a finger makes the toy stutter back up to the slider.
+    if (steady && level > 0) {
+        // A finger on a Lovense motor. The toy drops a command it is still
+        // finishing, so a burst of slider moves lands about once a second.
+        // Hold the latest level and repeat it until the finger changes it.
+        cutPulse(axis);
+        const changed = axis.lastSent !== level;
+        axis.steadyLevel = level;
+        // Send the new level from this call. Waiting for the repeat timer
+        // made a fast drag land about once a second, because a background
+        // host tab clamps that timer.
+        if (changed || !axis.steadyTimer) sendScalar(dev, axis, level, { force: true });
+        if (!axis.steadyTimer) {
+            const pump = () => {
+                if (axis.steadyLevel == null || !isIntifaceConnected()) {
+                    axis.steadyTimer = null;
+                    return;
+                }
+                sendScalar(dev, axis, axis.steadyLevel, { force: true });
+                axis.steadyTimer = setTimeout(pump, 80);
+                if (axis.steadyTimer && typeof axis.steadyTimer.unref === 'function') axis.steadyTimer.unref();
+            };
+            axis.steadyTimer = setTimeout(pump, 80);
+            if (axis.steadyTimer && typeof axis.steadyTimer.unref === 'function') axis.steadyTimer.unref();
+        }
+        return;
+    }
     if (!isPulsed(axis) || level <= 0) {
         cutPulse(axis);
+        if (axis.steadyTimer) { clearTimeout(axis.steadyTimer); axis.steadyTimer = null; }
+        axis.steadyLevel = null;
         sendScalar(dev, axis, level);
         return;
     }
@@ -972,7 +1005,28 @@ function maybeAlternate(dev, now, active) {
     if (now - (dev.lastDirectionChangeAt || 0) >= dev.alternateSeconds * 1000) flipDirection(dev, now);
 }
 
+// Axes the controller is driving. The engine tick must not overwrite them.
+export function setIntifaceManualHold(pairs) {
+    const next = new Set();
+    for (const pair of pairs || []) {
+        if (!pair || pair.deviceIndex === undefined || !pair.axisKey) continue;
+        next.add(`${pair.deviceIndex}:${pair.axisKey}`);
+    }
+    intifaceDevices.forEach((dev) => {
+        for (const axis of dev.axes || []) {
+            const hold = next.has(`${dev.index}:${axis.key}`);
+            if (hold === Boolean(axis.manualHold)) continue;
+            axis.manualHold = hold;
+            if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+            if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+            if (hold) cutPulse(axis);
+            if (hold && axis.planner) axis.planner.setInput({ enabled: false });
+        }
+    });
+}
+
 function applyAxis(dev, axis, primary, secondary, zone, now) {
+    if (axis.manualHold) return;
     const speed = axis.role === 'primary' ? primary : (axis.role === 'secondary' ? secondary : 0);
     if (axis.kind === 'linear') {
         axis.planner.setInput({ speed, cap: axis.maxCap, zoneMin: zone.min, zoneMax: zone.max, enabled: axis.role !== 'off' });
@@ -1010,6 +1064,22 @@ function zoneFromPercent(strokeMin, strokeMax, envMin, envMax) {
 // already mapped into the hardware envelope by engine.js; the envelope is
 // used only to clamp (and to mirror inverted axes) so no position can ever
 // leave the user's bounds.
+function silenceManualDrive() {
+    intifaceDevices.forEach((dev) => {
+        for (const axis of dev.axes || []) {
+            const repeating = Boolean(axis.steadyTimer) || axis.steadyLevel != null || axis.manualHold;
+            axis.steadyLevel = null;
+            if (axis.steadyTimer) { clearTimeout(axis.steadyTimer); axis.steadyTimer = null; }
+            if (!repeating) continue;
+            cutPulse(axis);
+            if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+            if (axis.segTimer) { clearTimeout(axis.segTimer); axis.segTimer = null; }
+            if (axis.kind === 'rotate') sendRotate(dev, axis, 0);
+            else if (axis.kind !== 'linear') sendScalar(dev, axis, 0, { force: true });
+        }
+    });
+}
+
 export function dispatchIntiface(primarySpeed, secondarySpeed, strokeMin = 0, strokeMax = 100, envMin = 0, envMax = 100, force = false) {
     const mapped = zoneFromPercent(strokeMin, strokeMax, envMin, envMax);
     lastZone = mapped.zone;
@@ -1020,12 +1090,86 @@ export function dispatchIntiface(primarySpeed, secondarySpeed, strokeMin = 0, st
     };
     if (!isIntifaceConnected() || intifaceDevices.size === 0) return;
     if (force && lastSpeeds.primary === 0 && lastSpeeds.secondary === 0) {
-        // STOP / pause: the server-side stop first, then the per-axis rest
-        // moves and zeros (the planner finishes the leg in flight instead of
-        // snapping the sleeve).
+        // STOP / pause: cut a slider that was repeating its last level,
+        // then the server-side stop, then the per-axis rest moves.
+        silenceManualDrive();
         send(buildStopAllDevices(nextId()));
     }
     applyLastSpeeds(Date.now());
+}
+
+// Manual control drives one axis at a time. `entries` are
+// { deviceIndex, axisKey, speed, strokeMin, strokeMax, level }. The wearer's
+// per-axis cap and travel envelope still apply. `stopAll` is the fast path
+// for Slow is not enough / Stop: every motor is cut, not eased.
+// One axis, at a level chosen for that toy. Used when its play style is not
+// the session's, so it does not have to follow the other toy.
+export function driveIntifaceAxis(deviceIndex, axisKey, speedPercent) {
+    if (!isIntifaceConnected()) return;
+    const dev = intifaceDevices.get(deviceIndex);
+    if (!dev) return;
+    const axis = dev.axes.find((item) => item.key === axisKey);
+    if (!axis || axis.inert || axis.role === 'off' || axis.manualHold) return;
+    const speed = Math.max(0, Math.min(100, Number(speedPercent) || 0));
+    const now = Date.now();
+    if (axis.kind === 'linear') {
+        axis.planner.setInput({
+            speed,
+            cap: axis.maxCap,
+            zoneMin: lastZone.min,
+            zoneMax: lastZone.max,
+            enabled: speed > 0
+        });
+        pumpLinear(dev, axis, now);
+    } else if (axis.kind === 'rotate') {
+        sendRotate(dev, axis, scalarFor(axis, speed));
+    } else {
+        applyScalar(dev, axis, speed, now);
+    }
+}
+
+export function applyManualIntiface(entries, envMin = 0, envMax = 100, { stopAll = false } = {}) {
+    if (!isIntifaceConnected() || intifaceDevices.size === 0) return;
+    const mapped = zoneFromPercent(0, 100, envMin, envMax);
+    lastEnvelope = mapped.envelope;
+    if (stopAll) {
+        dispatchIntiface(0, 0, 0, 100, envMin, envMax, true);
+        return;
+    }
+    const now = Date.now();
+    for (const entry of entries || []) {
+        const dev = intifaceDevices.get(entry.deviceIndex);
+        if (!dev) continue;
+        const axis = dev.axes.find((item) => item.key === entry.axisKey);
+        if (!axis || axis.inert || axis.role === 'off') continue;
+        const speed = axis.kind === 'linear' || axis.kind === 'rotate' ? entry.speed : entry.level;
+        if (axis.kind === 'linear' && Number.isFinite(Number(entry.position))) {
+            const pos = zoneFromPercent(entry.position, entry.position, envMin, envMax).zone.min;
+            axis.planner.setInput({ enabled: false, speed: 0 });
+            if (axis.timer) { clearTimeout(axis.timer); axis.timer = null; }
+            if (axis.lastFollow !== pos) {
+                axis.lastFollow = pos;
+                sendLinear(dev, axis, physicalPosition(axis, pos), 90);
+            }
+            continue;
+        }
+        axis.lastFollow = null;
+        if (axis.kind === 'linear') {
+            const zone = zoneFromPercent(entry.strokeMin, entry.strokeMax, envMin, envMax).zone;
+            axis.planner.setInput({
+                speed,
+                cap: axis.maxCap,
+                zoneMin: zone.min,
+                zoneMax: zone.max,
+                enabled: speed > 0
+            });
+            pumpLinear(dev, axis, now);
+        } else if (axis.kind === 'rotate') {
+            sendRotate(dev, axis, scalarFor(axis, speed));
+        } else {
+            applyScalar(dev, axis, speed, now, { steady: true });
+        }
+    }
 }
 
 // ---- user settings ----------------------------------------------------------------

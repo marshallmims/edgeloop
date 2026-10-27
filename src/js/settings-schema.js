@@ -21,7 +21,7 @@
 
 import { SETTING_DEFAULTS } from './state.js';
 import { clampStallGuardSeconds, clampStallPauseSeconds, clampTrainHoldSeconds, clampTrainEdges, clampOrgasmSettleSeconds, MAX_SESSION_MINUTES } from './session-rules.js';
-import { clampEdgeHoldPercent } from './engine.js';
+import { clampEdgeHoldPercent, clampCrawlPercent } from './engine.js';
 import {
     clampReactBpm,
     clampFloor,
@@ -201,6 +201,7 @@ export const SETTING_SANITIZERS = {
     stallGuardSeconds: (value) => clampStallGuardSeconds(value),
     stallPauseSeconds: (value) => clampStallPauseSeconds(value),
     ceilingBehaviour: oneOf('ceilingBehaviour', ['stop', 'crawl']),
+    crawlPercent: (value) => clampCrawlPercent(value),
     edgeHoldPercent: (value) => clampEdgeHoldPercent(value),
     trainHoldSeconds: (value) => clampTrainHoldSeconds(value),
     trainEdges: (value) => clampTrainEdges(value),

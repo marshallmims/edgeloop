@@ -4,16 +4,20 @@ import { readFileSync } from 'node:fs';
 import {
     isDevTelemetryHost,
     publicDeviceName,
+    pauseReasonFromSource,
     createSessionLog,
     buildSessionExport
 } from './session-telemetry.js';
 
 describe('dev session log host', () => {
-    it('is only the dev site', () => {
+    it('is every host except the live site', () => {
         assert.equal(isDevTelemetryHost('dev.edgeloop.app'), true);
         assert.equal(isDevTelemetryHost('DEV.EDGELOOP.APP'), true);
+        assert.equal(isDevTelemetryHost('marshallmims.github.io'), true);
+        assert.equal(isDevTelemetryHost('localhost'), true);
+        assert.equal(isDevTelemetryHost('127.0.0.1'), true);
         assert.equal(isDevTelemetryHost('edgeloop.app'), false);
-        assert.equal(isDevTelemetryHost('localhost'), false);
+        assert.equal(isDevTelemetryHost('www.edgeloop.app'), false);
         assert.equal(isDevTelemetryHost(''), false);
     });
 });
@@ -45,6 +49,53 @@ describe('the one-second series', () => {
         assert.equal(snap.events[1].edges, 1);
         log.reset();
         assert.equal(log.snapshot().series.length, 0);
+    });
+
+    it('records why a pause happened, and the intensity, and drops anything else', () => {
+        const log = createSessionLog();
+        log.observe({ t: 0, hr: 90, speed: 40, status: 'RUNNING', mode: 'classic', intensity: 19, pauseReason: 'button' });
+        log.observe({ t: 1000, hr: 92, speed: 0, status: 'PAUSED', mode: 'classic', intensity: 19, pauseReason: 'hrSignal' });
+        log.observe({ t: 2000, hr: 95, speed: 0, status: 'PAUSED', mode: 'classic', intensity: 100, pauseReason: 'https://handy.local/key' });
+        const snap = log.snapshot();
+        assert.equal(snap.series[0].intensity, 19);
+        assert.equal(snap.series[0].pauseReason, '');
+        assert.equal(snap.series[1].pauseReason, 'hr-signal');
+        assert.equal(snap.series[1].intensity, 19);
+        assert.equal(snap.series[2].pauseReason, '');
+        assert.equal(snap.series[2].intensity, 100);
+        assert.equal(snap.events[1].pauseReason, 'hr-signal');
+        assert.equal(snap.events[1].intensity, 19);
+        assert.equal(JSON.stringify(snap).includes('handy.local'), false);
+        const exported = buildSessionExport({ trace: snap });
+        assert.equal(exported.events[1].pauseReason, 'hr-signal');
+        assert.equal(exported.series[2].intensity, 100);
+        assert.equal(exported.telemetryVersion, 4);
+    });
+});
+
+describe('pause reasons', () => {
+    it('keeps a known reason and maps the banner sources', () => {
+        assert.equal(pauseReasonFromSource('button'), 'button');
+        assert.equal(pauseReasonFromSource('hrSignal'), 'hr-signal');
+        assert.equal(pauseReasonFromSource('vacuglideStop'), 'vacuglide');
+        assert.equal(pauseReasonFromSource('handy-stop'), 'handy-stop');
+        assert.equal(pauseReasonFromSource('The Handy connection key'), '');
+        assert.equal(pauseReasonFromSource('edged'), 'edged');
+        assert.equal(pauseReasonFromSource(''), '');
+    });
+
+    it('names a reason on every safety pause in the app', () => {
+        const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+        assert.match(app, /pauseSession\(null, reason\)/);
+        assert.match(app, /pauseSession\('Paused\.', pendingPauseReason \|\| 'button'\)/);
+        assert.match(app, /pauseSession\('Paused\.', 'player'\)/);
+        assert.match(app, /function countManualEdge/);
+        assert.match(app, /function markCalibrationEdge/);
+        assert.doesNotMatch(app, /classList\.toggle\('hidden', !live\)/);
+        assert.match(app, /state\.pauseReason !== 'edged'/);
+        for (const source of ["'hr-link'", "'handy'", "'handy-stop'", "'beat-sync'", "'intiface'", "'tcode'", "'video'", "'remote'", "'edged'"]) {
+            assert.ok(app.includes(source), `missing pause source ${source}`);
+        }
     });
 });
 
@@ -135,6 +186,25 @@ describe('buildSessionExport', () => {
     });
 });
 
+describe('handy position commands in the log', () => {
+    it('keeps the move and drops a connection key', () => {
+        const exported = buildSessionExport({
+            devices: { handy: { connected: true, drive: 'hdsp', position: 40, duration: 480, stop: 1, error: 'hdsp 5000' } },
+            handyTrace: [
+                { t: 10, drive: 'hdsp', position: 5, duration: 480, stop: 1, error: '' },
+                { t: 20, drive: 'hdsp', position: 70, duration: 330, stop: 0, error: 'key abcdef' }
+            ]
+        });
+        assert.equal(exported.devices.handy.drive, 'hdsp');
+        assert.equal(exported.devices.handy.position, 40);
+        assert.equal(exported.devices.handy.error, 'hdsp 5000');
+        assert.equal(exported.handyTrace.length, 2);
+        assert.equal(exported.handyTrace[0].position, 5);
+        assert.equal(exported.handyTrace[1].error, '');
+        assert.equal(JSON.stringify(exported).includes('abcdef'), false);
+    });
+});
+
 describe('the history opt-in', () => {
     it('is a switch on the history screen, off until the page turns recording on', () => {
         const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
@@ -146,5 +216,8 @@ describe('the history opt-in', () => {
         assert.match(app, /sessionLogWanted\(\)/);
         assert.match(app, /edgeloop_session_log/);
         assert.match(app, /safeParse\(SESSION_LOG_KEY, false\) === true/);
+        assert.match(html, /id="sessionLogDownload"/);
+        assert.match(html, /id="manualTraditionalBtn"/);
+        assert.match(html, /id="manualFloatBtn"/);
     });
 });
