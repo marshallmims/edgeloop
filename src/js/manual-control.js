@@ -268,6 +268,8 @@ export function sanitizeManualPattern(raw) {
         // A refresh says the controller is still there. It must not restart
         // the loop the host is already playing.
         refresh: raw.refresh === true,
+        update: raw.update === true,
+        restart: Array.isArray(raw.restart) ? raw.restart.filter((id) => parseDeviceId(id)).slice(0, 12) : [],
         devices
     };
     if (raw.id === 'drawn') {
@@ -307,7 +309,10 @@ function sanitizeTracks(raw) {
         if (points.length < 2) continue;
         points.sort((a, b) => a.t - b.t);
         seen.add(item.id);
-        tracks.push({ id: item.id, points });
+        const track = { id: item.id, points };
+        const periodMs = Number(item.periodMs);
+        if (Number.isFinite(periodMs)) track.periodMs = clampTrackPeriod(periodMs);
+        tracks.push(track);
         if (tracks.length >= MAX_DEVICES) break;
     }
     return tracks.length ? tracks : null;
@@ -447,15 +452,15 @@ function interpolateField(points, t, field) {
 }
 
 function frameFromTracks(pattern, elapsedMs) {
-    const period = clampTrackPeriod(pattern.periodMs);
-    const elapsed = Number(elapsedMs);
-    const t = (Number.isFinite(elapsed) && elapsed > 0 ? elapsed % period : 0) / period;
     const byId = new Map(pattern.tracks.map((track) => [track.id, track]));
     return {
         devices: (pattern.devices || []).map((device) => {
             const track = byId.get(device.id);
             const output = scaleDevice(device, 1);
             if (!track) return output;
+            const period = clampTrackPeriod(track.periodMs || pattern.periodMs);
+            const elapsed = Number.isFinite(Number(track.elapsedMs)) ? Number(track.elapsedMs) : Number(elapsedMs);
+            const t = (Number.isFinite(elapsed) && elapsed > 0 ? elapsed % period : 0) / period;
             const position = interpolateField(track.points, t, 'position');
             const level = interpolateField(track.points, t, 'level');
             const speed = interpolateField(track.points, t, 'speed');

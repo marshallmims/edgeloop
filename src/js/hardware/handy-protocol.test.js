@@ -10,6 +10,7 @@ import {
     clampEndMargin,
     applyEndMargin,
     followPosition,
+    firmwareMajor,
     hdspBody,
     hdspMove,
     normalizeSlideRange,
@@ -208,6 +209,8 @@ describe('hdspMove', () => {
         assert.equal(body.t, body.duration);
         assert.equal(body.stopOnTarget, true);
         assert.equal(body.stop_on_target, true);
+        assert.equal(firmwareMajor({ fwVersion: '4.2.2+44874492' }), 4);
+        assert.equal(firmwareMajor({ fwVersion: '3.2.3' }), 3);
     });
 });
 

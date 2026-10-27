@@ -487,7 +487,9 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
     if (await page.locator('#playStylePanel').isVisible()) throw new Error('play style stayed up during Manual Control');
     if (await page.locator('#endgamePanel').isVisible()) throw new Error('session endgame stayed up during Manual Control');
     if (!(await page.locator('#manualLive').isVisible())) throw new Error('manual controls stayed hidden');
-    if (!(await page.locator('#manualSlowBtn').isVisible())) throw new Error('Slow missing from manual control');
+    if (await page.locator('#manualSlowBtn').count()) throw new Error('Slow should not be in manual control');
+    if (await page.locator('#channelGauges').isVisible()) throw new Error('channel gauges stayed up during Manual Control');
+    if (await page.locator('#intensityPanel').isVisible()) throw new Error('intensity stayed up during Manual Control');
     if (!(await page.locator('#manualSliderBtn').isVisible())) throw new Error('Slider missing from manual control');
     if ((await page.locator('#manualSliderBtn').getAttribute('aria-pressed')) !== 'true') throw new Error('Slider should start selected');
     if (!(await page.locator('#manualTraditionalBtn').isVisible())) throw new Error('Traditional missing from manual control');

@@ -4,6 +4,13 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.10
+
+- **The Handy dot uses absolute position on firmware 4.** The box is the stroke. Top stays at the top, the middle stays in the middle, and the bottom stays at the bottom. A loop plays that shape back.
+- **Each toy's loop keeps its own clock.** Drawing a loop on a second toy no longer restarts the first, and the playhead does not speed up.
+- **Stop stays in Manual Control.** The toys stop. The page does not switch back to EdgeLoop Control.
+- **Manual Control hides the channel bars and Stimulation Intensity.** The Slow and Stop buttons in that panel are gone.
+
 ## 1.1.5.09
 
 - **Came Early and Force Orgasm are one line each.** The small words above them are gone.

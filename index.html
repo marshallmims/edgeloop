@@ -161,7 +161,9 @@
     body.sharing-control #intensityPanel,
     body.manual-on #sessionSetupHome,
     body.manual-on #playStylePanel,
-    body.manual-on #endgamePanel {
+    body.manual-on #endgamePanel,
+    body.manual-on #intensityPanel,
+    body.manual-on #channelGauges {
       display: none !important;
     }
     #sessionBundle > #manualPanel {
@@ -1109,10 +1111,6 @@
         <section id="manualPanel" class="hidden space-y-3">
           <p id="manualHint" class="text-[10px] text-slate-400 leading-snug">EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.</p>
           <div id="manualLive" class="hidden space-y-3">
-            <div class="grid grid-cols-2 gap-2">
-              <button id="manualSlowBtn" type="button" class="min-h-[3rem] bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-sm cursor-pointer">Slow</button>
-              <button id="manualStopBtn" type="button" class="min-h-[3rem] bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-sm cursor-pointer">Stop</button>
-            </div>
             <div id="manualModes" class="flex flex-wrap gap-1.5">
               <button id="manualSliderBtn" type="button" aria-pressed="true" class="px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer">Slider</button>
               <button id="manualFloatBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Float</button>
@@ -1301,7 +1299,7 @@
         </div>
 
         <!-- Output Channel Gauges -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
+        <div id="channelGauges" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
           <div class="space-y-1">
             <div class="flex justify-between text-xs font-semibold">
               <span class="flex items-center gap-1.5 text-slate-300">
@@ -1391,7 +1389,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.09</span>
+        <span id="appVersion" class="font-mono">v1.1.5.10</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

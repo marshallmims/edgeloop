@@ -19,6 +19,7 @@ import {
     handyConnected
 } from './handy.js';
 import { HANDY_API_BASE, HANDY_MODE } from './handy-protocol.js';
+import { HANDY_V3_BASE } from './handy-hsp-protocol.js';
 
 const KEY = 'test-key-123';
 
@@ -35,6 +36,7 @@ function jsonResponse(body, status = 200) {
 }
 
 function pathOf(url) {
+    if (url.startsWith(HANDY_V3_BASE)) return url.slice(HANDY_V3_BASE.length);
     assert.ok(url.startsWith(HANDY_API_BASE), `unexpected base url ${url}`);
     return url.slice(HANDY_API_BASE.length);
 }
@@ -715,6 +717,28 @@ describe('handy driver', () => {
             assert.equal(xpt.at(-1).body.position, 41);
             assert.equal(xpt.at(-1).body.stopOnTarget, true);
             assert.equal(sent('/slide', 'PUT').length, 0);
+        } finally {
+            HANDY_TIMINGS.hdspIntervalMs = 250;
+        }
+    });
+
+    it('firmware 4 moves to an absolute position on the v3 API and stays there', async () => {
+        routes['/connected'] = jsonResponse({ connected: true });
+        routes['/info'] = jsonResponse({ fwVersion: '4.2.2+44874492', model: 'Handy 2' });
+        await connectHandy(KEY);
+        calls = [];
+        HANDY_TIMINGS.hdspIntervalMs = 0;
+        try {
+            dispatchHandyFollow(50, 0, 100, 5);
+            await tick(40);
+            const mode = calls.find((call) => call.path === '/mode' && call.body && call.body.mode === HANDY_MODE.HDSP);
+            assert.ok(mode, 'firmware 4 must be put in HDSP');
+            const xpt = calls.filter((call) => call.path === '/hdsp/xpt');
+            assert.equal(xpt.length, 1);
+            assert.equal(xpt[0].body.xp, 50);
+            assert.equal(xpt[0].body.stop_on_target, true);
+            assert.equal(xpt[0].body.position, undefined);
+            assert.ok(xpt[0].body.t >= 400);
         } finally {
             HANDY_TIMINGS.hdspIntervalMs = 250;
         }

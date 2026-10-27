@@ -19,6 +19,7 @@
 // All fetch calls go through handyRequest(), which classifies the reply and
 // reports failures through the error handler installed by app.js.
 
+import { HANDY_V3_BASE, resolveApplicationId, v3Headers } from './handy-hsp-protocol.js';
 import {
     HANDY_API_BASE,
     HANDY_MODE,
@@ -30,6 +31,7 @@ import {
     describeSlideAdjustment,
     endMarginWindow,
     followPosition,
+    firmwareMajor,
     hdspBody,
     hdspMove,
     isHampModeError,
@@ -216,6 +218,32 @@ function clearHdspQueue() {
     }
 }
 
+function useHandyV3() {
+    return firmwareMajor(handyInfo) >= 4;
+}
+
+async function handyV3(path, body, key = handyKey) {
+    const res = await fetch(`${HANDY_V3_BASE}${path}`, {
+        method: 'PUT',
+        headers: v3Headers(resolveApplicationId(), key, { json: true }),
+        body: JSON.stringify(body)
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    const verdict = classifyHandyResponse(res.ok, res.status, data, path);
+    if (!verdict.ok) {
+        const err = new Error(verdict.message);
+        err.code = verdict.code;
+        throw err;
+    }
+    return data;
+}
+
+async function putHandyMode(mode, key = handyKey) {
+    if (useHandyV3()) return handyV3('/mode', { mode }, key);
+    return handyRequest('/mode', { method: 'PUT', body: { mode }, key });
+}
+
 function callHandler(name, ...args) {
     const fn = handlers[name];
     if (typeof fn !== 'function') return;
@@ -334,7 +362,7 @@ async function attemptStop(key, { countFailure = true, fromHdsp = false } = {}) 
     // HAMP stop is refused while the device is in HDSP. Put it back first.
     if (fromHdsp) {
         try {
-            await handyRequest('/mode', { method: 'PUT', body: { mode: HANDY_MODE.HAMP }, key, countFailure });
+            await putHandyMode(HANDY_MODE.HAMP, key);
         } catch (e) {
             lastErr = e;
         }
@@ -743,32 +771,42 @@ function pumpHdsp() {
     const key = handyKey;
     const generation = commandGeneration;
     const run = async () => {
-        if (handyDrive !== 'hdsp' || slide.min !== hdspSlide.min || slide.max !== hdspSlide.max) {
-            await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
-            hdspSlide = { min: slide.min, max: slide.max };
-            handyLastStrokeSent = { min: slide.min, max: slide.max };
-        }
         if (generation !== commandGeneration || !handyConnected) return;
         if (handyDrive !== 'hdsp') {
-            await handyRequest('/mode', { method: 'PUT', body: { mode: HANDY_MODE.HDSP }, key });
+            await putHandyMode(HANDY_MODE.HDSP, key);
             if (generation !== commandGeneration || !handyConnected) return;
             handyDrive = 'hdsp';
             handyIsHampRunning = false;
             handyLastVelocitySent = -1;
         }
+        if (slide.min !== hdspSlide.min || slide.max !== hdspSlide.max) {
+            if (useHandyV3()) {
+                await handyV3('/slider/stroke', { min: slide.min / 100, max: slide.max / 100 }, key);
+            } else {
+                await handyRequest('/slide', { method: 'PUT', body: { min: slide.min, max: slide.max }, key });
+            }
+            hdspSlide = { min: slide.min, max: slide.max };
+            handyLastStrokeSent = { min: slide.min, max: slide.max };
+        }
+        if (generation !== commandGeneration || !handyConnected) return;
         // The finger can move while the mode switch is in flight. Send where
-        // it is now, and brake unless this is a short step in the middle.
+        // it is now. stop_on_target makes the carriage stay there.
         const target = hdspPending ? hdspPending.position : pending.position;
         const same = hdspLastPosition >= 0 && Math.abs(target - hdspLastPosition) < 1;
         if (same && hdspSettled) return;
         const move = hdspMove(target, hdspLastPosition);
         const row = rememberHandyMove(move);
         hdspLastPosition = move.position;
-        await handyRequest('/hdsp/xpt', {
-            method: 'PUT',
-            key,
-            body: hdspBody(move)
-        });
+        if (useHandyV3()) {
+            await handyV3('/hdsp/xpt', {
+                xp: move.position,
+                t: move.duration,
+                stop_on_target: true,
+                immediate_rsp: true
+            }, key);
+        } else {
+            await handyRequest('/hdsp/xpt', { method: 'PUT', key, body: hdspBody(move) });
+        }
         hdspSettled = same || move.stopOnTarget;
         handyMotionError = '';
         row.error = '';
@@ -798,7 +836,7 @@ export function dispatchHandy(primarySpeed, strokeMin, strokeMax, force = false,
         const generation = ++commandGeneration;
         handyDrive = 'hamp';
         clearHdspQueue();
-        handyRequest('/mode', { method: 'PUT', body: { mode: HANDY_MODE.HAMP } }).catch(() => {}).then(() => {
+        putHandyMode(HANDY_MODE.HAMP).catch(() => {}).then(() => {
             if (generation !== commandGeneration || !handyConnected || handyDrive !== 'hamp') return;
             dispatchHandy(primarySpeed, strokeMin, strokeMax, true, envMin, envMax, endMargin);
         });

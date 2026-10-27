@@ -162,6 +162,12 @@ export function hdspMove(position, lastPosition) {
 // v2 names the fields position/duration/stopOnTarget. Firmware 4 (API v3)
 // names them xp/t/stop_on_target. Send both. A server that understands one
 // ignores the other.
+export function firmwareMajor(info) {
+    const version = String((info && (info.fwVersion || info.fw_version)) || '').trim();
+    const match = /^(\d+)/.exec(version);
+    return match ? Number(match[1]) : null;
+}
+
 export function hdspBody(move) {
     const position = clampPercent(move && move.position, 0);
     const duration = Math.round(Math.min(1500, Math.max(400, Number(move && move.duration) || 400)));

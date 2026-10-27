@@ -1761,7 +1761,17 @@ function applyManualHardware(frame, { urgent = false } = {}) {
 
 function currentManualFrame(now = Date.now()) {
     if (!manualLatch) return { devices: [] };
-    if (manualLatch.pattern) return frameFromPattern(manualLatch.pattern, now - manualLatch.patternAt);
+    if (manualLatch.pattern) {
+        const clocks = manualLatch.trackAt || {};
+        const pattern = manualLatch.pattern.tracks ? {
+            ...manualLatch.pattern,
+            tracks: manualLatch.pattern.tracks.map((track) => ({
+                ...track,
+                elapsedMs: Math.max(0, now - (clocks[track.id] || manualLatch.patternAt || now))
+            }))
+        } : manualLatch.pattern;
+        return frameFromPattern(pattern, now - manualLatch.patternAt);
+    }
     return decayFrame(manualLatch.frame, now - manualLatch.frameAt);
 }
 
@@ -1952,10 +1962,19 @@ function handleManualCommand(cmd) {
     if (manualLatch && !acceptEpoch(manualLatch.epoch, cmd.epoch)) return;
     manualLatch.epoch = cmd.epoch;
     if (cmd.type === 'MANUAL_PATTERN') {
+        const now = Date.now();
+        const keepClock = cmd.update === true && manualLatch.pattern;
+        const restart = new Set(cmd.restart || []);
         noteManualOwned(cmd.devices);
+        if (!manualLatch.trackAt) manualLatch.trackAt = {};
+        for (const track of cmd.tracks || []) {
+            if (!keepClock || restart.has(track.id) || !manualLatch.trackAt[track.id]) {
+                manualLatch.trackAt[track.id] = now;
+            }
+        }
         manualLatch.pattern = cmd;
-        manualLatch.patternAt = Date.now();
-        manualLatch.heardAt = Date.now();
+        if (!keepClock) manualLatch.patternAt = now;
+        manualLatch.heardAt = now;
         manualLatch.heldStop = false;
         ensureManualTimer();
         tickManual();
@@ -3208,9 +3227,8 @@ function showIdleTransport() {
 function stopSession(outcome = "Stopped", voiceText = null) {
     const wasActive = state.sessionStatus !== 'IDLE';
     // Status and motors FIRST: nothing below (history, storage, voice) may
-    // leave the session running if it throws. Manual control ends with the
-    // session, so the next start is EdgeLoop again.
-    clearManualLatch();
+    // leave the session running if it throws. Manual Control stays on.
+    // Stop halts the toys. It does not hand them back to EdgeLoop.
     clearSettle();
     state.sessionStatus = 'IDLE';
     state.resumeStatus = null;
@@ -6748,6 +6766,7 @@ const manualDraft = new Map();
 const manualOwned = new Set();
 const manualReleased = new Set();
 let manualGesture = null;
+const manualLoops = new Map();
 let manualPatternOn = false;
 let manualPatternCmd = null;
 let manualTraditional = false;
@@ -6788,7 +6807,7 @@ function setManualModeUi(on, fromHost = false) {
     live?.classList.toggle('hidden', !manualDriving);
     if (hint) {
         hint.textContent = manualDriving
-            ? 'Slider is the dots. Float and Loop turn on with it. Traditional clears those and shows the sliders. Higher is more and the bottom is nothing. Slow and Stop are immediate.'
+            ? 'Slider is the dots. Float and Loop turn on with it. Traditional clears those and shows the sliders. Higher is more and the bottom is nothing.'
             : 'EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.';
     }
 }
@@ -7179,7 +7198,30 @@ function startManualPattern(id, extra = {}) {
     };
     if (extra.drawn) manualPatternCmd.drawn = extra.drawn;
     if (extra.tracks) manualPatternCmd.tracks = extra.tracks;
+    if (extra.update) manualPatternCmd.update = true;
+    if (extra.restart) manualPatternCmd.restart = extra.restart;
     sendPeerCommand(manualPatternCmd);
+}
+
+function publishDrawnLoops(restartId) {
+    const tracks = [];
+    for (const [id, loop] of manualLoops) {
+        tracks.push({ id, points: loop.points, periodMs: loop.periodMs });
+    }
+    if (!tracks.length) return;
+    const devices = ownedDrafts().map((draft) => {
+        const copy = { ...draft };
+        delete copy.position;
+        return copy;
+    });
+    const updating = Boolean(manualPatternOn && manualPatternCmd && manualPatternCmd.id === 'drawn');
+    startManualPattern('drawn', {
+        periodMs: tracks[0].periodMs,
+        tracks,
+        devices,
+        update: updating,
+        restart: restartId ? [restartId] : []
+    });
 }
 
 function modeButtonClass(on) {
@@ -7239,6 +7281,7 @@ function setSliderMode() {
         manualPatternOn = false;
         manualPatternCmd = null;
         manualVizStarted = 0;
+        manualLoops.clear();
         easeToRest(loopDevices());
     }
     manualTouchMode = 'spring';
@@ -7254,6 +7297,7 @@ function setTraditional() {
     manualPatternOn = false;
     manualPatternCmd = null;
     manualVizStarted = 0;
+    manualLoops.clear();
     cancelTouchReturn();
     manualTouchMode = 'spring';
     for (const draft of ownedDrafts()) delete draft.position;
@@ -7271,6 +7315,7 @@ function setTouchMode(mode) {
         manualPatternOn = false;
         manualPatternCmd = null;
         manualVizStarted = 0;
+        manualLoops.clear();
         if (next === 'spring') {
             easeToRest(loopDevices());
         } else {
@@ -7497,15 +7542,19 @@ function startLoopDrag(device, lane, event) {
         });
         const action = touchRelease(manualTouchMode, moved);
         if (action === 'loop') {
-            const loop = loopFromTracks(samples, elapsed);
-            if (loop) {
-                for (const draft of ownedDrafts()) delete draft.position;
-                startManualPattern('drawn', {
+            const mine = samples.map((sample) => ({
+                t: sample.t,
+                devices: (sample.devices || []).filter((item) => item.id === device.id)
+            }));
+            const loop = loopFromTracks(mine, elapsed);
+            const track = loop && loop.tracks && loop.tracks[0];
+            if (track) {
+                manualLoops.set(device.id, {
+                    points: track.points,
                     periodMs: loop.periodMs,
-                    tracks: loop.tracks,
-                    devices: ownedDrafts().map((draft) => ({ ...draft }))
+                    startedAt: Date.now()
                 });
-                manualVizStarted = Date.now();
+                publishDrawnLoops(device.id);
                 return;
             }
         }
@@ -7536,9 +7585,12 @@ function paintVizCanvas(canvas) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
     const yOf = (value) => height - (Math.max(0, Math.min(100, value)) / 100) * (height - 4) - 2;
-    const pattern = manualPatternOn && manualPatternCmd && Array.isArray(manualPatternCmd.tracks)
-        ? manualPatternCmd.tracks.find((track) => track.id === id)
-        : null;
+    const loop = manualLoops.get(id);
+    const pattern = loop && loop.points && loop.points.length ? loop : (
+        manualPatternOn && manualPatternCmd && Array.isArray(manualPatternCmd.tracks)
+            ? manualPatternCmd.tracks.find((track) => track.id === id)
+            : null
+    );
     if (pattern && pattern.points.length) {
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.85)';
         ctx.lineWidth = 1.5;
@@ -7551,8 +7603,9 @@ function paintVizCanvas(canvas) {
             else ctx.lineTo(x, y);
         });
         ctx.stroke();
-        const period = Math.max(1, Number(manualPatternCmd.periodMs) || 1);
-        const phase = ((Date.now() - manualVizStarted) % period) / period;
+        const period = Math.max(1, Number(pattern.periodMs) || Number(manualPatternCmd && manualPatternCmd.periodMs) || 1);
+        const started = Number(pattern.startedAt) || manualVizStarted;
+        const phase = ((Date.now() - started) % period) / period;
         ctx.strokeStyle = '#f5d0fe';
         ctx.beginPath();
         ctx.moveTo(phase * width, 0);
@@ -7581,9 +7634,34 @@ function paintVizCanvas(canvas) {
     ctx.fill();
 }
 
+function pointOnLoop(loop, now) {
+    const period = Math.max(1, Number(loop.periodMs) || 1);
+    const elapsed = Math.max(0, now - (loop.startedAt || now));
+    const t = (elapsed % period) / period;
+    const points = loop.points || [];
+    if (!points.length) return 0;
+    if (t <= points[0].t) return points[0].position ?? points[0].level ?? points[0].speed ?? 0;
+    for (let i = 1; i < points.length; i += 1) {
+        const b = points[i];
+        const a = points[i - 1];
+        if (t <= b.t) {
+            const span = b.t - a.t;
+            const k = span <= 0 ? 1 : (t - a.t) / span;
+            const av = a.position ?? a.level ?? a.speed ?? 0;
+            const bv = b.position ?? b.level ?? b.speed ?? 0;
+            return Math.round(av + (bv - av) * k);
+        }
+    }
+    const last = points[points.length - 1];
+    return last.position ?? last.level ?? last.speed ?? 0;
+}
+
 function paintTouchViz() {
-    if (manualPatternOn && manualPatternCmd) {
-        const frame = frameFromPattern(manualPatternCmd, Math.max(0, Date.now() - manualVizStarted));
+    const now = Date.now();
+    if (manualLoops.size) {
+        for (const [id, loop] of manualLoops) placeLoopDot(id, pointOnLoop(loop, now));
+    } else if (manualPatternOn && manualPatternCmd) {
+        const frame = frameFromPattern(manualPatternCmd, Math.max(0, now - manualVizStarted));
         for (const output of frame.devices) {
             const value = Number.isFinite(Number(output.position)) ? output.position
                 : Number.isFinite(Number(output.level)) ? output.level
@@ -7629,38 +7707,6 @@ function initManualPanel() {
         setManualModeUi(next);
         sendPeerCommand({ type: 'MANUAL_ARM', on: next, epoch: manualEpoch });
         if (next) scheduleManualFrame(true);
-    });
-    document.getElementById('manualSlowBtn')?.addEventListener('click', () => {
-        manualPatternOn = false;
-        manualPatternCmd = null;
-        manualVizStarted = 0;
-        cancelTouchReturn();
-        for (const draft of ownedDrafts()) {
-            draft.speed = Math.min(draft.speed, 12);
-            draft.level = Math.min(draft.level, 12);
-            delete draft.position;
-        }
-        writeDraftInputs();
-        scheduleManualFrame(true);
-    });
-    document.getElementById('manualStopBtn')?.addEventListener('click', () => {
-        manualEpoch += 1;
-        manualPatternOn = false;
-        manualPatternCmd = null;
-        manualVizStarted = 0;
-        cancelTouchReturn();
-        for (const draft of manualDraft.values()) {
-            draft.speed = 0;
-            draft.level = 0;
-            delete draft.position;
-        }
-        writeDraftInputs();
-        for (const draft of manualDraft.values()) placeLoopDot(draft.id, 0);
-        if (manualSendTimer) {
-            clearTimeout(manualSendTimer);
-            manualSendTimer = null;
-        }
-        sendPeerCommand({ type: 'MANUAL_STOP', epoch: manualEpoch });
     });
     document.getElementById('manualSliderBtn')?.addEventListener('click', () => setSliderMode());
     document.getElementById('manualFloatBtn')?.addEventListener('click', () => setTouchMode('float'));
