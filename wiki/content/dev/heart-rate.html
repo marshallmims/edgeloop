@@ -38,6 +38,11 @@
       <td>About once a second. The Polar H10 has the best cadence of the straps reported so far.</td>
     </tr>
     <tr>
+      <td>Fitbit</td>
+      <td>On 1.1.4.31 these watches do not broadcast the standard Heart Rate service, so they do not pair.</td>
+      <td>Does not connect.</td>
+    </tr>
+    <tr>
       <td>Watches paired through GloryFit or Da Fit</td>
       <td>These watches do not expose the Heart Rate service. They cannot work with EdgeLoop, or with any other app that asks for that service.</td>
       <td>Does not connect.</td>
@@ -78,7 +83,9 @@
 
 <p>Install HeartCast or Echo and start the broadcast. Run EdgeLoop on a second device. Bluefy on the same iPhone that is running the broadcast app cannot see it. A chest strap paired in Bluefy skips the watch entirely, and it is the more regular signal when you have one.</p>
 
-<p>On 1.1.4.13, leaving or reloading the page drops the Bluetooth link. The next Scan reconnects a sensor this site already has permission for. If that link is stuck, the site forgets it and opens the chooser. You do not have to forget the device in the computer's Bluetooth list first. This is the path that lets HeartCast pair again after a refresh.</p>
+<p>On 1.1.4.31, leaving or reloading the page drops the Bluetooth link. The next Scan reconnects a sensor this site already has permission for. If that link is stuck, the site forgets it and opens the chooser. You do not have to forget the device in the computer's Bluetooth list first. This is the path that lets HeartCast pair again after a refresh.</p>
+
+<p>The cockpit number stays <strong>--</strong> until a strap or watch sends a beat, or until the simulator is on. Resting heart rate, 70 by default, is a separate tile. Disconnecting the monitor blanks the readout again.</p>
 
 <h2>How often a new number arrives</h2>
 

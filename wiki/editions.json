@@ -23,10 +23,10 @@
     "id": "dev",
     "label": "Dev",
     "kicker": "Player",
-    "version": "1.1.4.13",
+    "version": "1.1.4.31",
     "app": "https://dev.edgeloop.app",
     "appLabel": "Open dev.edgeloop.app",
-    "footer": "These pages describe EdgeLoop 1.1.4.13 on dev.edgeloop.app.",
+    "footer": "These pages describe EdgeLoop 1.1.4.31 on dev.edgeloop.app.",
     "ready": true,
     "default": true
   },

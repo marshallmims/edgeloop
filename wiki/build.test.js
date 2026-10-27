@@ -77,7 +77,11 @@ describe('wiki build', () => {
             const session = readFileSync(join(outDir, 'dev', 'session', 'index.html'), 'utf8');
             const mainSession = readFileSync(join(outDir, 'main', 'session', 'index.html'), 'utf8');
             assert.match(home, /1\.1\.3/);
-            assert.match(home, /1\.1\.4\.13/);
+            assert.match(home, /1\.1\.4\.31/);
+            assert.match(session, /Simple Ramp/);
+            assert.match(session, /No Nut November/);
+            assert.match(session, />Edged</);
+            assert.match(heart, /Fitbit/);
             assert.match(home, /dev\.edgeloop\.app/);
             assert.match(session, /Play Style/);
             assert.match(session, /Beat sync/);

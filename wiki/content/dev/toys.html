@@ -1,4 +1,4 @@
-<p class="lede">Every toy has a card. Open the card to connect it. A toy also needs a role before a session can start. The role is what the engine's numbers mean for that toy. On <a href="https://dev.edgeloop.app">dev.edgeloop.app</a> (1.1.4.13) those cards are one row across the top, and the row keeps every device showing. <a href="https://edgeloop.app">edgeloop.app</a> is still 1.1.3.</p>
+<p class="lede">Every toy has a card. Open the card to connect it. A toy also needs a role before a session can start. The role is what the engine's numbers mean for that toy. On <a href="https://dev.edgeloop.app">dev.edgeloop.app</a> (1.1.4.31) those cards are one row across the top, and the row keeps every device showing. <a href="https://edgeloop.app">edgeloop.app</a> is still 1.1.3.</p>
 
 <h2>A toy needs a role</h2>
 
@@ -14,7 +14,7 @@
 
 <h2>The Handy</h2>
 
-<p>The Handy is Wi-Fi. It does not use the browser's Bluetooth. The page talks to HandyFeeling's API, version 2. With Beat sync off, which is the default, that is HAMP: EdgeLoop sends a speed and a stroke range. On 1.1.4.13, Beat sync is a switch in this same card. Leave it off until you want a funscript played stroke for stroke. On, it needs firmware 4 or later. The next few seconds of stroke positions go to Handy's servers. The video, the file name, and your heart rate stay on this device. It asks once, the first time you turn it on. The live 1.1.3 site has the HAMP path only.</p>
+<p>The Handy is Wi-Fi. It does not use the browser's Bluetooth. The page talks to HandyFeeling's API, version 2. With Beat sync off, which is the default, that is HAMP: EdgeLoop sends a speed and a stroke range. On 1.1.4.31, Beat sync is a switch in this same card. Leave it off until you want a funscript played stroke for stroke. On, it needs firmware 4 or later. The next few seconds of stroke positions go to Handy's servers. The video, the file name, and your heart rate stay on this device. It asks once, the first time you turn it on. The live 1.1.3 site has the HAMP path only.</p>
 
 <ol>
   <li>Put the Handy on the same network as the browser, and wake it.</li>
@@ -37,7 +37,7 @@
   <li>Start Intiface Central, start its server, and connect the toy there first. Confirm the toy is listed in Intiface before you touch EdgeLoop.</li>
   <li>In the EdgeLoop Intiface card, leave the address at <code>ws://localhost:12345</code>. That is a local socket, plain <code>ws://</code>, not <code>wss://</code>. Press Connect. The status walks Offline, Connecting, Handshake, Connected, and then names the server and how many devices it has. A bad address, a stopped server, or a handshake that never finishes is reported on that same line.</li>
   <li>Each actuator gets a role, a cap, and a Test button. A stroke axis is a Linear axis and wants Primary. Twist and roll are Rotate axes. Anything left over is Secondary or OFF. A linear axis has an invert switch.</li>
-  <li>A vibrate axis is <strong>Constant</strong> or <strong>Pulsed</strong>. On 1.1.4.13, Pulsed is the default: the axis holds the level, rests, and comes back, and 0.8, 1.6, or 2.4 seconds is how often the rest arrives. On 1.1.3, Pulsed is on for half of that period and off for the other half. The intensity the engine already computed is the peak, and it stays under the cap. Stop cuts the pulse immediately.</li>
+  <li>A vibrate axis is <strong>Constant</strong> or <strong>Pulsed</strong>. On 1.1.4.31, Pulsed is the default: the axis holds the level, rests, and comes back, and 0.8, 1.6, or 2.4 seconds is how often the rest arrives. On 1.1.3, Pulsed is on for half of that period and off for the other half. The intensity the engine already computed is the peak, and it stays under the cap. Stop cuts the pulse immediately.</li>
   <li>A rotator can reverse each time an edge is counted, and it can flip direction on a timer from 5 to 60 seconds. Either, both, or neither.</li>
   <li>Press <strong>Save &amp; Apply</strong>. Roles, caps, invert, the pulse choice, and the rotation settings are remembered for that toy. A reconnect restores them.</li>
 </ol>
