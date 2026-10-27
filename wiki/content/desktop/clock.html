@@ -1,8 +1,10 @@
-<p class="lede">The local app follows a clock it does not own. HereSphere or DeoVR plays the video in the headset. VLC can play it on this computer instead. EdgeLoop reads the playhead and runs the toys from your pulse.</p>
+<p class="lede">The local app can follow a clock it does not own. HereSphere or DeoVR plays the video in the headset. VLC can play it on this computer instead. Which program you started decides whether the toys follow that clock.</p>
 
 <div class="note">
-  <p>The card is in the Player, under Player clock. It is on this local page only. Connect still needs a heart-rate monitor and a toy. The status line says the player only supplies the time.</p>
+  <p>The 2.0 window, <code>npm run desktop</code>, reads a headset clock. Follow headset shows the headset's file, time, and play or pause. Port 23554 is the usual one. The packet is the DeoVR remote packet: a 4 byte length, then JSON with the path, the duration, the current time, the playback speed, and the player state. Host a clock listens in that same format, so a tool that already follows DeoVR can follow a video playing here. The toys do not run on that clock yet. The player still uses its own video element. A folder pairs <code>Movie.mp4</code> with <code>Movie.funscript</code> and with <code>Movie.v0.funscript</code> or <code>Movie.vib.funscript</code>. A network share can be <code>smb://nas/videos</code>. The password stays in this process. It is not written into the address you see.</p>
 </div>
+
+<p>The steps below are the earlier host, port 8787. That one does push the playhead into the page. The card is in the Player, under Player clock. Connect still needs a heart-rate monitor and a toy. The status line says the player only supplies the time.</p>
 
 <h2>A headset</h2>
 
@@ -43,4 +45,4 @@
 
 <h2>Then start the session</h2>
 
-<p>The clock being connected does not start the toys. Connect a heart-rate monitor and a toy, then press Play, the same as on <a href="/dev/session/">Dev</a>. Beat sync, Funscript morphing, and the travel range are that player's settings. This app does not add a second set.</p>
+<p>The clock being connected does not start the toys. Connect a heart-rate monitor and a toy, then press Play, the same as on <a href="/dev/session/">the 1.1.5 player</a>. Beat sync, Funscript morphing, and the travel range are that player's settings. This app does not add a second set.</p>
