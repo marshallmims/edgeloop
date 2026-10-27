@@ -68,6 +68,7 @@ import { planBannerUpdate, canClearBanner, hiddenBannerState, BANNER_OWNER_ANY }
 import { pushSample, buildFunscripts, toFunscript } from './funscript.js';
 import { createSessionLog, buildSessionExport, pauseReasonFromSource } from './session-telemetry.js';
 import { formatLiveHr } from './hr-readout.js';
+import { FOCUS_LOST_TEXT, pageIsInFront } from './page-focus.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError } from './hardware/ble-protocol.js';
@@ -2717,7 +2718,34 @@ const sessionLimitsWriter = createWriteCoalescer({ write: () => persistSettings(
 window.addEventListener('pagehide', () => { sessionLimitsWriter.flush(); });
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') sessionLimitsWriter.flush();
+    paintFocusLost();
 });
+
+// The blur event runs before document.hasFocus() flips, so the paint waits
+// one turn. Clicking the veil focuses the window, which hides it.
+function paintFocusLost() {
+    const overlay = document.getElementById('focusLostOverlay');
+    if (!overlay) return;
+    const msg = document.getElementById('focusLostMsg');
+    if (msg && msg.textContent !== FOCUS_LOST_TEXT) msg.textContent = FOCUS_LOST_TEXT;
+    const inFront = pageIsInFront({
+        hasFocus: typeof document.hasFocus === 'function' ? document.hasFocus() : true,
+        visibilityState: document.visibilityState
+    });
+    overlay.classList.toggle('hidden', inFront);
+}
+
+function scheduleFocusLostPaint() {
+    setTimeout(paintFocusLost, 0);
+}
+
+window.addEventListener('blur', scheduleFocusLostPaint);
+window.addEventListener('focus', scheduleFocusLostPaint);
+document.getElementById('focusLostOverlay')?.addEventListener('click', () => {
+    window.focus();
+    scheduleFocusLostPaint();
+});
+scheduleFocusLostPaint();
 
 function persistSessionLimits(immediate = false) {
     if (isRemotePage) return false;
