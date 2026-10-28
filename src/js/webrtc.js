@@ -26,6 +26,118 @@ const viewerConns = new Set(); // host: live viewers
 const lastSeen = new Map();    // host: DataConnection -> last inbound timestamp
 let hostConn = null;           // remote page: the link to the host
 let pingTimer = null;
+let qualityTimer = null;
+
+// Recent Share Control events for the session log. No peer id, room link,
+// ICE candidate, or address is stored. The export allowlist drops anything
+// that is not one of these fields anyway.
+const SHARE_TRACE_MAX = 64;
+const shareTrace = [];
+const PEER_ERROR_CODES = new Set([
+    'library-missing', 'browser-incompatible', 'peer-unavailable',
+    'network', 'socket-error', 'socket-closed', 'server-error', 'disconnected',
+    'unavailable-id', 'invalid-id', 'invalid-key', 'ssl-unavailable', 'webrtc'
+]);
+const LINK_REASONS = new Set(['closed', 'ice', 'timeout', 'error', 'replaced']);
+const QUIET_COMMANDS = new Set(['MANUAL_FRAME', 'MANUAL_PATTERN', 'PING']);
+
+export function peerErrorCode(err) {
+    const type = err && typeof err === 'object' ? err.type : '';
+    return PEER_ERROR_CODES.has(type) ? type : 'unknown';
+}
+
+// Numbers from a stats report. Candidate lines carry IP addresses, so this
+// returns only the three measurements and nothing else.
+export function linkQualityFromStats(reports) {
+    const out = { rttMs: -1, jitterMs: -1, packetsLost: -1 };
+    if (!reports || typeof reports.forEach !== 'function') return out;
+    reports.forEach((report) => {
+        if (!report || typeof report !== 'object') return;
+        if (report.type === 'candidate-pair' && (report.state === 'succeeded' || report.nominated === true)) {
+            const rtt = Number(report.currentRoundTripTime);
+            if (Number.isFinite(rtt) && rtt >= 0) out.rttMs = Math.round(rtt * 1000);
+        }
+        if (report.type === 'inbound-rtp') {
+            const lost = Number(report.packetsLost);
+            const jitter = Number(report.jitter);
+            if (Number.isFinite(lost) && lost >= 0) out.packetsLost = Math.round(lost);
+            if (Number.isFinite(jitter) && jitter >= 0) out.jitterMs = Math.round(jitter * 1000);
+        }
+    });
+    return out;
+}
+
+function noteShare(fields) {
+    const counts = getPeerCounts();
+    shareTrace.push({
+        t: Date.now(),
+        side: localRole || '',
+        who: fields.who || '',
+        kind: fields.kind || '',
+        reason: fields.reason || '',
+        ice: fields.ice || '',
+        code: fields.code || '',
+        cmd: fields.cmd || '',
+        controllers: counts.controllers,
+        viewers: counts.viewers,
+        rttMs: fields.rttMs,
+        jitterMs: fields.jitterMs,
+        packetsLost: fields.packetsLost,
+        gapMs: fields.gapMs
+    });
+    if (shareTrace.length > SHARE_TRACE_MAX) shareTrace.splice(0, shareTrace.length - SHARE_TRACE_MAX);
+    refreshQualityTimer();
+}
+
+export function getShareLinkTrace() {
+    return shareTrace.map((item) => ({ ...item }));
+}
+
+export function resetShareLinkTrace() {
+    shareTrace.length = 0;
+}
+
+function refreshQualityTimer() {
+    const live = isPeerLinkOpen();
+    if (live && !qualityTimer) {
+        qualityTimer = setInterval(() => { sampleOpenLinks(); }, PING_MS);
+        if (typeof qualityTimer.unref === 'function') qualityTimer.unref();
+    } else if (!live && qualityTimer) {
+        clearInterval(qualityTimer);
+        qualityTimer = null;
+    }
+}
+
+async function sampleOne(conn, who) {
+    const pc = conn && conn.peerConnection;
+    if (!pc || typeof pc.getStats !== 'function') return;
+    let stats = null;
+    try {
+        stats = await pc.getStats();
+    } catch (e) {
+        return;
+    }
+    const quality = linkQualityFromStats(stats);
+    if (quality.rttMs < 0 && quality.jitterMs < 0 && quality.packetsLost < 0) return;
+    noteShare({ kind: 'quality', who, ...quality });
+}
+
+function sampleOpenLinks() {
+    if (localRole === 'host') {
+        if (controllerConn && controllerConn.open) sampleOne(controllerConn, 'controller');
+        let seen = 0;
+        for (const conn of viewerConns) {
+            if (seen >= 3) break;
+            if (conn.open) {
+                sampleOne(conn, 'viewer');
+                seen += 1;
+            }
+        }
+    } else if (hostConn && hostConn.open) {
+        sampleOne(hostConn, 'host');
+    }
+    refreshQualityTimer();
+}
 
 export function peerLibraryAvailable() {
     return typeof window !== 'undefined' && typeof window.Peer === 'function';
@@ -88,10 +200,14 @@ export function getPeerCounts() {
 
 // Lifecycle shared by host and remote peers.
 function wirePeerLifecycle() {
-    peer.on('open', (id) => call('onPeerReady', id));
+    peer.on('open', (id) => {
+        noteShare({ kind: 'signalling-up', who: 'signalling' });
+        call('onPeerReady', id);
+    });
     peer.on('disconnected', () => {
         // Signalling only: existing data channels may survive. Try to get
         // the signalling link back so new remotes can still join.
+        noteShare({ kind: 'signalling-lost', who: 'signalling' });
         call('onSignallingLost');
         if (peer && !peer.destroyed) {
             try {
@@ -101,6 +217,7 @@ function wirePeerLifecycle() {
     });
     peer.on('close', () => {
         // The peer was destroyed: every connection is dead with it.
+        noteShare({ kind: 'signalling-closed', who: 'signalling', reason: 'closed' });
         if (localRole === 'host') {
             for (const conn of [...viewerConns]) dropHostConn(conn, 'closed');
             if (controllerConn) dropHostConn(controllerConn, 'closed');
@@ -110,6 +227,7 @@ function wirePeerLifecycle() {
         call('onPeerClosed');
     });
     peer.on('error', (err) => {
+        noteShare({ kind: 'error', who: 'signalling', code: peerErrorCode(err) });
         call('onPeerError', describePeerError(err), err);
     });
 }
@@ -126,6 +244,12 @@ function dropHostConn(conn, reason, err = null) {
     viewerConns.delete(conn);
     safeClose(conn);
     if (!wasController && !wasViewer) return;
+    noteShare({
+        kind: 'link-down',
+        who: wasController ? 'controller' : 'viewer',
+        reason: LINK_REASONS.has(reason) ? reason : 'error',
+        code: err ? peerErrorCode(err) : ''
+    });
     if (wasController) call('onControllerDisconnected', reason, err);
     if (wasViewer) call('onViewerDisconnected', reason, err);
     call('onCountsChanged', getPeerCounts());
@@ -142,24 +266,32 @@ function acceptHostConnection(conn) {
             controllerConn = conn;
             if (previous && previous !== conn) {
                 lastSeen.delete(previous);
+                noteShare({ kind: 'link-down', who: 'controller', reason: 'replaced' });
                 safeClose(previous);
             }
+            noteShare({ kind: 'link-up', who: 'controller' });
             call('onPartnerConnected');
         } else {
             viewerConns.add(conn);
+            noteShare({ kind: 'link-up', who: 'viewer' });
             call('onViewerConnected');
         }
         call('onCountsChanged', getPeerCounts());
     });
     conn.on('data', (raw) => {
-        lastSeen.set(conn, Date.now());
+        const now = Date.now();
+        const prev = lastSeen.get(conn) || 0;
+        lastSeen.set(conn, now);
+        if (prev && now - prev >= 8000) noteShare({ kind: 'gap', who: role, gapMs: now - prev });
         const cmd = sanitizeCommand(raw, role);
-        if (!cmd || cmd.type === 'PING') return;
+        if (!cmd || QUIET_COMMANDS.has(cmd.type)) return;
+        noteShare({ kind: 'command', who: role, cmd: cmd.type });
         call('onCommandReceived', cmd);
     });
     conn.on('close', () => dropHostConn(conn, 'closed'));
     conn.on('error', (err) => dropHostConn(conn, 'error', err));
     conn.on('iceStateChanged', (iceState) => {
+        noteShare({ kind: 'ice', who: role, ice: iceState });
         if (iceState === 'failed' || iceState === 'closed') dropHostConn(conn, 'ice');
     });
 }
@@ -169,6 +301,7 @@ function acceptHostConnection(conn) {
 export function initHostPeer(h) {
     handlers = h || {};
     if (!peerLibraryAvailable()) {
+        noteShare({ kind: 'error', who: 'signalling', code: 'library-missing' });
         call('onPeerError', describePeerError({ type: 'library-missing' }), { type: 'library-missing' });
         return false;
     }
@@ -242,6 +375,12 @@ function dropRemoteLink(reason, err = null) {
     const conn = hostConn;
     if (!conn) return;
     hostConn = null;
+    noteShare({
+        kind: 'link-down',
+        who: 'host',
+        reason: LINK_REASONS.has(reason) ? reason : 'error',
+        code: err ? peerErrorCode(err) : ''
+    });
     safeClose(conn);
     call('onDisconnected', reason, err);
 }
@@ -251,6 +390,7 @@ function dropRemoteLink(reason, err = null) {
 export function initRemotePeer(room, role, h) {
     handlers = h || {};
     if (!peerLibraryAvailable()) {
+        noteShare({ kind: 'error', who: 'signalling', code: 'library-missing' });
         call('onPeerError', describePeerError({ type: 'library-missing' }), { type: 'library-missing' });
         return false;
     }
@@ -263,6 +403,7 @@ export function initRemotePeer(room, role, h) {
         hostConn = conn;
         conn.on('open', () => {
             startPing();
+            noteShare({ kind: 'link-up', who: 'host' });
             call('onConnected');
         });
         conn.on('data', (raw) => {
@@ -272,6 +413,7 @@ export function initRemotePeer(room, role, h) {
         conn.on('close', () => dropRemoteLink('closed'));
         conn.on('error', (err) => dropRemoteLink('error', err));
         conn.on('iceStateChanged', (iceState) => {
+            noteShare({ kind: 'ice', who: 'host', ice: iceState });
             if (iceState === 'failed' || iceState === 'closed') dropRemoteLink('ice');
         });
     });
@@ -294,6 +436,8 @@ export function sendPeerCommand(cmd) {
 // disconnected" callback: the page that asked to stop already knows.
 export function closeHostPeer() {
     if (localRole !== 'host' && !peer) return;
+    if (controllerConn) noteShare({ kind: 'link-down', who: 'controller', reason: 'closed' });
+    if (viewerConns.size) noteShare({ kind: 'link-down', who: 'viewer', reason: 'closed' });
     const closing = [controllerConn, ...viewerConns].filter(Boolean);
     controllerConn = null;
     viewerConns.clear();

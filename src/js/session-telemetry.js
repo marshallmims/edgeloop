@@ -4,7 +4,7 @@
 // when a caller hands one in. The live site stays out of it. This build,
 // including the GitHub Pages copy, can record one when asked.
 
-export const TELEMETRY_VERSION = 4;
+export const TELEMETRY_VERSION = 5;
 export const SERIES_INTERVAL_MS = 1000;
 export const MAX_SERIES = 4 * 60 * 60;
 export const MAX_EVENTS = 500;
@@ -361,6 +361,65 @@ function summarize(series) {
     };
 }
 
+const SHARE_SIDES = new Set(['host', 'controller', 'viewer']);
+const SHARE_WHO = new Set(['host', 'controller', 'viewer', 'signalling']);
+const SHARE_KINDS = new Set([
+    'signalling-up', 'signalling-lost', 'signalling-closed',
+    'link-up', 'link-down', 'ice', 'command', 'quality', 'error', 'gap'
+]);
+const SHARE_REASONS = new Set(['closed', 'ice', 'timeout', 'error', 'replaced']);
+const SHARE_ICE = new Set(['new', 'checking', 'connected', 'completed', 'disconnected', 'failed', 'closed']);
+const SHARE_CODES = new Set([
+    'library-missing', 'browser-incompatible', 'peer-unavailable',
+    'network', 'socket-error', 'socket-closed', 'server-error', 'disconnected',
+    'unavailable-id', 'invalid-id', 'invalid-key', 'ssl-unavailable', 'webrtc', 'unknown'
+]);
+const SHARE_CMDS = new Set([
+    'SESSION_STATE', 'SESSION_RESET', 'ORGASM_TOGGLE', 'MODE_CHANGE', 'ENDGAME',
+    'EDGE_MARK', 'INTENSITY', 'SPEED_WINDOW', 'MANUAL_ARM', 'MANUAL_STOP',
+    'MANUAL_FRAME', 'MANUAL_PATTERN'
+]);
+
+function shareToken(value, allowed) {
+    return allowed.has(value) ? value : '';
+}
+
+// -1 means the sample did not have that number. Anything else is a small
+// non-negative integer. An address, a room id, or a candidate never has a
+// field here to land in.
+function shareMetric(value, hi) {
+    const n = Math.round(num(value, -1));
+    if (!Number.isFinite(n) || n < 0) return -1;
+    return Math.min(hi, n);
+}
+
+export function cleanShareTrace(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const item of raw.slice(-64)) {
+        const src = item && typeof item === 'object' ? item : {};
+        const kind = shareToken(src.kind, SHARE_KINDS);
+        if (!kind) continue;
+        out.push({
+            t: Math.max(0, Math.round(num(src.t, 0))),
+            side: shareToken(src.side, SHARE_SIDES),
+            who: shareToken(src.who, SHARE_WHO),
+            kind,
+            reason: shareToken(src.reason, SHARE_REASONS),
+            ice: shareToken(src.ice, SHARE_ICE),
+            code: shareToken(src.code, SHARE_CODES),
+            cmd: shareToken(src.cmd, SHARE_CMDS),
+            controllers: Math.max(0, Math.min(1, Math.round(num(src.controllers, 0)))),
+            viewers: Math.max(0, Math.min(32, Math.round(num(src.viewers, 0)))),
+            rttMs: shareMetric(src.rttMs, 60000),
+            jitterMs: shareMetric(src.jitterMs, 60000),
+            packetsLost: shareMetric(src.packetsLost, 10000000),
+            gapMs: shareMetric(src.gapMs, 120000)
+        });
+    }
+    return out;
+}
+
 function cleanHandyTrace(raw) {
     if (!Array.isArray(raw)) return [];
     return raw.slice(-48).map((item) => {
@@ -400,8 +459,9 @@ export function buildSessionExport(input = {}) {
     return {
         telemetryVersion: TELEMETRY_VERSION,
         appVersion: shortText(input.appVersion, 16),
-        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the intensity slider, why a pause happened, the script clock, how far a funscript was opened, the make and model of the toys, and the recent Handy position commands. It has no Handy key, device token, Bluetooth address, video address, or script file name.',
+        note: 'This file stays on your device until you choose to share it. It has the pulse, the toy speeds, the intensity slider, why a pause happened, the script clock, how far a funscript was opened, the make and model of the toys, the recent Handy position commands, and Share Control link events (round trip, packet loss, and why a link ended). It has no Handy key, device token, Bluetooth address, IP address, room link, peer id, video address, or script file name.',
         handyTrace: cleanHandyTrace(input.handyTrace),
+        shareTrace: cleanShareTrace(input.shareTrace),
         session: cleanSession(input.session),
         summary: summarize(series),
         settings: pickSettings(input.settings),

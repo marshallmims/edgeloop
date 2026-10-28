@@ -174,7 +174,8 @@ import {
     sendPeerCommand,
     pruneStalePeers,
     getPeerCounts,
-    peerLibraryAvailable
+    peerLibraryAvailable,
+    getShareLinkTrace
 } from './webrtc.js';
 import {
     cancelSpeech,
@@ -6335,7 +6336,8 @@ function saveSessionToHistory(outcome) {
             devices: deviceLogSnapshot(),
             script: scriptLogSnapshot(),
             trace: sessionLog.snapshot(),
-            handyTrace: getHandyTrace()
+            handyTrace: getHandyTrace(),
+            shareTrace: getShareLinkTrace()
         });
     }
     history.unshift(entry);
@@ -6439,7 +6441,8 @@ function downloadDebugLog() {
         devices: deviceLogSnapshot(),
         script: scriptLogSnapshot(),
         trace: sessionLog.snapshot(),
-        handyTrace: getHandyTrace()
+        handyTrace: getHandyTrace(),
+        shareTrace: getShareLinkTrace()
     });
     const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
