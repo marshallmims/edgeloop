@@ -162,7 +162,7 @@ The microphone monitor (optional) is a second arousal datapoint: louder voice/pa
 
 ## EdgeLoop 2.0
 
-EdgeLoop 2.0 is a separate project: the full application. The number is tentative. Its base is this 1.1.4.31 code, and 2.0 is not the website's version. edgeloop.app and dev.edgeloop.app stay the one-page site. They never load the application. `npm run desktop` opens it on this computer at `http://127.0.0.1:17321/?shell=1`. What it is, and what is still ahead of it, is [desktop/README.md](desktop/README.md).
+EdgeLoop 2.0 is a separate project: the full application. The number is tentative. Its base is the current dev site, 1.1.5.15, and 2.0 is not the website's version. edgeloop.app and dev.edgeloop.app stay the one-page site. They never load the application. `npm run desktop` opens it on this computer at `http://127.0.0.1:17321/?shell=1`. What it is, and what is still ahead of it, is [desktop/README.md](desktop/README.md).
 
 ---
 
