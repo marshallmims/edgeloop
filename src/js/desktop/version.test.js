@@ -1,5 +1,5 @@
 // The full application and the website do not share a version. 2.0 is
-// tentative. 1.1.4 stays the site.
+// tentative. The site number stays the dev release.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
