@@ -66,8 +66,9 @@ import { applySettingSchema } from './settings-schema.js';
 import { createWriteCoalescer } from './write-coalescer.js';
 import { planBannerUpdate, canClearBanner, hiddenBannerState, BANNER_OWNER_ANY } from './alert-banner.js';
 import { pushSample, buildFunscripts, toFunscript } from './funscript.js';
-import { isDevTelemetryHost, createSessionLog, buildSessionExport, pauseReasonFromSource } from './session-telemetry.js';
+import { createSessionLog, buildSessionExport, pauseReasonFromSource } from './session-telemetry.js';
 import { formatLiveHr } from './hr-readout.js';
+import { FOCUS_LOST_TEXT, pageIsInFront } from './page-focus.js';
 import { drawTelemetryChart, shouldDrawPullbackLine, watchChartResize } from './chart.js';
 import { connectBleHeartRate, disconnectBle, isBleConnected, isBleReconnecting, bindBlePageLifecycle } from './hardware/ble.js';
 import { describeBluetoothSupport, describeBleError, linuxDesktop, CHROME_BLUETOOTH_FLAG } from './hardware/ble-protocol.js';
@@ -175,7 +176,8 @@ import {
     sendPeerCommand,
     pruneStalePeers,
     getPeerCounts,
-    peerLibraryAvailable
+    peerLibraryAvailable,
+    getShareLinkTrace
 } from './webrtc.js';
 import {
     cancelSpeech,
@@ -320,7 +322,6 @@ const viewerRoom = urlParams.get('group_sub');
 export const isRemoteController = Boolean(partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
-const devTelemetry = !isRemotePage && isDevTelemetryHost(typeof location !== 'undefined' ? location.hostname : '');
 const SESSION_LOG_KEY = 'edgeloop_session_log';
 const sessionLog = createSessionLog();
 let sessionLogOptIn = safeParse(SESSION_LOG_KEY, false) === true;
@@ -328,8 +329,10 @@ let sessionLogOptIn = safeParse(SESSION_LOG_KEY, false) === true;
 // a partner's pause from the button on this page.
 let pendingPauseReason = '';
 
+// Off until the person running the session turns it on. A remote page does
+// not record: it is watching someone else's session.
 function sessionLogWanted() {
-    return devTelemetry && sessionLogOptIn;
+    return !isRemotePage && sessionLogOptIn;
 }
 let player = null;
 let secondaryTrack = null;
@@ -517,7 +520,7 @@ function triggerDisconnectAlert(message, source = 'device') {
 
 // Pause a RUNNING or RAMPDOWN session, remembering which one so RESUME goes
 // back into the rampdown where it left off. Motors are stopped immediately.
-// `source` is the pause reason stored in the dev session log.
+// `source` is the pause reason stored in the session log.
 // Returns false when there was nothing to pause.
 function pauseSession(voiceText = 'Paused.', source = 'button') {
     if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'RAMPDOWN') return false;
@@ -3319,7 +3322,34 @@ const sessionLimitsWriter = createWriteCoalescer({ write: () => persistSettings(
 window.addEventListener('pagehide', () => { sessionLimitsWriter.flush(); });
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') sessionLimitsWriter.flush();
+    paintFocusLost();
 });
+
+// The blur event runs before document.hasFocus() flips, so the paint waits
+// one turn. Clicking the veil focuses the window, which hides it.
+function paintFocusLost() {
+    const overlay = document.getElementById('focusLostOverlay');
+    if (!overlay) return;
+    const msg = document.getElementById('focusLostMsg');
+    if (msg && msg.textContent !== FOCUS_LOST_TEXT) msg.textContent = FOCUS_LOST_TEXT;
+    const inFront = pageIsInFront({
+        hasFocus: typeof document.hasFocus === 'function' ? document.hasFocus() : true,
+        visibilityState: document.visibilityState
+    });
+    overlay.classList.toggle('hidden', inFront);
+}
+
+function scheduleFocusLostPaint() {
+    setTimeout(paintFocusLost, 0);
+}
+
+window.addEventListener('blur', scheduleFocusLostPaint);
+window.addEventListener('focus', scheduleFocusLostPaint);
+document.getElementById('focusLostOverlay')?.addEventListener('click', () => {
+    window.focus();
+    scheduleFocusLostPaint();
+});
+scheduleFocusLostPaint();
 
 function persistSessionLimits(immediate = false) {
     if (isRemotePage) return false;
@@ -6323,7 +6353,8 @@ function saveSessionToHistory(outcome) {
             devices: deviceLogSnapshot(),
             script: scriptLogSnapshot(),
             trace: sessionLog.snapshot(),
-            handyTrace: getHandyTrace()
+            handyTrace: getHandyTrace(),
+            shareTrace: getShareLinkTrace()
         });
     }
     history.unshift(entry);
@@ -6349,7 +6380,6 @@ function funscriptForSession(session, channel) {
 }
 
 window.downloadSessionTelemetry = (sessionId) => {
-    if (!isDevTelemetryHost(location.hostname)) return;
     const history = safeParse('edgeloop_history', []);
     const session = history.find(s => s.id === sessionId);
     if (!session || !session.telemetry) return alert('This session has no session log. Turn on Record a session log before the session, or use Download debug log.');
@@ -6396,7 +6426,7 @@ window.downloadFunscript = (sessionId, channel) => {
 
 function paintSessionLogOptIn() {
     const panel = document.getElementById('sessionLogPanel');
-    if (panel) panel.classList.toggle('hidden', !devTelemetry);
+    if (panel) panel.classList.toggle('hidden', isRemotePage);
     const box = document.getElementById('sessionLogOptIn');
     if (box) box.checked = sessionLogOptIn;
     const label = document.getElementById('sessionLogOptInState');
@@ -6409,7 +6439,7 @@ function paintSessionLogOptIn() {
 }
 
 function downloadDebugLog() {
-    if (!isDevTelemetryHost(location.hostname)) return;
+    if (isRemotePage) return;
     const clean = buildSessionExport({
         appVersion: APP_VERSION,
         session: {
@@ -6428,7 +6458,8 @@ function downloadDebugLog() {
         devices: deviceLogSnapshot(),
         script: scriptLogSnapshot(),
         trace: sessionLog.snapshot(),
-        handyTrace: getHandyTrace()
+        handyTrace: getHandyTrace(),
+        shareTrace: getShareLinkTrace()
     });
     const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -6477,7 +6508,7 @@ function renderHistory() {
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         .v0.funscript
         </button>
-        ${devTelemetry && s.telemetry ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log. It stays on your device until you share it.">Session log</button>` : ''}
+        ${s.telemetry ? `<button onclick="downloadSessionTelemetry(${s.id})" class="px-2 py-1 bg-amber-950 hover:bg-amber-900 border border-amber-700 text-amber-200 rounded text-[10px] font-mono transition cursor-pointer" title="Download this session log. It stays on your device until you share it.">Session log</button>` : ''}
         </div>
         `;
         list.appendChild(item);

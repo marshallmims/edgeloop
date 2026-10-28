@@ -69,7 +69,7 @@ describe('the one-second series', () => {
         const exported = buildSessionExport({ trace: snap });
         assert.equal(exported.events[1].pauseReason, 'hr-signal');
         assert.equal(exported.series[2].intensity, 100);
-        assert.equal(exported.telemetryVersion, 4);
+        assert.equal(exported.telemetryVersion, 5);
     });
 });
 
@@ -205,6 +205,52 @@ describe('handy position commands in the log', () => {
     });
 });
 
+describe('Share Control events in the log', () => {
+    it('keeps the link measurements and drops an address, a room, and a peer id', () => {
+        const exported = buildSessionExport({
+            shareTrace: [
+                {
+                    t: 50,
+                    side: 'host',
+                    who: 'controller',
+                    kind: 'quality',
+                    rttMs: 42,
+                    jitterMs: 8,
+                    packetsLost: 1,
+                    ip: '203.0.113.8',
+                    address: '203.0.113.8',
+                    candidate: 'candidate:1 1 udp 1.2.3.4 54400',
+                    peerId: 'room-secret-abc',
+                    url: 'https://dev.edgeloop.app/?partner=room-secret-abc'
+                },
+                {
+                    t: 80,
+                    side: 'host',
+                    who: 'controller',
+                    kind: 'link-down',
+                    reason: 'timeout',
+                    code: 'not-a-real-code',
+                    cmd: 'SESSION_STATE'
+                },
+                { t: 90, kind: 'gossip', message: 'user@example.com' }
+            ]
+        });
+        const text = JSON.stringify(exported);
+        assert.equal(exported.shareTrace.length, 2);
+        assert.equal(exported.shareTrace[0].rttMs, 42);
+        assert.equal(exported.shareTrace[0].jitterMs, 8);
+        assert.equal(exported.shareTrace[0].packetsLost, 1);
+        assert.equal(exported.shareTrace[1].reason, 'timeout');
+        assert.equal(exported.shareTrace[1].code, '');
+        assert.equal(exported.shareTrace[1].cmd, 'SESSION_STATE');
+        assert.equal(text.includes('203.0.113.8'), false);
+        assert.equal(text.includes('room-secret'), false);
+        assert.equal(text.includes('partner='), false);
+        assert.equal(text.includes('example.com'), false);
+        assert.equal(text.includes('candidate'), false);
+    });
+});
+
 describe('the history opt-in', () => {
     it('is a switch on the history screen, off until the page turns recording on', () => {
         const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
@@ -219,5 +265,6 @@ describe('the history opt-in', () => {
         assert.match(html, /id="sessionLogDownload"/);
         assert.match(html, /id="manualTraditionalBtn"/);
         assert.match(html, /id="manualFloatBtn"/);
+        assert.match(app, /return !isRemotePage && sessionLogOptIn/);
     });
 });

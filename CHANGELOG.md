@@ -4,6 +4,14 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.15
+
+- **The session log includes Share Control.** It records when a controller or a viewer connects and drops, the signalling state, the round trip, packet loss, and the kind of command that arrived. It does not record an IP address, a room link, or a peer id.
+
+## 1.1.5.14
+
+- **The Handy follows faster.** A full stroke was given almost a second, so the slider felt slow. A later command that only moved the target a little was given a tenth of a second while the carriage was still far away, so the same trip was sometimes quick and sometimes slow. Each move is timed from where the carriage is, at a speed closer to what the slider can hold. It still brakes at the position you asked for, and a full stroke still has time to arrive.
+
 ## 1.1.5.13
 
 - **The Handy uses the whole stroke again.** Each new position was only given about a tenth of a second, and the carriage brakes at the end of that, so a full sweep only covered a short slice. A long move now has time to arrive, and position mode opens the full travel window first.
@@ -78,8 +86,16 @@ credited by username.
 - **Manual control is on the controller.** Each connected toy gets the controls it actually has. A stroker gets speed and a stroke range. A vibrator gets one level. Pulse, Wave, Ramp, Edge, and Climb are loops. Drag the pad to draw a loop and it repeats. Slow and Stop land immediately. A slider that is held stays there. A silent link eases the toys off, and a loop stops if the controller goes quiet. Stroke commands stay inside the travel limits already set on the toys. If the controller drops, the toys stop.
 - **The heart rate is sent when a reading arrives.** The one-second clock still sends the rest of the session.
 
+## 1.1.4.32
+
+- **The page says when it is not the focused window.** The screen blurs and a banner stays up until you click back. Space and the other keys are going to the other window, and toy updates can slow down while the page is in the background.
+
 ## 1.1.4.31
 
+This build is the live release on edgeloop.app. The install uses the plain heartbeat icon. The DEV badge stays on dev.edgeloop.app only.
+
+- **The live site uses the plain icon.** The tab, the header, and a home-screen install are the heartbeat, with no DEV bar. The installed name is EdgeLoop.
+- **A session log is there when you ask for it.** History has the switch on the live site, off until you turn it on. A finished session then offers the JSON download. The file stays in this browser. EdgeLoop does not upload it.
 - **Play Style and Session Endgame share one row.** The two headings sit on the same line, and the two cards start and end together. One click on the card opens both lists.
 - **No Nut November does not offer an orgasm.** The mode is renamed from NNN practice. Reaching the day's edge quota eases the toys down and ends the session. The denial percent is gone.
 

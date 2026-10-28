@@ -138,9 +138,38 @@ export function followPosition(percent, envMin = 0, envMax = 100, margin = HANDY
     return Math.round(bounds.min + (p / 100) * span);
 }
 
+// Milliseconds of travel for each percent of the rail. 10 ms made a full
+// stroke take about a second, which is slower than the slider can hold, and
+// a later command that only changed the target a little was then given the
+// 120 ms floor while the carriage was still far away. 4 ms is a full stroke
+// in 400 ms: still long enough to arrive before the brake, and one speed
+// for a long trip and a short one. The floor stays at the stream interval
+// so a tiny move is not a jab into the end stop.
+export const HDSP_MS_PER_PERCENT = 4;
+export const HDSP_MIN_DURATION_MS = 120;
+export const HDSP_MAX_DURATION_MS = 480;
+
+// Where the carriage should be now, partway through the move that was sent.
+// `leg` is { from, to, duration, sentAt }. Unknown or finished legs return
+// the end they have reached, or -1 when there is nothing to go on.
+export function hdspEstimatedPosition(leg, now) {
+    if (!leg) return -1;
+    const from = Number(leg.from);
+    const to = Number(leg.to);
+    if (!Number.isFinite(from) || from < 0 || !Number.isFinite(to)) return -1;
+    const duration = Number(leg.duration);
+    const sentAt = Number(leg.sentAt);
+    if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(sentAt) || !Number.isFinite(now)) return from;
+    const elapsed = now - sentAt;
+    if (elapsed <= 0) return from;
+    const progress = Math.min(1, elapsed / duration);
+    return from + (to - from) * progress;
+}
+
 // How an HDSP move may be sent. `position` and `lastPosition` are percents of
 // the full stroke. `lastPosition` below 0 means the sleeve position is not
-// known yet. `intervalMs` is the soonest another command is allowed out.
+// known yet. Pass the estimated position, not the last target, while a move
+// is still in flight.
 //
 // The carriage always brakes at the target. Leaving stopOnTarget off lets it
 // keep traveling after the target, through the end stop, and the firmware
@@ -155,10 +184,10 @@ export function hdspMove(position, lastPosition) {
     // from the wrong place runs the carriage into the end stop, and firmware
     // 4 then holds it there.
     const distance = known ? Math.abs(pos - last) : 100;
-    // The carriage brakes at the target. A tenth of a second is only enough
-    // for about a fifth of the rail, so the sleeve looked like it had a
-    // short stroke. A full trip is given long enough to actually arrive.
-    const duration = Math.round(Math.min(900, Math.max(120, distance * 10)));
+    const duration = Math.round(Math.min(
+        HDSP_MAX_DURATION_MS,
+        Math.max(HDSP_MIN_DURATION_MS, distance * HDSP_MS_PER_PERCENT)
+    ));
     return { position: pos, duration, stopOnTarget: true };
 }
 
@@ -173,7 +202,10 @@ export function firmwareMajor(info) {
 
 export function hdspBody(move) {
     const position = clampPercent(move && move.position, 0);
-        const duration = Math.round(Math.min(900, Math.max(120, Number(move && move.duration) || 120)));
+    const duration = Math.round(Math.min(
+        HDSP_MAX_DURATION_MS,
+        Math.max(HDSP_MIN_DURATION_MS, Number(move && move.duration) || HDSP_MIN_DURATION_MS)
+    ));
     return {
         position,
         duration,
