@@ -1118,7 +1118,7 @@
               <button id="manualTraditionalBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Traditional</button>
             </div>
             <div id="manualTouch" class="space-y-1.5">
-              <div id="manualLoopStage" class="relative h-44 rounded-xl border border-slate-700 bg-slate-950 touch-none" aria-label="Drag a dot. Higher is more. The bottom is nothing."></div>
+              <div id="manualLoopStage" class="relative h-52 rounded-xl border border-slate-700 bg-slate-950 touch-none" aria-label="Drag a toy. Higher is more. The bottom is nothing."></div>
               <div id="manualViz" class="min-h-[2.5rem]"></div>
               <p id="manualTouchHint" class="text-[9px] text-slate-500 leading-snug">Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. The line under each toy is what it is doing.</p>
             </div>
@@ -1126,6 +1126,7 @@
             <div id="manualPatternBlock">
               <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loops</p>
               <div id="manualPatterns" class="flex flex-wrap gap-1.5"></div>
+              <button id="manualSaveLoopBtn" type="button" class="mt-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Save this loop</button>
             </div>
           </div>
         </section>
@@ -1283,6 +1284,8 @@
           <!-- 60-Second Real-Time Canvas -->
           <div class="relative">
             <canvas id="hrChart" class="block w-full h-20 sm:h-24 bg-slate-950 rounded-xl border border-slate-800/80"></canvas>
+            <canvas id="commandChart" class="hidden mt-1.5 block w-full h-16 bg-slate-950 rounded-xl border border-purple-900/60" aria-label="What the controller is sending"></canvas>
+            <p id="commandChartLabel" class="hidden text-[9px] text-slate-500 leading-snug">What the controller is sending. 0 is off, 100 is full. This is the command, not proof the toy moved.</p>
             <div id="staleAlert" class="absolute inset-0 bg-slate-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-center px-3 text-xs font-bold text-rose-400 hidden">
               <span id="staleAlertText">WATCHDOG: NO HEART-RATE READING, MOTORS HALTED</span>
             </div>
@@ -1389,7 +1392,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.15</span>
+        <span id="appVersion" class="font-mono">v1.1.5.16</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

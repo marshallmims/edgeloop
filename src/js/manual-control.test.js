@@ -13,7 +13,9 @@ import {
     orderStroke,
     parseDeviceId,
     patternLevel,
+    patternPreview,
     peaksFromValues,
+    sanitizeCustomLoops,
     sanitizeDeviceCatalog,
     manualSplit,
     sanitizeManualFrame,
@@ -219,5 +221,53 @@ describe('touch release', () => {
         assert.equal(touchRelease('loop', false), 'hold');
         assert.equal(touchRelease('spring', true), 'spring');
         assert.equal(touchRelease('spring', false), 'spring');
+    });
+});
+
+describe('loop pictures', () => {
+    it('draws one cycle of a built-in loop as 0 to 100', () => {
+        const wave = patternPreview('wave', 21);
+        assert.equal(wave.length, 21);
+        assert.equal(wave[0], 0);
+        assert.equal(wave[10], 100);
+        assert.ok(wave.every((v) => v >= 0 && v <= 100));
+        const pulse = patternPreview('pulse', 20);
+        assert.equal(pulse[0], 100);
+        assert.equal(pulse[19], 0);
+        assert.equal(patternPreview('ramp', 20)[19], 100);
+    });
+
+    it('keeps the step count sane', () => {
+        assert.equal(patternPreview('ramp', 1).length, 2);
+        assert.equal(patternPreview('ramp', 9999).length, 64);
+        assert.equal(patternPreview('ramp', 'x').length, 20);
+    });
+});
+
+describe('saved loops', () => {
+    it('keeps a name and points and nothing else', () => {
+        const [loop, ...rest] = sanitizeCustomLoops([
+            { id: 'cabc123', name: '  Slow   tease  ', periodMs: 3000, owner: 'me@example.com', ip: '10.0.0.1', points: [{ t: 0, level: 0 }, { t: 0.5, level: 140 }, { t: 2, level: -5 }] }
+        ]);
+        assert.equal(rest.length, 0);
+        assert.deepEqual(Object.keys(loop).sort(), ['id', 'name', 'periodMs', 'points']);
+        assert.equal(loop.name, 'Slow tease');
+        assert.deepEqual(loop.points, [{ t: 0, level: 0 }, { t: 0.5, level: 100 }, { t: 1, level: 0 }]);
+    });
+
+    it('drops broken or repeated loops and caps the list', () => {
+        assert.deepEqual(sanitizeCustomLoops('nope'), []);
+        const good = (id) => ({ id, name: 'x', points: [{ t: 0, level: 1 }, { t: 1, level: 2 }] });
+        const list = sanitizeCustomLoops([
+            good('cgood1'),
+            good('cgood1'),
+            { ...good('BAD ID') },
+            { ...good('cnoname'), name: '   ' },
+            { ...good('conept'), points: [{ t: 0, level: 5 }] },
+            ...Array.from({ length: 20 }, (_, i) => good(`cmany${i}`))
+        ]);
+        assert.equal(list[0].id, 'cgood1');
+        assert.equal(list.length, 12);
+        assert.ok(!list.some((loop) => loop.id === 'BAD ID' || loop.id === 'cnoname' || loop.id === 'conept'));
     });
 });

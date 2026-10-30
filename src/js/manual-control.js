@@ -387,6 +387,18 @@ export function loopFromTracks(samples, elapsedMs) {
     };
 }
 
+// One cycle of a built-in loop, as 0–100, for the little picture on its button.
+export function patternPreview(id, steps = 20, drawn = null) {
+    const n = Math.max(2, Math.min(MAX_DRAWN_POINTS, Math.round(Number(steps) || 20)));
+    const out = [];
+    for (let i = 0; i < n; i += 1) {
+        const at = Math.min(i / (n - 1), 0.999) * DEFAULT_PATTERN_MS;
+        const level = patternLevel(id, at, DEFAULT_PATTERN_MS, drawn);
+        out.push(Math.round(clamp(level, 0, 1) * 100));
+    }
+    return out;
+}
+
 export function patternLevel(id, elapsedMs, periodMs = DEFAULT_PATTERN_MS, drawn = null) {
     const period = clampPatternPeriod(periodMs);
     const elapsed = Number(elapsedMs);
@@ -470,6 +482,35 @@ function frameFromTracks(pattern, elapsedMs) {
             return output;
         })
     };
+}
+
+// A controller's saved loop. Names and points only. No person, no address.
+export function sanitizeCustomLoops(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    const seen = new Set();
+    for (const item of raw) {
+        if (!isPlainObject(item)) continue;
+        const id = typeof item.id === 'string' && /^[a-z0-9-]{4,24}$/.test(item.id) ? item.id : '';
+        const name = typeof item.name === 'string' ? item.name.replace(/\s+/g, ' ').trim().slice(0, 24) : '';
+        if (!id || !name || seen.has(id)) continue;
+        const points = [];
+        if (Array.isArray(item.points)) {
+            for (const point of item.points) {
+                if (!isPlainObject(point)) continue;
+                const t = Number(point.t);
+                const level = Number(point.level);
+                if (!Number.isFinite(t) || !Number.isFinite(level)) continue;
+                points.push({ t: clamp(t, 0, 1), level: clampPct(level) });
+                if (points.length >= MAX_DRAWN_POINTS) break;
+            }
+        }
+        if (points.length < 2) continue;
+        seen.add(id);
+        out.push({ id, name, periodMs: clampTrackPeriod(item.periodMs), points });
+        if (out.length >= 12) break;
+    }
+    return out;
 }
 
 export function frameFromPattern(pattern, elapsedMs) {

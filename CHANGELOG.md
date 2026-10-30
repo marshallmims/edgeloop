@@ -4,6 +4,14 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.16
+
+- **Every toy picks its own mode.** Slider, Float, Loop, and Traditional sit in the top left of each toy's box, so The Handy can run a loop while a Lovense follows a slider or floats where you left it. The buttons along the top still set every toy at once.
+- **The toys are bubbles with their names in them.** The bubble you drag is bigger, and a 0 to 100 scale runs down the side. Traditional sliders show 0, 20, 40, 60, 80, and 100 under them.
+- **Each loop button shows its shape.** A small line on the button is one cycle of what that loop will do.
+- **Save your own loops.** Draw a loop and tap **Save this loop** to name it. It shows up with the other loops on this device, for whoever you control next. Only the name and the shape are kept.
+- **The person being controlled can see the controller.** While Share Control is on, a graph under the heart rate shows what the controller is sending to each toy. It is the command, not proof the toy moved.
+
 ## 1.1.5.15
 
 - **The session log includes Share Control.** It records when a controller or a viewer connects and drops, the signalling state, the round trip, packet loss, and the kind of command that arrived. It does not record an IP address, a room link, or a peer id.
