@@ -5942,7 +5942,7 @@ function setHandyStatus(text, tone = 'idle') {
 
 function handyBatteryLabel() {
     if (!handyDevice || !handyDevice.hasBattery) return null;
-    if (state.handyBattery === null || state.handyBattery === undefined) return '🔋 …';
+    if (state.handyBattery === null || state.handyBattery === undefined) return null;
     return `🔋 ${state.handyBattery}%`;
 }
 
@@ -6011,7 +6011,10 @@ document.getElementById('modalHandyConnectBtn')?.addEventListener('click', async
         handyDevice = result.profile || null;
         state.handyBattery = handyDevice && handyDevice.hasBattery ? result.battery : null;
         handyConnectedLabel = result.description ? `Connected (${result.description})` : 'Connected';
-        setHandyStatus(handyDevice ? `${handyConnectedLabel} — ${handyDevice.label}` : handyConnectedLabel, 'ok');
+        const batteryMissing = handyDevice && handyDevice.hasBattery && state.handyBattery === null;
+        setHandyStatus(batteryMissing
+            ? `${handyConnectedLabel} — ${handyDevice.label}. It has a battery, but this firmware is not sending the percentage.`
+            : (handyDevice ? `${handyConnectedLabel} — ${handyDevice.label}` : handyConnectedLabel), 'ok');
         setBadgeState('Handy', 'connected', handyBadgeName(), handyBatteryLabel());
         document.getElementById('modalHandyDisconnectBtn')?.classList.remove('hidden');
         closeModal();

@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.26
+
+- **This firmware is not sending the Handy battery percentage.** A connected Handy 2 Pro reports that it has a battery, and none of its status calls include the level. The empty battery icon is no longer shown. If a percentage arrives later, it is shown on the button. The Handy status line says when the firmware is not sending one.
+
 ## 1.1.5.25
 
 - **The Handy battery number comes from the live stream.** Asking only for battery updates made the server send nothing, so the icon stayed empty. The connection now listens to the device stream, and uses a level already in the device info when one is there. A Handy 1 still has no battery line.
