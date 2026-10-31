@@ -8161,14 +8161,34 @@ function saveCurrentLoop() {
     flashSaveLoopButton('Saved on this device');
 }
 
+function deleteCustomLoop(id, name) {
+    const sure = typeof window.confirm !== 'function' || window.confirm(`Delete ${name}? This only removes it from this device.`);
+    if (!sure) return;
+    storeCustomLoops(loadCustomLoops().filter((loop) => loop.id !== id));
+    renderCustomLoopButtons();
+}
+
 function renderCustomLoopButtons() {
     const patterns = document.getElementById('manualPatterns');
     if (!patterns) return;
     patterns.querySelectorAll('[data-custom-loop]').forEach((node) => node.remove());
     for (const loop of loadCustomLoops()) {
+        const wrap = document.createElement('span');
+        wrap.className = 'inline-flex items-stretch';
+        wrap.setAttribute('data-custom-loop', loop.id);
         const btn = sparkButton(loop.name, loop.points.map((point) => point.level), () => playCustomLoop(loop));
-        btn.setAttribute('data-custom-loop', loop.id);
-        patterns.append(btn);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Delete ${loop.name}`);
+        remove.className = 'px-1.5 rounded-r-lg border border-l-0 border-slate-700 bg-slate-900 hover:bg-rose-950 text-[12px] font-bold text-slate-300 hover:text-rose-200 cursor-pointer';
+        remove.addEventListener('click', (event) => {
+            event.stopPropagation();
+            deleteCustomLoop(loop.id, loop.name);
+        });
+        btn.classList.add('rounded-r-none');
+        wrap.append(btn, remove);
+        patterns.append(wrap);
     }
 }
 

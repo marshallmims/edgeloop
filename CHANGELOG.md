@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.21
+
+- **A saved loop can be deleted.** Each loop you made has an × beside it. Confirming removes that loop from this device. The built-in loops stay.
+
 ## 1.1.5.20
 
 - **The EdgeLoop Control button is gone.** You or EdgeLoop on each toy is the switch.
