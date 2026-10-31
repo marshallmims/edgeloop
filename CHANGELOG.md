@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.18
+
+- **Manual control reaches the toys again.** A slider move was being thrown away on the way to the host, so a controller could turn EdgeLoop on and off but could not move a toy. Slider, Float, Loop, and Traditional go through again. Those moves are still left out of the session log.
+- **Don't show this again stays on the warning.** The click was landing on The Handy card under the note, so the warning came back. The choice is saved on the press, and the note stays up until that click is finished.
+
 ## 1.1.5.17
 
 - **The focused-window warning no longer covers the page.** It was a full-screen veil, so a controller open in a second Chrome window on Linux could not drag the toys. The note stays at the top and the page under it still works. **Don't show this again** hides it, and **Focused window warning** in Advanced Session Settings turns it back on.

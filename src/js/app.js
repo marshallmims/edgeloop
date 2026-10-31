@@ -3450,6 +3450,10 @@ function paintFocusWarningToggle() {
     if (box) box.checked = focusWarningOn();
 }
 
+// Held from the press until the click has finished, so hiding the banner
+// cannot drop that click onto The Handy card underneath.
+let focusDismissHold = false;
+
 function paintFocusLost() {
     const overlay = document.getElementById('focusLostOverlay');
     if (!overlay) return;
@@ -3461,8 +3465,9 @@ function paintFocusLost() {
     });
     // The banner never covers the page. A controller window that Chrome
     // still calls unfocused, which Linux does with two windows, can keep
-    // dragging the toys.
-    overlay.classList.toggle('hidden', inFront || !focusWarningOn());
+    // dragging the toys. A press that is still down keeps the banner up.
+    const show = focusDismissHold || (!inFront && focusWarningOn());
+    overlay.classList.toggle('hidden', !show);
 }
 
 function scheduleFocusLostPaint() {
@@ -3471,9 +3476,31 @@ function scheduleFocusLostPaint() {
 
 window.addEventListener('blur', scheduleFocusLostPaint);
 window.addEventListener('focus', scheduleFocusLostPaint);
-document.getElementById('focusLostDismiss')?.addEventListener('click', () => {
-    setFocusWarning(false);
+document.getElementById('focusLostDismiss')?.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    if (btn && typeof btn.setPointerCapture === 'function') {
+        try { btn.setPointerCapture(event.pointerId); } catch (e) { /* already released */ }
+    }
+    focusDismissHold = true;
+    safeSet(FOCUS_WARNING_KEY, false);
+    paintFocusWarningToggle();
 });
+function releaseFocusDismiss(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if (!focusDismissHold) return;
+    setTimeout(() => {
+        focusDismissHold = false;
+        paintFocusLost();
+    }, 0);
+}
+document.getElementById('focusLostDismiss')?.addEventListener('pointerup', releaseFocusDismiss);
+document.getElementById('focusLostDismiss')?.addEventListener('pointercancel', releaseFocusDismiss);
+document.getElementById('focusLostDismiss')?.addEventListener('click', releaseFocusDismiss);
 document.getElementById('focusWarningToggle')?.addEventListener('change', (event) => {
     setFocusWarning(event.target.checked === true);
 });

@@ -20,7 +20,10 @@ describe('the lost-focus banner', () => {
         assert.match(html, /id="focusLostOverlay"/);
         assert.match(html, /backdrop-blur/);
         assert.match(html, /id="focusLostOverlay"[^>]*pointer-events-none/);
+        assert.match(html, /id="focusLostCard"[^>]*style="pointer-events: auto"/);
         assert.match(html, /id="focusLostDismiss"/);
+        assert.match(app, /setPointerCapture/);
+        assert.match(app, /focusDismissHold/);
         assert.match(html, /Don't show this again/);
         assert.match(html, /id="focusWarningToggle"/);
         assert.match(html, /id="commandChartToggle"/);

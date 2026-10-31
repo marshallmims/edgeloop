@@ -67,6 +67,14 @@ export function linkQualityFromStats(reports) {
     return out;
 }
 
+// A quiet command is still delivered. It is only left out of the session
+// log, because a slider sends one many times a second.
+export function routeHostCommand(raw, role) {
+    const cmd = sanitizeCommand(raw, role);
+    if (!cmd) return null;
+    return { cmd, trace: !QUIET_COMMANDS.has(cmd.type) };
+}
+
 function noteShare(fields) {
     const counts = getPeerCounts();
     shareTrace.push({
@@ -283,10 +291,10 @@ function acceptHostConnection(conn) {
         const prev = lastSeen.get(conn) || 0;
         lastSeen.set(conn, now);
         if (prev && now - prev >= 8000) noteShare({ kind: 'gap', who: role, gapMs: now - prev });
-        const cmd = sanitizeCommand(raw, role);
-        if (!cmd || QUIET_COMMANDS.has(cmd.type)) return;
-        noteShare({ kind: 'command', who: role, cmd: cmd.type });
-        call('onCommandReceived', cmd);
+        const routed = routeHostCommand(raw, role);
+        if (!routed) return;
+        if (routed.trace) noteShare({ kind: 'command', who: role, cmd: routed.cmd.type });
+        call('onCommandReceived', routed.cmd);
     });
     conn.on('close', () => dropHostConn(conn, 'closed'));
     conn.on('error', (err) => dropHostConn(conn, 'error', err));
