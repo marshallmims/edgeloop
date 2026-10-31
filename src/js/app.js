@@ -1696,6 +1696,8 @@ function queueHandyManual(speed, strokeMin, strokeMax, urgent) {
 const commandTrace = [];
 let commandNotedAt = 0;
 const COMMAND_COLORS = ['#c084fc', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '#f472b6'];
+const COMMAND_CHART_KEY = 'edgeloop_command_chart_hidden';
+let commandChartHidden = safeParse(COMMAND_CHART_KEY, false) === true;
 
 function commandValue(output) {
     if (Number.isFinite(Number(output.position))) return Math.round(Number(output.position));
@@ -1727,10 +1729,14 @@ function noteCommandFrame(frame) {
 function paintCommandChart() {
     const canvas = document.getElementById('commandChart');
     const label = document.getElementById('commandChartLabel');
+    const toggle = document.getElementById('commandChartToggle');
     const show = Boolean(sharingControl && commandTrace.length);
-    canvas?.classList.toggle('hidden', !show);
-    label?.classList.toggle('hidden', !show);
-    if (!canvas || !show) return;
+    const open = show && !commandChartHidden;
+    canvas?.classList.toggle('hidden', !open);
+    label?.classList.toggle('hidden', !open);
+    toggle?.classList.toggle('hidden', !show);
+    if (toggle) toggle.textContent = commandChartHidden ? 'Show controller' : 'Hide controller';
+    if (!canvas || !open) return;
     const width = canvas.clientWidth || 280;
     const height = canvas.clientHeight || 64;
     const dpr = window.devicePixelRatio || 1;
@@ -3427,6 +3433,23 @@ document.addEventListener('visibilitychange', () => {
 
 // The blur event runs before document.hasFocus() flips, so the paint waits
 // one turn. Clicking the veil focuses the window, which hides it.
+const FOCUS_WARNING_KEY = 'edgeloop_focus_warning';
+
+function focusWarningOn() {
+    return safeParse(FOCUS_WARNING_KEY, true) !== false;
+}
+
+function setFocusWarning(on) {
+    safeSet(FOCUS_WARNING_KEY, Boolean(on));
+    paintFocusWarningToggle();
+    paintFocusLost();
+}
+
+function paintFocusWarningToggle() {
+    const box = document.getElementById('focusWarningToggle');
+    if (box) box.checked = focusWarningOn();
+}
+
 function paintFocusLost() {
     const overlay = document.getElementById('focusLostOverlay');
     if (!overlay) return;
@@ -3436,7 +3459,10 @@ function paintFocusLost() {
         hasFocus: typeof document.hasFocus === 'function' ? document.hasFocus() : true,
         visibilityState: document.visibilityState
     });
-    overlay.classList.toggle('hidden', inFront);
+    // The banner never covers the page. A controller window that Chrome
+    // still calls unfocused, which Linux does with two windows, can keep
+    // dragging the toys.
+    overlay.classList.toggle('hidden', inFront || !focusWarningOn());
 }
 
 function scheduleFocusLostPaint() {
@@ -3445,9 +3471,16 @@ function scheduleFocusLostPaint() {
 
 window.addEventListener('blur', scheduleFocusLostPaint);
 window.addEventListener('focus', scheduleFocusLostPaint);
-document.getElementById('focusLostOverlay')?.addEventListener('click', () => {
-    window.focus();
-    scheduleFocusLostPaint();
+document.getElementById('focusLostDismiss')?.addEventListener('click', () => {
+    setFocusWarning(false);
+});
+document.getElementById('focusWarningToggle')?.addEventListener('change', (event) => {
+    setFocusWarning(event.target.checked === true);
+});
+document.getElementById('commandChartToggle')?.addEventListener('click', () => {
+    commandChartHidden = !commandChartHidden;
+    safeSet(COMMAND_CHART_KEY, commandChartHidden);
+    paintCommandChart();
 });
 scheduleFocusLostPaint();
 
@@ -4868,6 +4901,7 @@ function syncParamsUI() {
     const autoResumeToggle = document.getElementById('hrAutoResumeToggle');
     if (staleInput) staleInput.value = clampStaleSeconds(advancedSettings.hrStaleSeconds);
     if (autoResumeToggle) autoResumeToggle.checked = advancedSettings.hrAutoResume !== false;
+    paintFocusWarningToggle();
 
     paintWarmup();
 

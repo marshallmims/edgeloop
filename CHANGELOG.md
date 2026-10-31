@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.17
+
+- **The focused-window warning no longer covers the page.** It was a full-screen veil, so a controller open in a second Chrome window on Linux could not drag the toys. The note stays at the top and the page under it still works. **Don't show this again** hides it, and **Focused window warning** in Advanced Session Settings turns it back on.
+- **The controllee can hide the controller graph.** Hide controller collapses it. Show controller brings it back. The choice stays in this browser.
+
 ## 1.1.5.16
 
 - **Every toy picks its own mode.** Slider, Float, Loop, and Traditional sit in the top left of each toy's box, so The Handy can run a loop while a Lovense follows a slider or floats where you left it. The buttons along the top still set every toy at once.

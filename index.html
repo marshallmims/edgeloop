@@ -1284,6 +1284,7 @@
           <!-- 60-Second Real-Time Canvas -->
           <div class="relative">
             <canvas id="hrChart" class="block w-full h-20 sm:h-24 bg-slate-950 rounded-xl border border-slate-800/80"></canvas>
+            <button id="commandChartToggle" type="button" class="hidden mt-1.5 text-[10px] font-bold text-purple-300 hover:text-purple-100 cursor-pointer">Hide controller</button>
             <canvas id="commandChart" class="hidden mt-1.5 block w-full h-16 bg-slate-950 rounded-xl border border-purple-900/60" aria-label="What the controller is sending"></canvas>
             <p id="commandChartLabel" class="hidden text-[9px] text-slate-500 leading-snug">What the controller is sending. 0 is off, 100 is full. This is the command, not proof the toy moved.</p>
             <div id="staleAlert" class="absolute inset-0 bg-slate-950/85 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-center px-3 text-xs font-bold text-rose-400 hidden">
@@ -1392,7 +1393,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.16</span>
+        <span id="appVersion" class="font-mono">v1.1.5.17</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -1880,6 +1881,17 @@
           </div>
 
           <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+            <div class="flex justify-between items-center gap-2">
+              <label for="focusWarningToggle" class="text-xs font-bold text-slate-200">Focused window warning</label>
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input id="focusWarningToggle" type="checkbox" checked class="sr-only peer">
+                <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
+            <p class="text-[9px] text-slate-400 leading-snug">Shows when this window is not in front, because keys and toy updates can go to the other window. The warning sits on top and leaves the page usable. Don't show this again turns this off. Turn it back on here.</p>
+          </div>
+
+          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
             <div class="flex justify-between items-center">
               <label class="text-xs font-bold text-slate-200">Adaptive Ceiling Decay</label>
               <label class="relative inline-flex items-center cursor-pointer">
@@ -2204,9 +2216,10 @@ python3 -m http.server 8787</pre>
     })();
   </script>
 
-  <div id="focusLostOverlay" class="hidden fixed inset-0 z-[80] bg-slate-950/50 backdrop-blur-sm flex items-start justify-center p-4 sm:p-8 cursor-pointer" role="status" aria-live="polite">
-    <div class="mt-10 max-w-xl w-full bg-slate-900 border border-amber-400/80 text-amber-50 text-sm px-4 py-3.5 rounded-2xl shadow-2xl shadow-black/50">
+  <div id="focusLostOverlay" class="hidden fixed inset-x-0 top-0 z-[80] flex justify-center p-4 sm:p-8 pointer-events-none" role="status" aria-live="polite">
+    <div class="pointer-events-auto mt-10 max-w-xl w-full bg-slate-900/95 border border-amber-400/80 text-amber-50 text-sm px-4 py-3.5 rounded-2xl shadow-2xl shadow-black/50 backdrop-blur-sm space-y-2">
       <p id="focusLostMsg" class="font-semibold leading-snug">EdgeLoop is not the focused window. Click the page to bring it back. Space and the other keys are going to the other window, and toy updates can slow down until this page is in front.</p>
+      <button id="focusLostDismiss" type="button" class="text-[11px] font-bold text-amber-200 underline underline-offset-2 cursor-pointer">Don't show this again</button>
     </div>
   </div>
 
