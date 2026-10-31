@@ -20,6 +20,7 @@ import {
     HDSP_MIN_DURATION_MS,
     normalizeSlideRange,
     normalizeEnvelope,
+    batteryPercentFromPayload,
     classifyHandyDevice,
     classifyHandyResponse,
     describeSlideAdjustment,
@@ -139,6 +140,28 @@ describe('classifyHandyResponse', () => {
     it('handles a non-JSON body', () => {
         assert.equal(classifyHandyResponse(true, 200, null).ok, true);
         assert.equal(classifyHandyResponse(false, 502, null).ok, false);
+    });
+});
+
+describe('battery event', () => {
+    it('reads a fraction wrapped the way the event stream sends it', () => {
+        assert.equal(batteryPercentFromPayload({ data: { level: 0.42 } }), 42);
+        assert.equal(batteryPercentFromPayload({
+            connection_key: 'secret',
+            data: { level: 0.5, charger_connected: false }
+        }), 50);
+        assert.equal(batteryPercentFromPayload({
+            id: '1',
+            type: 'battery_changed',
+            data: { connection_key: 'secret', data: { level: 0.85 } }
+        }), 85);
+    });
+
+    it('reads a percentage and ignores a payload with no level', () => {
+        assert.equal(batteryPercentFromPayload({ level: 77 }), 77);
+        assert.equal(batteryPercentFromPayload({ level: 0 }), 0);
+        assert.equal(batteryPercentFromPayload({ data: { charger_connected: true } }), null);
+        assert.equal(batteryPercentFromPayload(null), null);
     });
 });
 

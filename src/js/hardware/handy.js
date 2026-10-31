@@ -39,6 +39,7 @@ import {
     hdspEstimatedPosition,
     isHampModeError,
     normalizeSlideRange,
+    batteryPercentFromPayload,
     parseBatteryLevel,
     describeHandyInfo
 } from './handy-protocol.js';
@@ -74,6 +75,7 @@ let handyInfo = null;
 let handyProfile = null;
 let handyTiming = null;
 let batterySource = null;
+let batteryPull = null;
 let handyIsHampRunning = false;
 // 'hamp' oscillates a stroke window. 'hdsp' moves to a position (Loop).
 let handyDrive = 'hamp';
@@ -265,27 +267,79 @@ async function readHandyProfile(key, info) {
 }
 
 function stopBatteryWatch() {
+    if (batteryPull) {
+        batteryPull.abort();
+        batteryPull = null;
+    }
     if (batterySource) {
         batterySource.close();
         batterySource = null;
     }
 }
 
+function noteBatteryPayload(payload) {
+    const percent = batteryPercentFromPayload(payload);
+    if (percent === null || !handyConnected) return false;
+    callHandler('onBattery', percent);
+    return true;
+}
+
+// The battery percentage is not in GET /info. The device pushes it on the
+// event stream, and the first push is the level it has now. The payload is
+// sometimes wrapped, so the reader accepts either shape.
 function startBatteryWatch(key) {
     stopBatteryWatch();
-    if (typeof EventSource !== 'function' || !key) return;
-    const source = new EventSource(sseUrl(resolveApplicationId(), key, ['battery_changed']));
-    batterySource = source;
-    source.addEventListener('battery_changed', (event) => {
-        if (!handyConnected || source !== batterySource) return;
-        let body = null;
-        try { body = JSON.parse(event.data); } catch (e) { return; }
-        const data = body && body.data && typeof body.data === 'object' ? body.data : body;
-        const level = Number(data && data.level);
-        if (!Number.isFinite(level) || level < 0) return;
-        const percent = level <= 1 ? Math.round(level * 100) : Math.round(Math.min(100, level));
-        callHandler('onBattery', percent);
-    });
+    if (!key) return;
+    const url = sseUrl(resolveApplicationId(), key, ['battery_changed']);
+    if (typeof EventSource === 'function') {
+        const source = new EventSource(url);
+        batterySource = source;
+        const onEvent = (event) => {
+            if (!handyConnected || source !== batterySource || !event) return;
+            let body = null;
+            try { body = JSON.parse(event.data); } catch (e) { return; }
+            noteBatteryPayload(body);
+        };
+        source.addEventListener('battery_changed', onEvent);
+        source.addEventListener('message', onEvent);
+    }
+    pullBatterySnapshot(url);
+}
+
+async function pullBatterySnapshot(url) {
+    if (typeof fetch !== 'function' || typeof AbortController !== 'function') return;
+    const controller = new AbortController();
+    batteryPull = controller;
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+        const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'text/event-stream' } });
+        if (!res.ok || !res.body || typeof res.body.getReader !== 'function') return;
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        while (handyConnected && batteryPull === controller) {
+            const step = await reader.read();
+            if (step.done) break;
+            buf += decoder.decode(step.value, { stream: true });
+            const frames = buf.split(/\n\n/);
+            buf = frames.pop() || '';
+            for (const frame of frames) {
+                const text = frame.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n');
+                if (!text) continue;
+                let body = null;
+                try { body = JSON.parse(text); } catch (e) { continue; }
+                if (noteBatteryPayload(body)) {
+                    controller.abort();
+                    return;
+                }
+            }
+        }
+    } catch (e) {
+        // The stream ends when the first reading arrives, or after a few seconds.
+    } finally {
+        clearTimeout(timer);
+        if (batteryPull === controller) batteryPull = null;
+    }
 }
 
 async function handyV3(path, body, key = handyKey) {

@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.23
+
+- **The Handy battery percentage shows.** The icon was up because the device has a battery, but the number lives in a separate update and that update was not being read. It is read when you connect, and again when the level changes. A Handy 1 still has no battery line.
+
 ## 1.1.5.22
 
 - **The controller graph follows faster.** It was keeping 20 seconds and skipping samples, so the line on the person being controlled lagged and stepped. It now keeps 8 seconds, takes a sample about every 40 ms, and slides while the page is in front.
