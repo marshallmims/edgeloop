@@ -148,6 +148,9 @@ export function followPosition(percent, envMin = 0, envMax = 100, margin = HANDY
 export const HDSP_MS_PER_PERCENT = 4;
 export const HDSP_MIN_DURATION_MS = 120;
 export const HDSP_MAX_DURATION_MS = 480;
+// A slow finger is given up to this long to arrive, so the carriage glides
+// into the next point instead of sprinting and braking on every sample.
+export const HDSP_GLIDE_CAP_MS = 480;
 
 // Rated travel, from the maker's comparison (thehandy.com), not an overclock.
 // Handy 1 is mains only. Handy 2 and Handy 2 Pro both have a battery.
@@ -219,7 +222,7 @@ export function hdspEstimatedPosition(leg, now) {
 // then locks it there: at the bottom, or at the top, until it will not follow
 // the finger back. A longer move is given more time. A short one still lasts
 // at least the stream interval, so the next finger position can replace it.
-export function hdspMove(position, lastPosition, timing = null) {
+export function hdspMove(position, lastPosition, timing = null, paceMs = null) {
     const pos = clampPercent(position, 0);
     const known = Number.isFinite(Number(lastPosition)) && Number(lastPosition) >= 0;
     const last = known ? clampPercent(lastPosition, 0) : pos;
@@ -233,7 +236,18 @@ export function hdspMove(position, lastPosition, timing = null) {
     const msPer = Number.isFinite(per) && per > 0 ? per : HDSP_MS_PER_PERCENT;
     const minDuration = Number.isFinite(lo) && lo > 0 ? lo : HDSP_MIN_DURATION_MS;
     const maxDuration = Number.isFinite(hi) && hi > 0 ? hi : HDSP_MAX_DURATION_MS;
-    const duration = Math.round(Math.min(maxDuration, Math.max(minDuration, distance * msPer)));
+    // Rated top speed is the shortest honest time. A slow finger takes longer,
+    // about as long as the gap since the last point, so the sleeve is still
+    // moving when the next point arrives instead of stopping between them.
+    const atRated = distance * msPer;
+    const pace = Number(paceMs);
+    const glide = known && Number.isFinite(pace) && pace > 0
+        ? Math.min(HDSP_GLIDE_CAP_MS, pace * 1.6)
+        : 0;
+    const duration = Math.round(Math.min(
+        Math.max(maxDuration, HDSP_GLIDE_CAP_MS),
+        Math.max(minDuration, Math.max(atRated, glide))
+    ));
     return { position: pos, duration, stopOnTarget: true };
 }
 

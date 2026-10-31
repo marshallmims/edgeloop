@@ -83,6 +83,7 @@ let hdspPending = null;
 let hdspTimer = null;
 let hdspBusy = false;
 let hdspLastSend = 0;
+let hdspLastCommandAt = 0;
 let hdspLastPosition = -1;
 // The move that is in flight. The next duration is timed from where this
 // says the carriage is, not from the target it has not reached yet.
@@ -664,6 +665,7 @@ export async function connectHandy(key) {
     handyDrive = 'hamp';
     clearHdspQueue();
     hdspLastSend = 0;
+    hdspLastCommandAt = 0;
     hdspLastPosition = -1;
     hdspSlide = { min: -1, max: -1 };
     handyStartInFlight = false;
@@ -935,7 +937,9 @@ function pumpHdsp() {
         const sentAt = Date.now();
         const estimated = hdspEstimatedPosition(hdspLeg, sentAt);
         const origin = estimated >= 0 ? estimated : hdspLastPosition;
-        const move = hdspMove(target, origin, handyTiming);
+        const pace = hdspLastCommandAt ? sentAt - hdspLastCommandAt : 0;
+        const move = hdspMove(target, origin, handyTiming, pace);
+        hdspLastCommandAt = sentAt;
         const row = rememberHandyMove(move);
         hdspLeg = {
             from: origin >= 0 ? origin : move.position,

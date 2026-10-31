@@ -289,6 +289,16 @@ describe('hdspMove', () => {
         assert.equal(firmwareMajor({ fwVersion: '3.2.3' }), 3);
     });
 
+    it('glides a slow finger and still sprints a fast one', () => {
+        const timing = hdspTimingFor(HANDY_DEVICES.handy2pro);
+        const slow = hdspMove(30, 25, timing, 120);
+        assert.ok(slow.duration > 40);
+        assert.equal(slow.duration, Math.round(120 * 1.6));
+        assert.equal(slow.stopOnTarget, true);
+        const fast = hdspMove(100, 0, timing, 60);
+        assert.equal(fast.duration, timing.maxDurationMs);
+    });
+
     it('times the next move from where the carriage is, not from the last target', () => {
         const leg = { from: 10, to: 90, duration: 320, sentAt: 1000 };
         assert.equal(hdspEstimatedPosition(leg, 1000), 10);

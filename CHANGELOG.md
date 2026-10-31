@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.24
+
+- **A slow Handy move glides.** Fast strokes still use the rated top speed. A slow drag was sprinting to each point and braking, which felt rough. A slow move now takes about as long as the finger did, and it still brakes at the point you asked for.
+
 ## 1.1.5.23
 
 - **The Handy battery percentage shows.** The icon was up because the device has a battery, but the number lives in a separate update and that update was not being read. It is read when you connect, and again when the level changes. A Handy 1 still has no battery line.
