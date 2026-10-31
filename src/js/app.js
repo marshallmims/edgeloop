@@ -1701,6 +1701,10 @@ function queueHandyManual(speed, strokeMin, strokeMax, urgent) {
 
 const commandTrace = [];
 let commandNotedAt = 0;
+let commandPaintRaf = 0;
+const COMMAND_SAMPLE_MS = 40;
+const COMMAND_WINDOW_MS = 8000;
+const COMMAND_TRACE_MAX = 240;
 const COMMAND_COLORS = ['#c084fc', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '#f472b6'];
 const COMMAND_CHART_KEY = 'edgeloop_command_chart_hidden';
 let commandChartHidden = safeParse(COMMAND_CHART_KEY, false) === true;
@@ -1715,7 +1719,7 @@ function noteCommandFrame(frame) {
     if (isRemotePage || !sharingControl) return;
     const devices = frame && Array.isArray(frame.devices) ? frame.devices : [];
     const now = Date.now();
-    if (commandNotedAt && now - commandNotedAt < 100) return;
+    if (commandNotedAt && now - commandNotedAt < COMMAND_SAMPLE_MS) return;
     commandNotedAt = now;
     const lines = [];
     for (const output of devices) {
@@ -1727,9 +1731,9 @@ function noteCommandFrame(frame) {
         if (lines.length >= 6) break;
     }
     commandTrace.push({ t: now, lines });
-    const cutoff = now - 20000;
-    while (commandTrace.length > 200 || (commandTrace.length && commandTrace[0].t < cutoff)) commandTrace.shift();
-    paintCommandChart();
+    const cutoff = now - COMMAND_WINDOW_MS;
+    while (commandTrace.length > COMMAND_TRACE_MAX || (commandTrace.length && commandTrace[0].t < cutoff)) commandTrace.shift();
+    ensureCommandPaint();
 }
 
 function paintCommandChart() {
@@ -1757,7 +1761,7 @@ function paintCommandChart() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
     const now = Date.now();
-    const windowMs = 20000;
+    const windowMs = COMMAND_WINDOW_MS;
     const start = now - windowMs;
     const yOf = (value) => 4 + (1 - Math.max(0, Math.min(100, value)) / 100) * (height - 8);
     const xOf = (t) => ((t - start) / windowMs) * width;
@@ -1811,9 +1815,35 @@ function holdCommandAtZero() {
         t: commandNotedAt,
         lines: last.lines.map((line) => ({ name: line.name, v: 0 }))
     });
-    const cutoff = commandNotedAt - 20000;
-    while (commandTrace.length > 200 || (commandTrace.length && commandTrace[0].t < cutoff)) commandTrace.shift();
-    paintCommandChart();
+    const cutoff = commandNotedAt - COMMAND_WINDOW_MS;
+    while (commandTrace.length > COMMAND_TRACE_MAX || (commandTrace.length && commandTrace[0].t < cutoff)) commandTrace.shift();
+    ensureCommandPaint();
+}
+
+function stopCommandPaint() {
+    if (commandPaintRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(commandPaintRaf);
+    commandPaintRaf = 0;
+}
+
+function ensureCommandPaint() {
+    if (!sharingControl || commandChartHidden || !commandTrace.length) {
+        paintCommandChart();
+        return;
+    }
+    if (commandPaintRaf || typeof requestAnimationFrame !== 'function') {
+        paintCommandChart();
+        return;
+    }
+    const tick = () => {
+        if (!sharingControl || commandChartHidden || !commandTrace.length) {
+            commandPaintRaf = 0;
+            paintCommandChart();
+            return;
+        }
+        paintCommandChart();
+        commandPaintRaf = requestAnimationFrame(tick);
+    };
+    commandPaintRaf = requestAnimationFrame(tick);
 }
 
 function applyManualHardware(frame, { urgent = false } = {}) {
@@ -3547,7 +3577,9 @@ document.getElementById('focusWarningToggle')?.addEventListener('change', (event
 document.getElementById('commandChartToggle')?.addEventListener('click', () => {
     commandChartHidden = !commandChartHidden;
     safeSet(COMMAND_CHART_KEY, commandChartHidden);
+    if (commandChartHidden) stopCommandPaint();
     paintCommandChart();
+    if (!commandChartHidden) ensureCommandPaint();
 });
 scheduleFocusLostPaint();
 
@@ -5890,6 +5922,11 @@ document.getElementById('modalEngageSimBtn')?.addEventListener('click', () => {
 const handyInput = document.getElementById('modalHandyInput');
 if (handyInput) handyInput.value = safeGet('handy_connection_key', '') || '';
 let handyConnectedLabel = 'The Handy';
+let handyDevice = null;
+
+function handyBadgeName() {
+    return handyDevice && handyDevice.label ? handyDevice.label : 'The Handy';
+}
 
 // Modal "Status:" line. tone: 'idle' | 'busy' | 'ok' | 'error'
 function setHandyStatus(text, tone = 'idle') {
@@ -5904,7 +5941,9 @@ function setHandyStatus(text, tone = 'idle') {
 }
 
 function handyBatteryLabel() {
-    return state.handyBattery !== null && state.handyBattery !== undefined ? `🔋 ${state.handyBattery}%` : null;
+    if (!handyDevice || !handyDevice.hasBattery) return null;
+    if (state.handyBattery === null || state.handyBattery === undefined) return '🔋 …';
+    return `🔋 ${state.handyBattery}%`;
 }
 
 setHandyHandlers({
@@ -5917,8 +5956,13 @@ setHandyHandlers({
             setBadgeState('Handy', 'warning', 'API Error', handyBatteryLabel());
         } else {
             setHandyStatus(handyConnectedLabel, 'ok');
-            setBadgeState('Handy', 'connected', 'The Handy', handyBatteryLabel());
+            setBadgeState('Handy', 'connected', handyBadgeName(), handyBatteryLabel());
         }
+    },
+    onBattery: (percent) => {
+        state.handyBattery = percent;
+        if (!handyConnected || !handyDevice || !handyDevice.hasBattery) return;
+        setBadgeState('Handy', 'connected', handyBadgeName(), handyBatteryLabel());
     },
     onOffline: (reason) => {
         state.handyBattery = null;
@@ -5964,10 +6008,11 @@ document.getElementById('modalHandyConnectBtn')?.addEventListener('click', async
 
     try {
         const result = await connectHandy(key);
-        state.handyBattery = result.battery;
+        handyDevice = result.profile || null;
+        state.handyBattery = handyDevice && handyDevice.hasBattery ? result.battery : null;
         handyConnectedLabel = result.description ? `Connected (${result.description})` : 'Connected';
-        setHandyStatus(handyConnectedLabel, 'ok');
-        setBadgeState('Handy', 'connected', 'The Handy', handyBatteryLabel());
+        setHandyStatus(handyDevice ? `${handyConnectedLabel} — ${handyDevice.label}` : handyConnectedLabel, 'ok');
+        setBadgeState('Handy', 'connected', handyBadgeName(), handyBatteryLabel());
         document.getElementById('modalHandyDisconnectBtn')?.classList.remove('hidden');
         closeModal();
         syncTelemetry();
@@ -5993,6 +6038,7 @@ document.getElementById('modalHandyDisconnectBtn')?.addEventListener('click', as
     // The link drops at once; the verified stop it sends is awaited so the
     // modal can say whether the device confirmed it.
     const stopped = disconnectHandy();
+    handyDevice = null;
     state.handyBattery = null;
     setHandyStatus('Stopping the device...', 'busy');
     setBadgeState('Handy', 'disconnected', 'Stopping...');
@@ -6759,6 +6805,7 @@ function enterControlleeMode() {
 function exitControlleeMode() {
     sharingControl = false;
     commandTrace.length = 0;
+    stopCommandPaint();
     paintCommandChart();
     document.body.classList.remove('sharing-control');
     paintAppMode();

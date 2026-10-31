@@ -124,7 +124,9 @@ describe('handy driver', () => {
         assert.deepEqual(sent('/mode')[0].body, { mode: 0 });
         assert.ok(calls.every((c) => c.key === KEY));
         assert.equal(getHandyKey(), KEY);
-        assert.equal(result.battery, 77);
+        assert.equal(result.battery, null);
+        assert.equal(result.profile.id, 'handy1');
+        assert.equal(result.profile.hasBattery, false);
         assert.equal(result.description, 'fw 3.2.3, Handy 1.1');
         assert.equal(isHandyMoving(), false);
     });

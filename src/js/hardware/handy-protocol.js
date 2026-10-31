@@ -149,6 +149,49 @@ export const HDSP_MS_PER_PERCENT = 4;
 export const HDSP_MIN_DURATION_MS = 120;
 export const HDSP_MAX_DURATION_MS = 480;
 
+// Rated travel, from the maker's comparison (thehandy.com), not an overclock.
+// Handy 1 is mains only. Handy 2 and Handy 2 Pro both have a battery.
+// Stroke is 110 mm on the 1 and 125 mm on both 2s. Top speed is 400 mm/s
+// on the 1 and the 2, and 450 mm/s on the Pro. The Pro's 800 mm/s mode is
+// an overclock and is not used here.
+export const HANDY_DEVICES = Object.freeze({
+    handy1: Object.freeze({ id: 'handy1', label: 'Handy 1', strokeMm: 110, maxMmPerSec: 400, hasBattery: false }),
+    handy2: Object.freeze({ id: 'handy2', label: 'Handy 2', strokeMm: 125, maxMmPerSec: 400, hasBattery: true }),
+    handy2pro: Object.freeze({ id: 'handy2pro', label: 'Handy 2 Pro', strokeMm: 125, maxMmPerSec: 450, hasBattery: true })
+});
+
+// Milliseconds for one percent of the rail at that model's rated top speed.
+export function hdspTimingFor(device) {
+    if (!device || !Number.isFinite(device.strokeMm) || !Number.isFinite(device.maxMmPerSec) || device.maxMmPerSec <= 0) return null;
+    const full = Math.round((device.strokeMm / device.maxMmPerSec) * 1000);
+    return { msPerPercent: full / 100, minDurationMs: 40, maxDurationMs: full };
+}
+
+// Which Handy answered. capabilities.battery is the maker's own flag.
+// x_max_speed_theoretical is the rated ceiling. x_max_speed is skipped when
+// overclock is on, because that number can be the 800 mm/s mode.
+export function classifyHandyDevice({ info, capabilities, slider } = {}) {
+    const name = String((info && (info.hw_model_name || info.model || info.hwVersion)) || '');
+    const namedPro = /pro/i.test(name);
+    const batteryKnown = Boolean(capabilities && typeof capabilities.battery === 'boolean');
+    const hasBattery = batteryKnown && capabilities.battery === true;
+    const theoretical = Number(slider && slider.x_max_speed_theoretical);
+    const overclock = Boolean(slider && slider.overclock_enabled === true);
+    const rawMax = Number(slider && slider.x_max_speed);
+    const rated = Number.isFinite(theoretical) && theoretical >= 50 && theoretical <= 500
+        ? theoretical
+        : (!overclock && Number.isFinite(rawMax) && rawMax >= 50 && rawMax <= 500 ? rawMax : null);
+    const strokeStop = Number(slider && slider.x_stroke_max);
+    const travel = Number(slider && slider.x_limit_stop) - Number(slider && slider.x_limit_start);
+    const stroke = Number.isFinite(strokeStop) && strokeStop > 40 ? strokeStop : (Number.isFinite(travel) && travel > 40 ? travel : null);
+    const major = firmwareMajor(info);
+    if (namedPro || (hasBattery && rated !== null && rated >= 430)) return HANDY_DEVICES.handy2pro;
+    if (hasBattery || (stroke !== null && stroke >= 120)) return rated !== null && rated >= 430 ? HANDY_DEVICES.handy2pro : HANDY_DEVICES.handy2;
+    if (batteryKnown && !hasBattery) return HANDY_DEVICES.handy1;
+    if (major !== null && major < 4) return HANDY_DEVICES.handy1;
+    return null;
+}
+
 // Where the carriage should be now, partway through the move that was sent.
 // `leg` is { from, to, duration, sentAt }. Unknown or finished legs return
 // the end they have reached, or -1 when there is nothing to go on.
@@ -176,7 +219,7 @@ export function hdspEstimatedPosition(leg, now) {
 // then locks it there: at the bottom, or at the top, until it will not follow
 // the finger back. A longer move is given more time. A short one still lasts
 // at least the stream interval, so the next finger position can replace it.
-export function hdspMove(position, lastPosition) {
+export function hdspMove(position, lastPosition, timing = null) {
     const pos = clampPercent(position, 0);
     const known = Number.isFinite(Number(lastPosition)) && Number(lastPosition) >= 0;
     const last = known ? clampPercent(lastPosition, 0) : pos;
@@ -184,10 +227,13 @@ export function hdspMove(position, lastPosition) {
     // from the wrong place runs the carriage into the end stop, and firmware
     // 4 then holds it there.
     const distance = known ? Math.abs(pos - last) : 100;
-    const duration = Math.round(Math.min(
-        HDSP_MAX_DURATION_MS,
-        Math.max(HDSP_MIN_DURATION_MS, distance * HDSP_MS_PER_PERCENT)
-    ));
+    const per = Number(timing && timing.msPerPercent);
+    const lo = Number(timing && timing.minDurationMs);
+    const hi = Number(timing && timing.maxDurationMs);
+    const msPer = Number.isFinite(per) && per > 0 ? per : HDSP_MS_PER_PERCENT;
+    const minDuration = Number.isFinite(lo) && lo > 0 ? lo : HDSP_MIN_DURATION_MS;
+    const maxDuration = Number.isFinite(hi) && hi > 0 ? hi : HDSP_MAX_DURATION_MS;
+    const duration = Math.round(Math.min(maxDuration, Math.max(minDuration, distance * msPer)));
     return { position: pos, duration, stopOnTarget: true };
 }
 

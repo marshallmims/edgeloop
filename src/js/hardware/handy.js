@@ -19,12 +19,13 @@
 // All fetch calls go through handyRequest(), which classifies the reply and
 // reports failures through the error handler installed by app.js.
 
-import { HANDY_V3_BASE, resolveApplicationId, v3Headers } from './handy-hsp-protocol.js';
+import { HANDY_V3_BASE, resolveApplicationId, sseUrl, v3Headers } from './handy-hsp-protocol.js';
 import {
     HANDY_API_BASE,
     HANDY_MODE,
     HANDY_DEFAULT_END_MARGIN,
     applyEndMargin,
+    classifyHandyDevice,
     classifyHandyResponse,
     clampVelocity,
     describeDeviceStop,
@@ -34,6 +35,7 @@ import {
     firmwareMajor,
     hdspBody,
     hdspMove,
+    hdspTimingFor,
     hdspEstimatedPosition,
     isHampModeError,
     normalizeSlideRange,
@@ -69,6 +71,9 @@ export const HANDY_TIMINGS = {
 
 let handyKey = '';
 let handyInfo = null;
+let handyProfile = null;
+let handyTiming = null;
+let batterySource = null;
 let handyIsHampRunning = false;
 // 'hamp' oscillates a stroke window. 'hdsp' moves to a position (Loop).
 let handyDrive = 'hamp';
@@ -160,6 +165,10 @@ export function getHandyInfo() {
     return handyInfo;
 }
 
+export function getHandyProfile() {
+    return handyProfile;
+}
+
 function rememberHandyMove(move, error = '') {
     const row = {
         t: Date.now(),
@@ -228,6 +237,55 @@ function clearHdspQueue() {
 
 function useHandyV3() {
     return firmwareMajor(handyInfo) >= 4;
+}
+
+async function handyV3Get(path, key) {
+    const res = await fetch(`${HANDY_V3_BASE}${path}`, {
+        method: 'GET',
+        headers: v3Headers(resolveApplicationId(), key, { json: false })
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    const verdict = classifyHandyResponse(res.ok, res.status, data, path);
+    if (!verdict.ok) return null;
+    return data && data.result && typeof data.result === 'object' ? data.result : data;
+}
+
+async function readHandyProfile(key, info) {
+    let next = info;
+    let capabilities = null;
+    let slider = null;
+    if (firmwareMajor(info) >= 4) {
+        const fresh = await handyV3Get('/info', key).catch(() => null);
+        if (fresh) next = { ...info, ...fresh };
+        capabilities = await handyV3Get('/capabilities', key).catch(() => null);
+        slider = await handyV3Get('/settings/slider', key).catch(() => null);
+    }
+    return classifyHandyDevice({ info: next, capabilities, slider });
+}
+
+function stopBatteryWatch() {
+    if (batterySource) {
+        batterySource.close();
+        batterySource = null;
+    }
+}
+
+function startBatteryWatch(key) {
+    stopBatteryWatch();
+    if (typeof EventSource !== 'function' || !key) return;
+    const source = new EventSource(sseUrl(resolveApplicationId(), key, ['battery_changed']));
+    batterySource = source;
+    source.addEventListener('battery_changed', (event) => {
+        if (!handyConnected || source !== batterySource) return;
+        let body = null;
+        try { body = JSON.parse(event.data); } catch (e) { return; }
+        const data = body && body.data && typeof body.data === 'object' ? body.data : body;
+        const level = Number(data && data.level);
+        if (!Number.isFinite(level) || level < 0) return;
+        const percent = level <= 1 ? Math.round(level * 100) : Math.round(Math.min(100, level));
+        callHandler('onBattery', percent);
+    });
 }
 
 async function handyV3(path, body, key = handyKey) {
@@ -545,6 +603,8 @@ export async function connectHandy(key) {
     stopOfflinePolling();
     handyKey = trimmed;
     handyInfo = info;
+    handyProfile = await readHandyProfile(trimmed, info);
+    handyTiming = hdspTimingFor(handyProfile);
     handyConnected = true;
     handyIsHampRunning = false;
     handyDrive = 'hamp';
@@ -566,10 +626,12 @@ export async function connectHandy(key) {
     handyLastStrokeSend = 0;
     resetDeviceNotices();
     startOfflinePolling();
+    if (handyProfile && handyProfile.hasBattery) startBatteryWatch(trimmed);
 
     return {
-        battery: parseBatteryLevel(info),
+        battery: handyProfile && handyProfile.hasBattery ? parseBatteryLevel(info) : null,
         info,
+        profile: handyProfile,
         description: describeHandyInfo(info)
     };
 }
@@ -584,6 +646,7 @@ export function disconnectHandy() {
     const fromHdsp = handyDrive === 'hdsp';
     cancelOfflineStop();
     stopOfflinePolling();
+    stopBatteryWatch();
     handyConnected = false;
     handyStartInFlight = false;
     handyMotionUnknown = false;
@@ -595,6 +658,8 @@ export function disconnectHandy() {
     clearHdspQueue();
     handyKey = '';
     handyInfo = null;
+    handyProfile = null;
+    handyTiming = null;
     handyLastStrokeSent = { min: -1, max: -1 };
     handyLastVelocitySent = -1;
     resetDeviceNotices();
@@ -816,7 +881,7 @@ function pumpHdsp() {
         const sentAt = Date.now();
         const estimated = hdspEstimatedPosition(hdspLeg, sentAt);
         const origin = estimated >= 0 ? estimated : hdspLastPosition;
-        const move = hdspMove(target, origin);
+        const move = hdspMove(target, origin, handyTiming);
         const row = rememberHandyMove(move);
         hdspLeg = {
             from: origin >= 0 ? origin : move.position,

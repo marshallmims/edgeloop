@@ -12,12 +12,15 @@ import {
     followPosition,
     firmwareMajor,
     hdspBody,
+    HANDY_DEVICES,
     hdspMove,
+    hdspTimingFor,
     hdspEstimatedPosition,
     HDSP_MS_PER_PERCENT,
     HDSP_MIN_DURATION_MS,
     normalizeSlideRange,
     normalizeEnvelope,
+    classifyHandyDevice,
     classifyHandyResponse,
     describeSlideAdjustment,
     isHampModeError,
@@ -192,6 +195,51 @@ describe('clampEndMargin', () => {
         // A corrupt stored value protects the wearer rather than disabling
         // the guard silently; only a typed 0 turns it off.
         assert.equal(clampEndMargin(NaN), HANDY_DEFAULT_END_MARGIN);
+    });
+});
+
+describe('which Handy answered', () => {
+    it('treats firmware 3 as a Handy 1, which has no battery', () => {
+        const device = classifyHandyDevice({ info: { fwVersion: '3.2.3', model: 'Handy 1.1' } });
+        assert.equal(device.id, 'handy1');
+        assert.equal(device.hasBattery, false);
+        assert.equal(device.maxMmPerSec, 400);
+        assert.equal(hdspTimingFor(device).maxDurationMs, 275);
+    });
+
+    it('treats a firmware 4 device that says it has no battery as a Handy 1', () => {
+        const device = classifyHandyDevice({
+            info: { fw_version: '4.1.0', hw_model_name: 'H01' },
+            capabilities: { battery: false, slider: 1 }
+        });
+        assert.equal(device, HANDY_DEVICES.handy1);
+    });
+
+    it('treats a battery device whose rated ceiling is 400 as a Handy 2', () => {
+        const device = classifyHandyDevice({
+            info: { fw_version: '4.2.0', hw_model_name: 'H02' },
+            capabilities: { battery: true },
+            slider: { x_stroke_max: 125, x_max_speed_theoretical: 400, x_max_speed: 400, overclock_enabled: false }
+        });
+        assert.equal(device.id, 'handy2');
+        assert.equal(device.hasBattery, true);
+        assert.equal(hdspTimingFor(device).maxDurationMs, 313);
+    });
+
+    it('uses the Pro rated 450 and ignores an 800 overclock', () => {
+        const device = classifyHandyDevice({
+            info: { fw_version: '4.2.2', hw_model_name: 'H02' },
+            capabilities: { battery: true },
+            slider: { x_stroke_max: 125, x_max_speed_theoretical: 450, x_max_speed: 800, overclock_enabled: true }
+        });
+        assert.equal(device.id, 'handy2pro');
+        assert.equal(device.maxMmPerSec, 450);
+        assert.equal(hdspTimingFor(device).maxDurationMs, 278);
+    });
+
+    it('does not guess when firmware 4 says nothing about a battery or a stroke', () => {
+        assert.equal(classifyHandyDevice({ info: { fw_version: '4.0.0' } }), null);
+        assert.equal(hdspTimingFor(null), null);
     });
 });
 

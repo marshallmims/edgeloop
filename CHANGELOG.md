@@ -4,6 +4,11 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.22
+
+- **The controller graph follows faster.** It was keeping 20 seconds and skipping samples, so the line on the person being controlled lagged and stepped. It now keeps 8 seconds, takes a sample about every 40 ms, and slides while the page is in front.
+- **The Handy button names the model and, when it has one, the battery.** Handy 1 runs from the wall and has no battery. Handy 2 and Handy 2 Pro both have one. A full stroke is timed at the rated top speed: 400 mm/s on the 1 and the 2, 450 mm/s on the Pro. The Pro's faster overclock is not used.
+
 ## 1.1.5.21
 
 - **A saved loop can be deleted.** Each loop you made has an × beside it. Confirming removes that loop from this device. The built-in loops stay.
