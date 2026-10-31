@@ -263,8 +263,8 @@ describe('the history opt-in', () => {
         assert.match(app, /edgeloop_session_log/);
         assert.match(app, /safeParse\(SESSION_LOG_KEY, false\) === true/);
         assert.match(html, /id="sessionLogDownload"/);
-        assert.match(html, /id="manualTraditionalBtn"/);
-        assert.match(html, /id="manualFloatBtn"/);
+        assert.doesNotMatch(html, /id="manualTraditionalBtn"/);
+        assert.match(app, /data-toy-mode/);
         assert.match(app, /return !isRemotePage && sessionLogOptIn/);
     });
 });

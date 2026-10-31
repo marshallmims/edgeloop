@@ -482,10 +482,10 @@ describe('player markup', () => {
         assert.match(html, /id="bleLinuxFlagUrl"[^>]*readonly/);
         assert.match(html, /id="bleLinuxFlagCopy"/);
         assert.match(html, /chrome:\/\/flags\/#enable-experimental-web-platform-features/);
-        assert.match(html, /id="manualSliderBtn"[\s\S]*id="manualFloatBtn"[\s\S]*id="manualLoopBtn"[\s\S]*id="manualTraditionalBtn"/);
-        assert.match(html, /id="manualLoopBtn"/);
-        assert.match(html, /id="manualLoopStage"/);
-        assert.match(html, /id="manualViz"/);
+        assert.doesNotMatch(html, /id="manualSliderBtn"/);
+        assert.doesNotMatch(html, /id="manualLoopStage"/);
+        assert.match(html, /id="manualDevices"/);
+        assert.match(html, /id="manualPatterns"/);
         assert.doesNotMatch(html, /id="manualDraw"/);
         assert.match(html, /id="sessionParamsHeaderBtn"[\s\S]*Advanced Session Settings/);
         assert.match(html, /id="soloModeBtn"[\s\S]*Solo[\s\S]*id="playerHeaderBtn"[\s\S]*Video Player[\s\S]*id="partnerShareBtn"/);

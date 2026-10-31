@@ -539,6 +539,8 @@ function pauseSession(voiceText = 'Paused.', source = 'button') {
     renderTransport('PAUSED');
     clearMicBoost(state);
     dispatchHardware(0, 0, 0, 100, true);
+    paintChannelReadout(0, 0, state.strokeMin || 0, state.strokeMax || 100);
+    holdCommandAtZero();
     if (player && player.isPlaying()) player.pause();
     if (voiceText) cueVoice('paused');
     captureSessionLog();
@@ -1400,10 +1402,13 @@ function updateEngine() {
     const prostateBar = document.getElementById('prostateBar');
     const strokeBadge = document.getElementById('strokeRangeBadge');
 
-    if (strokerVal) strokerVal.textContent = `${result.primaryPercent}%`;
-    if (strokerBar) strokerBar.style.width = `${result.primaryPercent}%`;
-    if (prostateVal) prostateVal.textContent = `${result.secondaryPercent}%`;
-    if (prostateBar) prostateBar.style.width = `${result.secondaryPercent}%`;
+    const motionLive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+    const viewPrimary = motionLive ? result.primaryPercent : 0;
+    const viewSecondary = motionLive ? result.secondaryPercent : 0;
+    if (strokerVal) strokerVal.textContent = `${viewPrimary}%`;
+    if (strokerBar) strokerBar.style.width = `${viewPrimary}%`;
+    if (prostateVal) prostateVal.textContent = `${viewSecondary}%`;
+    if (prostateBar) prostateBar.style.width = `${viewSecondary}%`;
     if (strokeBadge) strokeBadge.textContent = `Zone: ${result.strokeMinPercent}-${result.strokeMaxPercent}%`;
 
     // The banner names what each channel was really sent this tick, and is
@@ -1458,13 +1463,14 @@ function updateEngine() {
         }
         if (state.scriptExpand > 1) secondary = Math.min(100, Math.round(secondary * state.scriptExpand));
     }
-    state.strokerSpeed = sentPrimary;
-    state.prostateSpeed = secondary;
-    if (strokerVal) strokerVal.textContent = `${sentPrimary}%`;
-    if (strokerBar) strokerBar.style.width = `${sentPrimary}%`;
-    if (prostateVal) prostateVal.textContent = `${secondary}%`;
-    if (prostateBar) prostateBar.style.width = `${secondary}%`;
-    dispatchHardware(sentPrimary, secondary, result.strokeMinPercent, result.strokeMaxPercent);
+    const motionStill = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+    state.strokerSpeed = motionStill ? sentPrimary : 0;
+    state.prostateSpeed = motionStill ? secondary : 0;
+    if (strokerVal) strokerVal.textContent = `${state.strokerSpeed}%`;
+    if (strokerBar) strokerBar.style.width = `${state.strokerSpeed}%`;
+    if (prostateVal) prostateVal.textContent = `${state.prostateSpeed}%`;
+    if (prostateBar) prostateBar.style.width = `${state.prostateSpeed}%`;
+    dispatchHardware(state.strokerSpeed, state.prostateSpeed, result.strokeMinPercent, result.strokeMaxPercent);
     paintPlayerHud();
 }
 
@@ -1796,12 +1802,30 @@ function paintCommandChart() {
     }
 }
 
+function holdCommandAtZero() {
+    if (isRemotePage || !sharingControl || !commandTrace.length) return;
+    const last = commandTrace[commandTrace.length - 1];
+    if (!last.lines.length || last.lines.every((line) => line.v === 0)) return;
+    commandNotedAt = Date.now();
+    commandTrace.push({
+        t: commandNotedAt,
+        lines: last.lines.map((line) => ({ name: line.name, v: 0 }))
+    });
+    const cutoff = commandNotedAt - 20000;
+    while (commandTrace.length > 200 || (commandTrace.length && commandTrace[0].t < cutoff)) commandTrace.shift();
+    paintCommandChart();
+}
+
 function applyManualHardware(frame, { urgent = false } = {}) {
     const devices = frame && Array.isArray(frame.devices) ? frame.devices : [];
+    if (!manualSessionLive()) {
+        paintChannelReadout(0, 0, state.strokeMin || 0, state.strokeMax || 100);
+        holdCommandAtZero();
+        return;
+    }
     noteCommandFrame(frame);
     const summary = summarizeManual(devices);
     paintChannelReadout(summary.primary, summary.secondary, summary.strokeMin, summary.strokeMax);
-    if (!manualSessionLive()) return;
     const env = normalizeEnvelope(advancedSettings.handyHwMin, advancedSettings.handyHwMax);
     const stopped = urgent || frameIsStopped({ devices });
     const plan = manualPlan();
@@ -3470,23 +3494,39 @@ function paintFocusLost() {
     overlay.classList.toggle('hidden', !show);
 }
 
+let focusHideTimer = 0;
+
 function scheduleFocusLostPaint() {
-    setTimeout(paintFocusLost, 0);
+    clearTimeout(focusHideTimer);
+    const inFront = pageIsInFront({
+        hasFocus: typeof document.hasFocus === 'function' ? document.hasFocus() : true,
+        visibilityState: document.visibilityState
+    });
+    // Show at once when the window loses the front. Hide a moment later, so
+    // the click that brings the window forward still lands on this note
+    // instead of the button underneath.
+    if (!inFront) {
+        paintFocusLost();
+        return;
+    }
+    focusHideTimer = setTimeout(paintFocusLost, 400);
 }
 
 window.addEventListener('blur', scheduleFocusLostPaint);
 window.addEventListener('focus', scheduleFocusLostPaint);
-document.getElementById('focusLostDismiss')?.addEventListener('pointerdown', (event) => {
+document.getElementById('focusLostCard')?.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const btn = event.currentTarget;
+    clearTimeout(focusHideTimer);
+    focusDismissHold = true;
+    const btn = event.target.closest ? event.target.closest('#focusLostDismiss') : null;
     if (btn && typeof btn.setPointerCapture === 'function') {
         try { btn.setPointerCapture(event.pointerId); } catch (e) { /* already released */ }
     }
-    focusDismissHold = true;
+    if (!btn) return;
     safeSet(FOCUS_WARNING_KEY, false);
     paintFocusWarningToggle();
-});
+}, true);
 function releaseFocusDismiss(event) {
     if (event) {
         event.preventDefault();
@@ -7024,7 +7064,7 @@ function setManualModeUi(on, fromHost = false) {
     live?.classList.toggle('hidden', !manualDriving);
     if (hint) {
         hint.textContent = manualDriving
-            ? 'Slider is the dots. Float and Loop turn on with it. Traditional clears those and shows the sliders. Higher is more and the bottom is nothing.'
+            ? 'Each toy is its own box. Slider, Float, Loop, Traditional, and You or EdgeLoop are in that box. The line at the bottom is what that toy is doing.'
             : 'EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.';
     }
 }
@@ -7146,6 +7186,7 @@ function addManualSlider(parent, device, field, label) {
         draft[field] = value;
         readout.textContent = `${value}%`;
         writeDraftInputs();
+        pushViz(device.id, loopMagnitude(device));
         scheduleManualFrame(dropping || value === 0);
     });
     const ticks = document.createElement('div');
@@ -7309,12 +7350,7 @@ function setDeviceOwner(device, you) {
             ? 'px-2 py-1 text-[10px] font-bold bg-purple-600 text-white'
             : 'px-2 py-1 text-[10px] font-bold bg-slate-900 text-slate-400';
     });
-    const controls = document.querySelector(`[data-own-controls="${CSS.escape(device.id)}"]`);
-    controls?.classList.toggle('hidden', !you);
-    const note = document.querySelector(`[data-own-note="${CSS.escape(device.id)}"]`);
-    note?.classList.toggle('hidden', you);
-    const stage = document.getElementById('manualLoopStage');
-    if (stage) delete stage.dataset.key;
+    paintManualChrome();
     renderLoopLanes();
     scheduleManualFrame(true);
 }
@@ -7380,7 +7416,7 @@ function renderManualDevices(devices) {
         const toyModes = document.createElement('div');
         toyModes.className = 'flex flex-wrap gap-1';
         toyModes.setAttribute('data-toy-modes', device.id);
-        for (const [mode, label] of [['slider', 'Slider'], ['float', 'Float'], ['loop', 'Loop'], ['traditional', 'Trad']]) {
+        for (const [mode, label] of [['slider', 'Slider'], ['float', 'Float'], ['loop', 'Loop'], ['traditional', 'Traditional']]) {
             const modeBtn = document.createElement('button');
             modeBtn.type = 'button';
             modeBtn.textContent = label;
@@ -7389,9 +7425,14 @@ function renderManualDevices(devices) {
             modeBtn.addEventListener('click', () => setDeviceMode(device, mode));
             toyModes.append(modeBtn);
         }
-        corner.append(name, toyModes);
-        title.append(corner, role, modes);
+        corner.append(name, role, toyModes);
+        title.append(corner, modes);
         card.append(title);
+        const stack = document.createElement('div');
+        stack.className = 'grid min-h-[11rem] gap-1.5';
+        stack.style.gridTemplateRows = '3fr 1fr';
+        const controlWrap = document.createElement('div');
+        controlWrap.className = 'relative min-h-[7.5rem]';
         const note = document.createElement('div');
         note.className = 'space-y-1.5' + (you ? ' hidden' : '');
         note.setAttribute('data-own-note', device.id);
@@ -7423,7 +7464,43 @@ function renderManualDevices(devices) {
         if (fields.includes('speed')) addManualSlider(controls, device, 'speed', 'Speed');
         if (fields.includes('level')) addManualSlider(controls, device, 'level', controlLabel(device.kind));
         if (fields.includes('strokeMin') && fields.includes('strokeMax')) addStrokeRange(controls, device);
-        card.append(note, controls);
+        const lane = document.createElement('div');
+        lane.className = 'absolute inset-0 rounded-lg border border-slate-800 bg-slate-950 touch-none';
+        lane.setAttribute('data-toy-lane', device.id);
+        const scale = document.createElement('div');
+        scale.className = 'absolute left-1 top-1 bottom-1 w-6 flex flex-col justify-between text-[8px] font-mono text-slate-500 text-right pointer-events-none';
+        scale.setAttribute('aria-hidden', 'true');
+        for (const mark of [100, 80, 60, 40, 20, 0]) {
+            const n = document.createElement('span');
+            n.textContent = String(mark);
+            scale.append(n);
+        }
+        const track = document.createElement('div');
+        track.className = 'absolute top-1 right-1 bottom-1 left-8 cursor-ns-resize';
+        track.setAttribute('data-loop-lane', device.id);
+        const fill = document.createElement('div');
+        fill.className = 'absolute left-0 right-0 bottom-0 bg-purple-900/40 pointer-events-none';
+        fill.setAttribute('data-loop-fill', device.id);
+        const dot = document.createElement('div');
+        dot.className = 'absolute left-1/2 -translate-x-1/2 w-[4.5rem] max-w-[80%] h-9 rounded-full bg-purple-500 border-2 border-white shadow-lg flex items-center justify-center px-1 pointer-events-none';
+        dot.setAttribute('data-loop-dot', device.id);
+        const bubble = document.createElement('span');
+        bubble.className = 'text-[9px] font-bold text-white truncate leading-none';
+        bubble.textContent = device.name;
+        dot.append(bubble);
+        track.append(fill, dot);
+        track.addEventListener('pointerdown', (event) => startLoopDrag(device, track, event));
+        lane.append(scale, track);
+        const chart = document.createElement('div');
+        chart.className = 'relative h-full min-h-[2.75rem]';
+        chart.setAttribute('data-toy-chart', device.id);
+        const canvas = document.createElement('canvas');
+        canvas.className = 'absolute inset-0 block w-full h-full rounded-md bg-slate-950 border border-slate-800';
+        canvas.setAttribute('data-viz', device.id);
+        chart.append(canvas);
+        controlWrap.append(note, controls, lane);
+        stack.append(controlWrap, chart);
+        card.append(stack);
         root.append(card);
     }
     paintManualStyleButtons();
@@ -7518,37 +7595,22 @@ function playBuiltInLoop(id) {
     });
 }
 
-function modeButtonClass(on) {
-    return on
-        ? 'px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer'
-        : 'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer';
-}
-
 function paintManualChrome() {
     const owned = manualDevices.filter((device) => manualOwned.has(device.id));
-    const traditional = owned.length > 0 && owned.every((device) => modeOf(device.id) === 'traditional');
-    const sliderOn = owned.length > 0 && owned.every((device) => modeOf(device.id) === 'slider');
-    const anyDots = owned.some((device) => modeOf(device.id) !== 'traditional');
-    manualTraditional = traditional;
-    document.getElementById('manualTouch')?.classList.toggle('hidden', !anyDots);
-    const sliderBtn = document.getElementById('manualSliderBtn');
-    const traditionalBtn = document.getElementById('manualTraditionalBtn');
-    const floatBtn = document.getElementById('manualFloatBtn');
-    const loopBtn = document.getElementById('manualLoopBtn');
-    const floatOn = owned.length > 0 && owned.every((device) => modeOf(device.id) === 'float');
-    const loopOn = owned.length > 0 && owned.every((device) => modeOf(device.id) === 'loop');
-    sliderBtn?.setAttribute('aria-pressed', sliderOn ? 'true' : 'false');
-    floatBtn?.setAttribute('aria-pressed', floatOn ? 'true' : 'false');
-    loopBtn?.setAttribute('aria-pressed', loopOn ? 'true' : 'false');
-    traditionalBtn?.setAttribute('aria-pressed', traditional ? 'true' : 'false');
-    if (sliderBtn) sliderBtn.className = modeButtonClass(sliderOn);
-    if (floatBtn) floatBtn.className = modeButtonClass(floatOn);
-    if (loopBtn) loopBtn.className = modeButtonClass(loopOn);
-    if (traditionalBtn) traditionalBtn.className = modeButtonClass(traditional);
+    manualTraditional = owned.length > 0 && owned.every((device) => modeOf(device.id) === 'traditional');
     document.querySelectorAll('[data-own-controls]').forEach((el) => {
         const id = el.getAttribute('data-own-controls');
         const you = manualOwned.has(id);
         el.classList.toggle('hidden', !you || modeOf(id) !== 'traditional');
+    });
+    document.querySelectorAll('[data-own-note]').forEach((el) => {
+        const id = el.getAttribute('data-own-note');
+        el.classList.toggle('hidden', manualOwned.has(id));
+    });
+    document.querySelectorAll('[data-toy-lane]').forEach((el) => {
+        const id = el.getAttribute('data-toy-lane');
+        const you = manualOwned.has(id);
+        el.classList.toggle('hidden', !you || modeOf(id) === 'traditional');
     });
     document.querySelectorAll('[data-toy-modes]').forEach((row) => {
         const id = row.getAttribute('data-toy-modes');
@@ -7563,14 +7625,6 @@ function paintManualChrome() {
             ? 'px-1.5 py-0.5 rounded-md bg-purple-600 text-white text-[9px] font-bold cursor-pointer'
             : 'px-1.5 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-slate-300 text-[9px] font-bold cursor-pointer';
     });
-    const hint = document.getElementById('manualTouchHint');
-    if (hint) {
-        hint.textContent = manualTouchMode === 'float'
-            ? 'Float holds the dot where you leave it. Higher is more. The bottom is nothing. The line under each toy is what it is doing.'
-            : manualTouchMode === 'loop'
-                ? 'Loop repeats the shape you draw. Higher is more. The bottom is nothing. The line under each toy is the pattern it is playing.'
-                : 'Slider. Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it. Loop repeats the shape.';
-    }
 }
 
 function applyModeToOwned(mode) {
@@ -7660,79 +7714,8 @@ function placeLoopDot(id, value) {
     pushViz(id, v);
 }
 
-function renderVizRow(devices) {
-    const root = document.getElementById('manualViz');
-    if (!root) return;
-    const key = devices.map((item) => item.id).join('|');
-    if (root.dataset.key === key && root.childElementCount) return;
-    root.dataset.key = key;
-    root.replaceChildren();
-    if (!devices.length) return;
-    root.className = 'grid gap-1';
-    root.style.gridTemplateColumns = `repeat(${devices.length}, minmax(0, 1fr))`;
-    for (const device of devices) {
-        const cell = document.createElement('div');
-        cell.className = 'min-w-0';
-        const canvas = document.createElement('canvas');
-        canvas.className = 'block w-full h-10 rounded-md bg-slate-950 border border-slate-800';
-        canvas.setAttribute('data-viz', device.id);
-        const name = document.createElement('div');
-        name.className = 'text-[8px] text-slate-500 truncate text-center';
-        name.textContent = device.name;
-        cell.append(canvas, name);
-        root.append(cell);
-    }
-}
-
 function renderLoopLanes() {
-    const stage = document.getElementById('manualLoopStage');
-    if (!stage) return;
-    const devices = loopDevices();
-    renderVizRow(devices);
-    const key = devices.map((item) => item.id).join('|');
-    if (stage.dataset.key === key && stage.childElementCount) {
-        for (const device of devices) placeLoopDot(device.id, loopMagnitude(device));
-        return;
-    }
-    stage.dataset.key = key;
-    stage.replaceChildren();
-    if (!devices.length) {
-        const empty = document.createElement('p');
-        empty.className = 'absolute inset-0 flex items-center justify-center text-center text-[10px] text-slate-500 px-3';
-        empty.textContent = 'Set a toy to You. Each one gets a dot here.';
-        stage.append(empty);
-        return;
-    }
-    const scale = document.createElement('div');
-    scale.className = 'absolute left-1 top-1 bottom-1 w-7 flex flex-col justify-between text-[8px] font-mono text-slate-500 text-right pointer-events-none';
-    scale.setAttribute('aria-hidden', 'true');
-    for (const mark of [100, 80, 60, 40, 20, 0]) {
-        const n = document.createElement('span');
-        n.textContent = String(mark);
-        scale.append(n);
-    }
-    const row = document.createElement('div');
-    row.className = 'absolute top-1 right-1 bottom-1 left-9 flex';
-    for (const device of devices) {
-        const lane = document.createElement('div');
-        lane.className = 'relative flex-1 min-w-0 border-l border-slate-800 first:border-l-0 cursor-ns-resize';
-        lane.setAttribute('data-loop-lane', device.id);
-        const fill = document.createElement('div');
-        fill.className = 'absolute left-0 right-0 bottom-0 bg-purple-900/40 pointer-events-none';
-        fill.setAttribute('data-loop-fill', device.id);
-        const dot = document.createElement('div');
-        dot.className = 'absolute left-1/2 -translate-x-1/2 w-[4.5rem] max-w-[80%] h-9 rounded-full bg-purple-500 border-2 border-white shadow-lg flex items-center justify-center px-1 pointer-events-none';
-        dot.setAttribute('data-loop-dot', device.id);
-        const bubble = document.createElement('span');
-        bubble.className = 'text-[9px] font-bold text-white truncate leading-none';
-        bubble.textContent = device.name;
-        dot.append(bubble);
-        lane.append(fill, dot);
-        lane.addEventListener('pointerdown', (event) => startLoopDrag(device, lane, event));
-        row.append(lane);
-    }
-    stage.append(scale, row);
-    for (const device of devices) placeLoopDot(device.id, loopMagnitude(device));
+    for (const device of loopDevices()) placeLoopDot(device.id, loopMagnitude(device));
 }
 
 function loopSnapshot(t) {
@@ -8143,10 +8126,6 @@ function initManualPanel() {
         sendPeerCommand({ type: 'MANUAL_ARM', on: next, epoch: manualEpoch });
         if (next) scheduleManualFrame(true);
     });
-    document.getElementById('manualSliderBtn')?.addEventListener('click', () => setSliderMode());
-    document.getElementById('manualFloatBtn')?.addEventListener('click', () => setTouchMode('float'));
-    document.getElementById('manualLoopBtn')?.addEventListener('click', () => setTouchMode('loop'));
-    document.getElementById('manualTraditionalBtn')?.addEventListener('click', () => setTraditional());
     paintManualChrome();
 }
 

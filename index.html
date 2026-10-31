@@ -1111,17 +1111,6 @@
         <section id="manualPanel" class="hidden space-y-3">
           <p id="manualHint" class="text-[10px] text-slate-400 leading-snug">EdgeLoop is driving from their pulse. Manual Control takes the toys from a stop.</p>
           <div id="manualLive" class="hidden space-y-3">
-            <div id="manualModes" class="flex flex-wrap gap-1.5">
-              <button id="manualSliderBtn" type="button" aria-pressed="true" class="px-2.5 py-1.5 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer">Slider</button>
-              <button id="manualFloatBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Float</button>
-              <button id="manualLoopBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Loop</button>
-              <button id="manualTraditionalBtn" type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-100 cursor-pointer">Traditional</button>
-            </div>
-            <div id="manualTouch" class="space-y-1.5">
-              <div id="manualLoopStage" class="relative h-52 rounded-xl border border-slate-700 bg-slate-950 touch-none" aria-label="Drag a toy. Higher is more. The bottom is nothing."></div>
-              <div id="manualViz" class="min-h-[2.5rem]"></div>
-              <p id="manualTouchHint" class="text-[9px] text-slate-500 leading-snug">Higher is more. The bottom is nothing. Letting go returns the dot to nothing. Float keeps it where you leave it. Loop repeats the shape you draw. The line under each toy is what it is doing.</p>
-            </div>
             <div id="manualDevices" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
             <div id="manualPatternBlock">
               <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Loops</p>
@@ -1393,7 +1382,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.18</span>
+        <span id="appVersion" class="font-mono">v1.1.5.19</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -2217,7 +2206,7 @@ python3 -m http.server 8787</pre>
   </script>
 
   <div id="focusLostOverlay" class="hidden fixed inset-x-0 top-0 z-[80] flex justify-center p-4 sm:p-8 pointer-events-none" role="status" aria-live="polite">
-    <div id="focusLostCard" class="mt-10 max-w-xl w-full bg-slate-900/95 border border-amber-400/80 text-amber-50 text-sm px-4 py-3.5 rounded-2xl shadow-2xl shadow-black/50 backdrop-blur-sm space-y-2" style="pointer-events: auto">
+    <div id="focusLostCard" class="mt-10 max-w-xl w-full bg-slate-900 border border-amber-400/80 text-amber-50 text-sm px-4 py-3.5 rounded-2xl shadow-2xl shadow-black/50 space-y-2" style="pointer-events: auto">
       <p id="focusLostMsg" class="font-semibold leading-snug">EdgeLoop is not the focused window. Click the page to bring it back. Space and the other keys are going to the other window, and toy updates can slow down until this page is in front.</p>
       <button id="focusLostDismiss" type="button" class="w-full px-3 py-2 rounded-lg bg-amber-950 hover:bg-amber-900 border border-amber-700 text-[11px] font-bold text-amber-100 cursor-pointer">Don't show this again</button>
     </div>

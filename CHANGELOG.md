@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.19
+
+- **A pause stops the channel bars and the controller graph.** The toys were already stopping. The primary and secondary bars, and the line of what the controller was sending, kept moving on the person being controlled. They now drop to nothing with the toys.
+- **Don't show this again keeps the click.** Focusing the window was hiding the note before the click finished, so it opened whatever sat underneath, often The Handy. The note stays up long enough to take the click.
+- **Each toy is one box.** The name, You or EdgeLoop, Slider, Float, Loop, Traditional, the drag control or the sliders, and the line of what that toy is doing all sit in that toy's box. The line is the bottom quarter. The shared row of those buttons is gone.
+
 ## 1.1.5.18
 
 - **Manual control reaches the toys again.** A slider move was being thrown away on the way to the host, so a controller could turn EdgeLoop on and off but could not move a toy. Slider, Float, Loop, and Traditional go through again. Those moves are still left out of the session log.
