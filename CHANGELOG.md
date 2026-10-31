@@ -4,6 +4,13 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.20
+
+- **The EdgeLoop Control button is gone.** You or EdgeLoop on each toy is the switch.
+- **Toy boxes share the row.** One toy is full width. Two sit side by side. Three sit in thirds. Four or more use a two-by-two grid. On a phone they stack, one per row.
+- **A loop plays on the toy you picked.** Tap a box, then a loop, and only that toy runs it. Save this loop keeps that toy's shape, and the line under Loops names the toy. Dotted lines mark 0, 20, 40, 60, 80, and 100 on the drag panel.
+- **Lovense is left off the toy title.** Hush, Edge, and Domi show the name after the brand.
+
 ## 1.1.5.19
 
 - **A pause stops the channel bars and the controller graph.** The toys were already stopping. The primary and secondary bars, and the line of what the controller was sending, kept moving on the person being controlled. They now drop to nothing with the toys.

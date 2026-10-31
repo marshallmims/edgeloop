@@ -474,9 +474,8 @@ describe('player markup', () => {
         assert.ok(files < control && control < playBtn);
         assert.ok(files < bundle && bundle < style && style < endgame);
         const setupBar = html.indexOf('id="sessionSetupBar"');
-        const manualBtn = html.indexOf('id="manualModeBtn"');
-        assert.ok(bundle < setupBar && setupBar < manualBtn && manualBtn < style, 'Manual sits in the Session Setup title');
-        assert.equal((html.match(/id="manualModeBtn"/g) || []).length, 1);
+        assert.ok(bundle < setupBar && setupBar < style, 'Session Setup sits above play style');
+        assert.doesNotMatch(html, /id="manualModeBtn"/);
         assert.match(html, /id="sessionSetupTitle"[^>]*>Session Setup</);
         assert.match(html, /id="bleLinuxFlag"/);
         assert.match(html, /id="bleLinuxFlagUrl"[^>]*readonly/);
