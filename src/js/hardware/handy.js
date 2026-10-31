@@ -19,7 +19,7 @@
 // All fetch calls go through handyRequest(), which classifies the reply and
 // reports failures through the error handler installed by app.js.
 
-import { HANDY_V3_BASE, resolveApplicationId, sseUrl, v3Headers } from './handy-hsp-protocol.js';
+import { HANDY_V3_BASE, resolveApplicationId, v3Headers } from './handy-hsp-protocol.js';
 import {
     HANDY_API_BASE,
     HANDY_MODE,
@@ -75,7 +75,6 @@ let handyInfo = null;
 let handyProfile = null;
 let handyTiming = null;
 let batterySource = null;
-let batteryPull = null;
 let handyIsHampRunning = false;
 // 'hamp' oscillates a stroke window. 'hdsp' moves to a position (Loop).
 let handyDrive = 'hamp';
@@ -264,14 +263,10 @@ async function readHandyProfile(key, info) {
         capabilities = await handyV3Get('/capabilities', key).catch(() => null);
         slider = await handyV3Get('/settings/slider', key).catch(() => null);
     }
-    return classifyHandyDevice({ info: next, capabilities, slider });
+    return { info: next, profile: classifyHandyDevice({ info: next, capabilities, slider }) };
 }
 
 function stopBatteryWatch() {
-    if (batteryPull) {
-        batteryPull.abort();
-        batteryPull = null;
-    }
     if (batterySource) {
         batterySource.close();
         batterySource = null;
@@ -285,61 +280,23 @@ function noteBatteryPayload(payload) {
     return true;
 }
 
-// The battery percentage is not in GET /info. The device pushes it on the
-// event stream, and the first push is the level it has now. The payload is
-// sometimes wrapped, so the reader accepts either shape.
+// Filtering the stream to battery_changed makes the server send nothing until
+// the level changes, so the badge stays on the placeholder. The open stream
+// sends the device status immediately and the battery on its own event.
 function startBatteryWatch(key) {
     stopBatteryWatch();
-    if (!key) return;
-    const url = sseUrl(resolveApplicationId(), key, ['battery_changed']);
-    if (typeof EventSource === 'function') {
-        const source = new EventSource(url);
-        batterySource = source;
-        const onEvent = (event) => {
-            if (!handyConnected || source !== batterySource || !event) return;
-            let body = null;
-            try { body = JSON.parse(event.data); } catch (e) { return; }
-            noteBatteryPayload(body);
-        };
-        source.addEventListener('battery_changed', onEvent);
-        source.addEventListener('message', onEvent);
-    }
-    pullBatterySnapshot(url);
-}
-
-async function pullBatterySnapshot(url) {
-    if (typeof fetch !== 'function' || typeof AbortController !== 'function') return;
-    const controller = new AbortController();
-    batteryPull = controller;
-    const timer = setTimeout(() => controller.abort(), 8000);
-    try {
-        const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'text/event-stream' } });
-        if (!res.ok || !res.body || typeof res.body.getReader !== 'function') return;
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = '';
-        while (handyConnected && batteryPull === controller) {
-            const step = await reader.read();
-            if (step.done) break;
-            buf += decoder.decode(step.value, { stream: true });
-            const frames = buf.split(/\n\n/);
-            buf = frames.pop() || '';
-            for (const frame of frames) {
-                const text = frame.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n');
-                if (!text) continue;
-                let body = null;
-                try { body = JSON.parse(text); } catch (e) { continue; }
-                if (noteBatteryPayload(body)) {
-                    controller.abort();
-                    return;
-                }
-            }
-        }
-    } catch (e) {
-        // The stream ends when the first reading arrives, or after a few seconds.
-    } finally {
-        clearTimeout(timer);
-        if (batteryPull === controller) batteryPull = null;
+    if (!key || typeof EventSource !== 'function') return;
+    const q = new URLSearchParams({ ck: String(key), apikey: String(resolveApplicationId()) });
+    const source = new EventSource(`${HANDY_V3_BASE}/sse?${q.toString()}`);
+    batterySource = source;
+    const onEvent = (event) => {
+        if (!handyConnected || source !== batterySource || !event || !event.data) return;
+        let body = null;
+        try { body = JSON.parse(event.data); } catch (e) { return; }
+        noteBatteryPayload(body);
+    };
+    for (const name of ['battery_changed', 'device_status', 'device_connected', 'message']) {
+        source.addEventListener(name, onEvent);
     }
 }
 
@@ -657,8 +614,9 @@ export async function connectHandy(key) {
     cancelOfflineStop();
     stopOfflinePolling();
     handyKey = trimmed;
-    handyInfo = info;
-    handyProfile = await readHandyProfile(trimmed, info);
+    const loaded = await readHandyProfile(trimmed, info);
+    handyInfo = loaded.info || info;
+    handyProfile = loaded.profile;
     handyTiming = hdspTimingFor(handyProfile);
     handyConnected = true;
     handyIsHampRunning = false;
@@ -685,7 +643,7 @@ export async function connectHandy(key) {
     if (handyProfile && handyProfile.hasBattery) startBatteryWatch(trimmed);
 
     return {
-        battery: handyProfile && handyProfile.hasBattery ? parseBatteryLevel(info) : null,
+        battery: handyProfile && handyProfile.hasBattery ? batteryPercentFromPayload(handyInfo) : null,
         info,
         profile: handyProfile,
         description: describeHandyInfo(info)

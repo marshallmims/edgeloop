@@ -159,6 +159,7 @@ describe('battery event', () => {
 
     it('reads a percentage and ignores a payload with no level', () => {
         assert.equal(batteryPercentFromPayload({ level: 77 }), 77);
+        assert.equal(batteryPercentFromPayload({ battery: { level: 0.64 } }), 64);
         assert.equal(batteryPercentFromPayload({ level: 0 }), 0);
         assert.equal(batteryPercentFromPayload({ data: { charger_connected: true } }), null);
         assert.equal(batteryPercentFromPayload(null), null);

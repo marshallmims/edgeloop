@@ -359,8 +359,14 @@ export function batteryPercentFromPayload(value) {
         const item = queue.shift();
         if (!item || typeof item !== 'object' || seen.has(item)) continue;
         seen.add(item);
-        if (Object.prototype.hasOwnProperty.call(item, 'level')) {
-            const n = Number(item.level);
+        for (const key of ['level', 'battery', 'battery_level', 'batteryLevel']) {
+            if (!Object.prototype.hasOwnProperty.call(item, key)) continue;
+            const raw = item[key];
+            if (raw && typeof raw === 'object') {
+                queue.push(raw);
+                continue;
+            }
+            const n = Number(raw);
             if (Number.isFinite(n) && n >= 0) {
                 const pct = n > 0 && n <= 1 ? Math.round(n * 100) : Math.round(n);
                 return Math.max(0, Math.min(100, pct));

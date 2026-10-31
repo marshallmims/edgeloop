@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.25
+
+- **The Handy battery number comes from the live stream.** Asking only for battery updates made the server send nothing, so the icon stayed empty. The connection now listens to the device stream, and uses a level already in the device info when one is there. A Handy 1 still has no battery line.
+
 ## 1.1.5.24
 
 - **A slow Handy move glides.** Fast strokes still use the rated top speed. A slow drag was sprinting to each point and braking, which felt rough. A slow move now takes about as long as the finger did, and it still brakes at the point you asked for.
