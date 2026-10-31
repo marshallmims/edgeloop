@@ -5940,12 +5940,6 @@ function setHandyStatus(text, tone = 'idle') {
     el.className = `text-xs ${toneClass}`;
 }
 
-function handyBatteryLabel() {
-    if (!handyDevice || !handyDevice.hasBattery) return null;
-    if (state.handyBattery === null || state.handyBattery === undefined) return null;
-    return `🔋 ${state.handyBattery}%`;
-}
-
 setHandyHandlers({
     isSessionActive: () => state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN',
     onError: (message) => {
@@ -5953,19 +5947,13 @@ setHandyHandlers({
         if (message) {
             const short = message.length > 70 ? `${message.slice(0, 67)}...` : message;
             setHandyStatus(`API error: ${short}`, 'error');
-            setBadgeState('Handy', 'warning', 'API Error', handyBatteryLabel());
+            setBadgeState('Handy', 'warning', 'API Error', null);
         } else {
             setHandyStatus(handyConnectedLabel, 'ok');
-            setBadgeState('Handy', 'connected', handyBadgeName(), handyBatteryLabel());
+            setBadgeState('Handy', 'connected', handyBadgeName(), null);
         }
     },
-    onBattery: (percent) => {
-        state.handyBattery = percent;
-        if (!handyConnected || !handyDevice || !handyDevice.hasBattery) return;
-        setBadgeState('Handy', 'connected', handyBadgeName(), handyBatteryLabel());
-    },
     onOffline: (reason) => {
-        state.handyBattery = null;
         setHandyStatus('Offline', 'error');
         setBadgeState('Handy', 'disconnected', 'Offline');
         document.getElementById('modalHandyDisconnectBtn')?.classList.add('hidden');
@@ -5982,7 +5970,7 @@ setHandyHandlers({
     // one thing the user must hear about.
     onStopUnconfirmed: (message) => {
         setHandyStatus(message, 'error');
-        setBadgeState('Handy', handyConnected ? 'warning' : 'disconnected', 'Stop unconfirmed', handyConnected ? handyBatteryLabel() : null);
+        setBadgeState('Handy', handyConnected ? 'warning' : 'disconnected', 'Stop unconfirmed', null);
         triggerDisconnectAlert(`The Handy did not confirm a stop and may still be moving: check the device. (${message})`, 'handy-stop');
     }
 });
@@ -6009,13 +5997,9 @@ document.getElementById('modalHandyConnectBtn')?.addEventListener('click', async
     try {
         const result = await connectHandy(key);
         handyDevice = result.profile || null;
-        state.handyBattery = handyDevice && handyDevice.hasBattery ? result.battery : null;
         handyConnectedLabel = result.description ? `Connected (${result.description})` : 'Connected';
-        const batteryMissing = handyDevice && handyDevice.hasBattery && state.handyBattery === null;
-        setHandyStatus(batteryMissing
-            ? `${handyConnectedLabel} — ${handyDevice.label}. It has a battery, but this firmware is not sending the percentage.`
-            : (handyDevice ? `${handyConnectedLabel} — ${handyDevice.label}` : handyConnectedLabel), 'ok');
-        setBadgeState('Handy', 'connected', handyBadgeName(), handyBatteryLabel());
+        setHandyStatus(handyDevice ? `${handyConnectedLabel} — ${handyDevice.label}` : handyConnectedLabel, 'ok');
+        setBadgeState('Handy', 'connected', handyBadgeName(), null);
         document.getElementById('modalHandyDisconnectBtn')?.classList.remove('hidden');
         closeModal();
         syncTelemetry();
@@ -6025,9 +6009,8 @@ document.getElementById('modalHandyConnectBtn')?.addEventListener('click', async
             // The new key was refused or the live device would not stop: the
             // previous link is untouched and still owns the toy.
             setHandyStatus(`${message} The current connection is unchanged.`, 'error');
-            setBadgeState('Handy', 'connected', 'The Handy', handyBatteryLabel());
+            setBadgeState('Handy', 'connected', 'The Handy', null);
         } else {
-            state.handyBattery = null;
             setHandyStatus(message, 'error');
             setBadgeState('Handy', 'disconnected', 'Offline');
             if (wasConnected) triggerDisconnectAlert('The Handy connection was lost while reconnecting. Motors paused for safety.', 'handy');
@@ -6042,7 +6025,6 @@ document.getElementById('modalHandyDisconnectBtn')?.addEventListener('click', as
     // modal can say whether the device confirmed it.
     const stopped = disconnectHandy();
     handyDevice = null;
-    state.handyBattery = null;
     setHandyStatus('Stopping the device...', 'busy');
     setBadgeState('Handy', 'disconnected', 'Stopping...');
     document.getElementById('modalHandyDisconnectBtn')?.classList.add('hidden');

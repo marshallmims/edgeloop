@@ -20,13 +20,11 @@ import {
     HDSP_MIN_DURATION_MS,
     normalizeSlideRange,
     normalizeEnvelope,
-    batteryPercentFromPayload,
     classifyHandyDevice,
     classifyHandyResponse,
     describeSlideAdjustment,
     isHampModeError,
     describeDeviceStop,
-    parseBatteryLevel,
     describeHandyInfo
 } from './handy-protocol.js';
 
@@ -140,50 +138,6 @@ describe('classifyHandyResponse', () => {
     it('handles a non-JSON body', () => {
         assert.equal(classifyHandyResponse(true, 200, null).ok, true);
         assert.equal(classifyHandyResponse(false, 502, null).ok, false);
-    });
-});
-
-describe('battery event', () => {
-    it('reads a fraction wrapped the way the event stream sends it', () => {
-        assert.equal(batteryPercentFromPayload({ data: { level: 0.42 } }), 42);
-        assert.equal(batteryPercentFromPayload({
-            connection_key: 'secret',
-            data: { level: 0.5, charger_connected: false }
-        }), 50);
-        assert.equal(batteryPercentFromPayload({
-            id: '1',
-            type: 'battery_changed',
-            data: { connection_key: 'secret', data: { level: 0.85 } }
-        }), 85);
-    });
-
-    it('reads a percentage and ignores a payload with no level', () => {
-        assert.equal(batteryPercentFromPayload({ level: 77 }), 77);
-        assert.equal(batteryPercentFromPayload({ battery: { level: 0.64 } }), 64);
-        assert.equal(batteryPercentFromPayload({ level: 0 }), 0);
-        assert.equal(batteryPercentFromPayload({ data: { charger_connected: true } }), null);
-        assert.equal(batteryPercentFromPayload(null), null);
-    });
-});
-
-describe('parseBatteryLevel', () => {
-    it('returns null when the field is absent', () => {
-        assert.equal(parseBatteryLevel({}), null);
-        assert.equal(parseBatteryLevel(null), null);
-        assert.equal(parseBatteryLevel({ battery: 'n/a' }), null);
-    });
-    it('does not scale integer percentages', () => {
-        assert.equal(parseBatteryLevel({ battery: 1 }), 1);
-        assert.equal(parseBatteryLevel({ battery: 85 }), 85);
-        assert.equal(parseBatteryLevel({ batteryLevel: 100 }), 100);
-    });
-    it('scales fractional 0-1 values', () => {
-        assert.equal(parseBatteryLevel({ battery: 0.42 }), 42);
-        assert.equal(parseBatteryLevel({ battery: 0.999 }), 100);
-    });
-    it('clamps out-of-range values', () => {
-        assert.equal(parseBatteryLevel({ battery: 140 }), 100);
-        assert.equal(parseBatteryLevel({ battery: -3 }), null);
     });
 });
 

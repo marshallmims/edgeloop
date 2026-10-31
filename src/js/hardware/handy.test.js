@@ -10,7 +10,6 @@ import {
     stopHandy,
     stopHandyOnUnload,
     pollHandyConnected,
-    queryHandyBattery,
     setHandyHandlers,
     getHandyKey,
     isHandyMoving,
@@ -124,7 +123,6 @@ describe('handy driver', () => {
         assert.deepEqual(sent('/mode')[0].body, { mode: 0 });
         assert.ok(calls.every((c) => c.key === KEY));
         assert.equal(getHandyKey(), KEY);
-        assert.equal(result.battery, null);
         assert.equal(result.profile.id, 'handy1');
         assert.equal(result.profile.hasBattery, false);
         assert.equal(result.description, 'fw 3.2.3, Handy 1.1');
@@ -159,7 +157,6 @@ describe('handy driver', () => {
         routes['/connected'] = jsonResponse({ connected: true });
         routes['/info'] = jsonResponse(null, 404);
         const result = await connectHandy(KEY);
-        assert.equal(result.battery, null);
         assert.equal(result.description, '');
     });
 
@@ -363,16 +360,6 @@ describe('handy driver', () => {
         assert.equal(calls.length, 0);
     });
 
-    it('queryHandyBattery only reads /info and tolerates a missing field', async () => {
-        await connectOk();
-        routes['/info'] = jsonResponse({ fwVersion: '3.2.3' });
-        assert.equal(await queryHandyBattery(), null);
-        routes['/info'] = jsonResponse({ fwVersion: '3.2.3', battery: 0.5 });
-        assert.equal(await queryHandyBattery(), 50);
-        routes['/info'] = jsonResponse({ battery: 1 });
-        assert.equal(await queryHandyBattery(), 1);
-        assert.ok(calls.every((c) => c.path === '/info'));
-    });
     // ---- reconnect ---------------------------------------------------------------
 
     it('a reconnect whose verification fails leaves the live link, and its stop path, untouched', async () => {

@@ -347,47 +347,6 @@ export function classifyHandyResponse(httpOk, status, body, path = '') {
     return { ok: true, message: '', code: null };
 }
 
-// Pull a battery percentage out of a GET /info reply. The v2 spec has no
-// battery endpoint, so any of these fields is best-effort. Returns null when
-// nothing usable is present. Only fractional 0-1 values are scaled to percent.
-// A battery event can be the status itself, or wrapped once or twice.
-// The level is a fraction (0.5 is half) unless it is already above 1.
-export function batteryPercentFromPayload(value) {
-    const seen = new Set();
-    const queue = [value];
-    while (queue.length) {
-        const item = queue.shift();
-        if (!item || typeof item !== 'object' || seen.has(item)) continue;
-        seen.add(item);
-        for (const key of ['level', 'battery', 'battery_level', 'batteryLevel']) {
-            if (!Object.prototype.hasOwnProperty.call(item, key)) continue;
-            const raw = item[key];
-            if (raw && typeof raw === 'object') {
-                queue.push(raw);
-                continue;
-            }
-            const n = Number(raw);
-            if (Number.isFinite(n) && n >= 0) {
-                const pct = n > 0 && n <= 1 ? Math.round(n * 100) : Math.round(n);
-                return Math.max(0, Math.min(100, pct));
-            }
-        }
-        if (item.data) queue.push(item.data);
-        if (item.result) queue.push(item.result);
-    }
-    return null;
-}
-
-export function parseBatteryLevel(info) {
-    if (!info || typeof info !== 'object') return null;
-    const raw = info.battery ?? info.batteryLevel ?? info.battery_level ?? info.level ?? null;
-    if (raw === null || raw === undefined || typeof raw === 'boolean') return null;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return null;
-    const scaled = (n > 0 && n <= 1 && !Number.isInteger(n)) ? n * 100 : n;
-    return Math.max(0, Math.min(100, Math.round(scaled)));
-}
-
 // Build the human-readable "fw x.y, model" suffix for the status line.
 export function describeHandyInfo(info) {
     if (!info || typeof info !== 'object') return '';

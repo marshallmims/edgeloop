@@ -108,7 +108,6 @@ export const state = {
     intensityValue: 50,
     history: [],
     bleBattery: null,
-    handyBattery: null,
     intifaceBattery: null,
     simEngaged: false,
     handyRole: safeGet('handy_role', 'primary') || 'primary',

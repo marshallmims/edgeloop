@@ -39,8 +39,6 @@ import {
     hdspEstimatedPosition,
     isHampModeError,
     normalizeSlideRange,
-    batteryPercentFromPayload,
-    parseBatteryLevel,
     describeHandyInfo
 } from './handy-protocol.js';
 
@@ -74,7 +72,6 @@ let handyKey = '';
 let handyInfo = null;
 let handyProfile = null;
 let handyTiming = null;
-let batterySource = null;
 let handyIsHampRunning = false;
 // 'hamp' oscillates a stroke window. 'hdsp' moves to a position (Loop).
 let handyDrive = 'hamp';
@@ -264,40 +261,6 @@ async function readHandyProfile(key, info) {
         slider = await handyV3Get('/settings/slider', key).catch(() => null);
     }
     return { info: next, profile: classifyHandyDevice({ info: next, capabilities, slider }) };
-}
-
-function stopBatteryWatch() {
-    if (batterySource) {
-        batterySource.close();
-        batterySource = null;
-    }
-}
-
-function noteBatteryPayload(payload) {
-    const percent = batteryPercentFromPayload(payload);
-    if (percent === null || !handyConnected) return false;
-    callHandler('onBattery', percent);
-    return true;
-}
-
-// Filtering the stream to battery_changed makes the server send nothing until
-// the level changes, so the badge stays on the placeholder. The open stream
-// sends the device status immediately and the battery on its own event.
-function startBatteryWatch(key) {
-    stopBatteryWatch();
-    if (!key || typeof EventSource !== 'function') return;
-    const q = new URLSearchParams({ ck: String(key), apikey: String(resolveApplicationId()) });
-    const source = new EventSource(`${HANDY_V3_BASE}/sse?${q.toString()}`);
-    batterySource = source;
-    const onEvent = (event) => {
-        if (!handyConnected || source !== batterySource || !event || !event.data) return;
-        let body = null;
-        try { body = JSON.parse(event.data); } catch (e) { return; }
-        noteBatteryPayload(body);
-    };
-    for (const name of ['battery_changed', 'device_status', 'device_connected', 'message']) {
-        source.addEventListener(name, onEvent);
-    }
 }
 
 async function handyV3(path, body, key = handyKey) {
@@ -583,8 +546,8 @@ async function verifyKey(key) {
 // only then replace the current link. A live device is brought to a
 // confirmed stop before its key is dropped; if that stop is never confirmed
 // the current link is left exactly as it was and the error says so, so
-// STOP keeps reaching the device that is moving. Resolves with { battery,
-// info, description }; throws a descriptive Error on any failure.
+// STOP keeps reaching the device that is moving. Resolves with { info,
+// profile, description }; throws a descriptive Error on any failure.
 export async function connectHandy(key) {
     const trimmed = (key || '').trim();
     if (!trimmed) throw new Error('Connection key is empty');
@@ -640,10 +603,8 @@ export async function connectHandy(key) {
     handyLastStrokeSend = 0;
     resetDeviceNotices();
     startOfflinePolling();
-    if (handyProfile && handyProfile.hasBattery) startBatteryWatch(trimmed);
 
     return {
-        battery: handyProfile && handyProfile.hasBattery ? batteryPercentFromPayload(handyInfo) : null,
         info,
         profile: handyProfile,
         description: describeHandyInfo(info)
@@ -660,7 +621,6 @@ export function disconnectHandy() {
     const fromHdsp = handyDrive === 'hdsp';
     cancelOfflineStop();
     stopOfflinePolling();
-    stopBatteryWatch();
     handyConnected = false;
     handyStartInFlight = false;
     handyMotionUnknown = false;
@@ -1033,15 +993,4 @@ export function stopHandyOnUnload() {
         return false;
     }
     return true;
-}
-
-// The v2 spec has no battery endpoint. GET /info is the only place a level
-// could appear; returns null when it does not.
-export async function queryHandyBattery(key = handyKey) {
-    try {
-        const info = await handyRequest('/info', { key, countFailure: false });
-        return parseBatteryLevel(info);
-    } catch (e) {
-        return null;
-    }
 }
