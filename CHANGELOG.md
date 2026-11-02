@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.28
+
+- **No Nut November rolls to the next day while the page is open.** Yesterday's count clears at midnight, and when you come back to the tab. A reload is not required.
+
 ## 1.1.5.27
 
 - **The Handy no longer asks for a battery percentage.** The device does not report one, so that request is gone. The button still names the model, and a full stroke still uses the rated speed.

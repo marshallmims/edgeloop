@@ -2988,6 +2988,7 @@ function redrawChart() {
 
 // 1-Second Master Clock
 setInterval(() => {
+    rollNnnDay();
     if (isRemotePage) {
         renderRemoteClock();
         return;
@@ -3482,6 +3483,7 @@ const sessionLimitsWriter = createWriteCoalescer({ write: () => persistSettings(
 window.addEventListener('pagehide', () => { sessionLimitsWriter.flush(); });
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') sessionLimitsWriter.flush();
+    else rollNnnDay();
     paintFocusLost();
 });
 
@@ -4091,6 +4093,21 @@ const padWasDown = new Map();
 
 function saveNnn() {
     safeSet(NNN_STORAGE_KEY, JSON.stringify(nnnState));
+}
+
+// Midnight, or coming back to a tab that stayed open, starts the new day.
+// catchUpNnn is what a reload already did. Same-day calls leave the quota.
+function rollNnnDay() {
+    const next = catchUpNnn(nnnState);
+    if (next.lastOpened === nnnState.lastOpened
+        && next.edgesToday === nnnState.edgesToday
+        && next.quotaToday === nnnState.quotaToday
+        && next.finished === nnnState.finished
+        && next.holdSeconds === nnnState.holdSeconds
+        && next.outcome === nnnState.outcome) return;
+    nnnState = next;
+    saveNnn();
+    paintNnn();
 }
 
 function paintNnn() {
