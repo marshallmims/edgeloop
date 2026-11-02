@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.29
+
+- **Share Control has an agent link under the controller link.** A person still opens the controller link and uses the page. The agent link is for an AI or another app. Reading it shows the session length, play style, endgame, heart rate, and what the toys are being sent. Posting a command to that same link changes the session. The toys and the heart-rate monitor stay on your screen. Stop there still stops the toys.
+
 ## 1.1.5.28
 
 - **No Nut November rolls to the next day while the page is open.** Yesterday's count clears at midnight, and when you come back to the tab. A reload is not required.

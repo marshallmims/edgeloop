@@ -6,7 +6,7 @@
 // offline once it has been visited. Bump CACHE_VERSION when the precache list
 // changes; old caches are removed on activate.
 
-const CACHE_VERSION = 'edgeloop-v26';
+const CACHE_VERSION = 'edgeloop-v27';
 const PRECACHE = [
     './',
     './index.html',
@@ -96,6 +96,8 @@ self.addEventListener('fetch', (event) => {
     // websockets and PeerJS must always go to the network.
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
     if (url.hostname.endsWith('handyfeeling.com') || url.hostname.endsWith('peerjs.com')) return;
+    // The agent link is a live document. A cached copy would show an old heart rate.
+    if (url.pathname.startsWith('/api/agent')) return;
 
     event.respondWith(
         fetch(request)

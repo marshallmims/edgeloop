@@ -101,6 +101,19 @@ export function sanitizeCommand(raw, role = 'controller') {
             if (slowest === undefined || fastest === undefined) return null;
             return { type: 'SPEED_WINDOW', slowest, fastest };
         }
+        case 'DURATION': {
+            const mode = oneOf(raw.mode, ['fixed', 'range', 'endless']);
+            if (!mode) return null;
+            if (mode === 'endless') return { type: 'DURATION', mode };
+            if (mode === 'fixed') {
+                const minutes = clampNumber(raw.minutes, 1, 1440, true);
+                return minutes === undefined ? null : { type: 'DURATION', mode, minutes };
+            }
+            const minMinutes = clampNumber(raw.minMinutes, 1, 1440, true);
+            const maxMinutes = clampNumber(raw.maxMinutes, 1, 1440, true);
+            if (minMinutes === undefined || maxMinutes === undefined || minMinutes > maxMinutes) return null;
+            return { type: 'DURATION', mode, minMinutes, maxMinutes };
+        }
         case 'MANUAL_ARM': {
             if (typeof raw.on !== 'boolean') return null;
             const epoch = sanitizeEpoch(raw.epoch);

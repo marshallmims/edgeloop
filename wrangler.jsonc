@@ -3,11 +3,21 @@
   // deploys from `main`. This file does not list that hostname, so a dev
   // deploy cannot replace it.
   "name": "edgeloop",
+  "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": ".",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+  "durable_objects": {
+    "bindings": [
+      { "name": "AGENT_ROOMS", "class_name": "AgentRoom" }
+    ]
+  },
+  "migrations": [
+    { "tag": "agent-room-v1", "new_sqlite_classes": ["AgentRoom"] }
+  ],
   "env": {
     // A second Worker. `npx wrangler deploy --env dev` publishes it and
     // creates the dev.edgeloop.app DNS record in the Cloudflare zone.

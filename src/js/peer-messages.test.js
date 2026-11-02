@@ -27,6 +27,14 @@ describe('sanitizeCommand', () => {
         assert.deepEqual(sanitizeCommand({ type: 'ENDGAME', endgame: 'rampdown' }), { type: 'ENDGAME', endgame: 'rampdown' });
         assert.deepEqual(sanitizeCommand({ type: 'EDGE_MARK' }), { type: 'EDGE_MARK' });
         assert.deepEqual(sanitizeCommand({ type: 'INTENSITY', value: 80 }), { type: 'INTENSITY', value: 80 });
+        assert.deepEqual(sanitizeCommand({ type: 'DURATION', mode: 'endless' }), { type: 'DURATION', mode: 'endless' });
+        assert.deepEqual(sanitizeCommand({ type: 'DURATION', mode: 'fixed', minutes: 30 }), { type: 'DURATION', mode: 'fixed', minutes: 30 });
+        assert.deepEqual(
+            sanitizeCommand({ type: 'DURATION', mode: 'range', minMinutes: 25, maxMinutes: 45 }),
+            { type: 'DURATION', mode: 'range', minMinutes: 25, maxMinutes: 45 }
+        );
+        assert.equal(sanitizeCommand({ type: 'DURATION', mode: 'fixed' }), null);
+        assert.equal(sanitizeCommand({ type: 'DURATION', mode: 'range', minMinutes: 40, maxMinutes: 10 }), null);
         assert.deepEqual(sanitizeCommand({ type: 'MANUAL_STOP', epoch: 3 }), { type: 'MANUAL_STOP', epoch: 3 });
         assert.equal(sanitizeCommand({ type: 'MANUAL_ARM', on: true, epoch: 1 }).on, true);
     });

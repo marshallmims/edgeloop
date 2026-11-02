@@ -179,8 +179,10 @@ import {
     pruneStalePeers,
     getPeerCounts,
     peerLibraryAvailable,
-    getShareLinkTrace
+    getShareLinkTrace,
+    routeHostCommand
 } from './webrtc.js';
+import { agentDocument, agentHttpUrl, agentSocketUrl, buildAgentState, mintAgentToken } from './agent-api.js';
 import {
     cancelSpeech,
     speakNow,
@@ -6826,6 +6828,7 @@ function exitControlleeMode() {
 function stopSharing() {
     const wasManual = Boolean(manualLatch);
     clearManualLatch();
+    stopAgentLink();
     closeHostPeer();
     exitControlleeMode();
     if (wasManual) dispatchHardware(0, 0, 0, 100, true);
@@ -6846,8 +6849,172 @@ function renderPeerCounts() {
     }
 }
 
+function applySharedCommand(cmd) {
+    if (cmd.type === 'SESSION_STATE') {
+        const hostActive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+        if (cmd.status === 'RUNNING' && !hostActive) playPauseBtn?.click();
+        else if (cmd.status === 'PAUSED' && hostActive) {
+            pendingPauseReason = 'remote';
+            playPauseBtn?.click();
+        }
+        else if (cmd.status === 'IDLE') stopBtn?.click();
+    } else if (cmd.type === 'SESSION_RESET') resetBtn?.click();
+    else if (cmd.type === 'ORGASM_TOGGLE') orgasmBtn?.click();
+    else if (cmd.type === 'MODE_CHANGE') {
+        if (cmd.device) {
+            deviceStyles.set(cmd.device, cmd.mode);
+            updateEngine();
+            syncTelemetry();
+        } else {
+            if (cmd.endgame) {
+                state.endgameType = cmd.endgame;
+                highlightEndgameCard(state.endgameType);
+                persistSessionLimits(true);
+            }
+            applyModeSelection(cmd.mode, cmd.enabled);
+            syncTelemetry();
+        }
+    }
+    else if (cmd.type === 'ENDGAME') {
+        state.endgameType = cmd.endgame;
+        highlightEndgameCard(state.endgameType);
+        persistSessionLimits(true);
+        syncTelemetry();
+    }
+    else if (cmd.type === 'DURATION') {
+        // The length is chosen before Start. A running session keeps the
+        // target it already rolled.
+        if (state.sessionStatus !== 'IDLE') return;
+        setDurationMode(cmd.mode);
+        if (cmd.mode === 'fixed') {
+            const input = document.getElementById('paramFixedInput');
+            if (input) input.value = String(cmd.minutes);
+        } else if (cmd.mode === 'range') {
+            const min = document.getElementById('paramMinInput');
+            const max = document.getElementById('paramMaxInput');
+            if (min) min.value = String(cmd.minMinutes);
+            if (max) max.value = String(cmd.maxMinutes);
+        }
+        validateDurationInputs();
+        persistSessionLimits(true);
+        syncTelemetry();
+    }
+    else if (cmd.type === 'EDGE_MARK') performEdgeMark();
+    else if (cmd.type === 'INTENSITY') applyIntensity(cmd.value);
+    else if (cmd.type === 'SPEED_WINDOW') {
+        advancedSettings.speedSlowest = cmd.slowest;
+        advancedSettings.speedFastest = cmd.fastest;
+        if (advancedSettings.speedSlowest > advancedSettings.speedFastest) {
+            advancedSettings.speedFastest = advancedSettings.speedSlowest;
+        }
+        paintSpeedWindow();
+        persistSettings();
+        updateEngine();
+        syncTelemetry();
+    }
+    else if (cmd.type === 'MANUAL_ARM' || cmd.type === 'MANUAL_STOP' || cmd.type === 'MANUAL_FRAME' || cmd.type === 'MANUAL_PATTERN') {
+        handleManualCommand(cmd);
+    }
+}
+
+let agentSocket = null;
+
+function agentSnapshot() {
+    return buildAgentState({
+        sessionStatus: state.sessionStatus,
+        elapsedSeconds: state.sessionSeconds,
+        targetSeconds: state.chosenTargetSeconds,
+        durationMode: state.durationMode,
+        fixedMinutes: document.getElementById('paramFixedInput')?.value,
+        minMinutes: document.getElementById('paramMinInput')?.value,
+        maxMinutes: document.getElementById('paramMaxInput')?.value,
+        bpm: Number.isFinite(state.sensorHr) ? state.sensorHr : state.hrCurrent,
+        heartSeen: Boolean(state.hrReadingSeen),
+        resting: state.effectiveMinHr,
+        ceiling: state.effectiveMaxHr,
+        pullback: state.edgeTriggerHr,
+        signal: state.hrSignalState,
+        noContact: state.hrNoContact,
+        edged: state.isEdged,
+        edges: state.edges,
+        pauses: state.pauses,
+        playStyle: state.teaseMode || state.activeMode,
+        game: state.gameMode || 'off',
+        endgame: state.endgameType,
+        intensity: state.intensityValue,
+        speedSlowest: advancedSettings.speedSlowest,
+        speedFastest: advancedSettings.speedFastest,
+        primaryPercent: state.strokerSpeed,
+        secondaryPercent: state.prostateSpeed,
+        strokeMin: state.strokeMin,
+        strokeMax: state.strokeMax,
+        orgasm: state.orgasmMode,
+        ready: (() => {
+            const readiness = hardwareReadiness();
+            return readiness.hrReady && readiness.toyReady;
+        })(),
+        devices: sharedDeviceCatalog(),
+        oracleState: state.oracleState,
+        oracleTimer: state.oracleTimer,
+        trainState: state.trainState,
+        trainHoldSeconds: state.trainHoldSeconds,
+        trainEdgesDone: state.trainEdgesDone,
+        trainHoldGoal: advancedSettings.trainHoldSeconds,
+        trainEdgesGoal: advancedSettings.trainEdges,
+        survivalSpeedFloor: state.survivalSpeedFloor,
+        survivalOverdrive: state.survivalOverdrive,
+        history: state.history
+    });
+}
+
+function pushAgentState() {
+    if (!agentSocket || agentSocket.readyState !== 1) return;
+    try {
+        agentSocket.send(JSON.stringify({ type: 'state', document: agentDocument(agentSnapshot(), true) }));
+    } catch (e) { /* the next push retries */ }
+}
+
+function stopAgentLink() {
+    const socket = agentSocket;
+    agentSocket = null;
+    if (socket) {
+        try { socket.close(); } catch (e) { /* already closed */ }
+    }
+    const field = document.getElementById('agentShareUrl');
+    if (field) field.value = '';
+}
+
+function startAgentLink() {
+    stopAgentLink();
+    const token = mintAgentToken();
+    const link = agentHttpUrl(window.location.origin, token);
+    const field = document.getElementById('agentShareUrl');
+    if (field) field.value = link;
+    let socket;
+    try {
+        socket = new WebSocket(agentSocketUrl(window.location.origin, token));
+    } catch (e) {
+        return;
+    }
+    agentSocket = socket;
+    socket.addEventListener('open', () => pushAgentState());
+    socket.addEventListener('message', (event) => {
+        if (socket !== agentSocket) return;
+        let msg = null;
+        try { msg = JSON.parse(event.data); } catch (e) { return; }
+        if (!msg || msg.type !== 'command') return;
+        const routed = routeHostCommand(msg.command, 'controller');
+        if (!routed) return;
+        applySharedCommand(routed.cmd);
+    });
+    socket.addEventListener('close', () => {
+        if (agentSocket === socket) agentSocket = null;
+    });
+}
+
 function setupPartnerHost() {
     enterControlleeMode();
+    startAgentLink();
     if (!peerLibraryAvailable()) {
         setPartnerStatus('Signalling library not loaded (CDN blocked or offline). Remote control is unavailable.', 'error');
         const linkField = document.getElementById('controlleeShareUrl');
@@ -6897,55 +7064,7 @@ function setupPartnerHost() {
             setPartnerStatus(`Signalling error: ${message}`, 'error');
             renderPeerCounts();
         },
-        onCommandReceived: (cmd) => {
-            if (cmd.type === 'SESSION_STATE') {
-                const hostActive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
-                if (cmd.status === 'RUNNING' && !hostActive) playPauseBtn?.click();
-                else if (cmd.status === 'PAUSED' && hostActive) {
-                    pendingPauseReason = 'remote';
-                    playPauseBtn?.click();
-                }
-                else if (cmd.status === 'IDLE') stopBtn?.click();
-            } else if (cmd.type === 'SESSION_RESET') resetBtn?.click();
-            else if (cmd.type === 'ORGASM_TOGGLE') orgasmBtn?.click();
-            else if (cmd.type === 'MODE_CHANGE') {
-                if (cmd.device) {
-                    deviceStyles.set(cmd.device, cmd.mode);
-                    updateEngine();
-                    syncTelemetry();
-                } else {
-                    if (cmd.endgame) {
-                        state.endgameType = cmd.endgame;
-                        highlightEndgameCard(state.endgameType);
-                        persistSessionLimits(true);
-                    }
-                    applyModeSelection(cmd.mode, cmd.enabled);
-                    syncTelemetry();
-                }
-            }
-            else if (cmd.type === 'ENDGAME') {
-                state.endgameType = cmd.endgame;
-                highlightEndgameCard(state.endgameType);
-                persistSessionLimits(true);
-                syncTelemetry();
-            }
-            else if (cmd.type === 'EDGE_MARK') performEdgeMark();
-            else if (cmd.type === 'INTENSITY') applyIntensity(cmd.value);
-            else if (cmd.type === 'SPEED_WINDOW') {
-                advancedSettings.speedSlowest = cmd.slowest;
-                advancedSettings.speedFastest = cmd.fastest;
-                if (advancedSettings.speedSlowest > advancedSettings.speedFastest) {
-                    advancedSettings.speedFastest = advancedSettings.speedSlowest;
-                }
-                paintSpeedWindow();
-                persistSettings();
-                updateEngine();
-                syncTelemetry();
-            }
-            else if (cmd.type === 'MANUAL_ARM' || cmd.type === 'MANUAL_STOP' || cmd.type === 'MANUAL_FRAME' || cmd.type === 'MANUAL_PATTERN') {
-                handleManualCommand(cmd);
-            }
-        }
+        onCommandReceived: (cmd) => applySharedCommand(cmd)
     });
 }
 
@@ -8415,6 +8534,7 @@ function syncTelemetry() {
             silentMs: state.hrSignalSilentMs
         }
     });
+    pushAgentState();
 }
 
 // Copy a share link. navigator.clipboard only exists in secure contexts
@@ -8459,6 +8579,9 @@ async function copyLinkFrom(inputId, btnId) {
 
 document.getElementById('controlleeCopyBtn')?.addEventListener('click', () => {
     copyLinkFrom('controlleeShareUrl', 'controlleeCopyBtn').catch(() => {});
+});
+document.getElementById('agentCopyBtn')?.addEventListener('click', () => {
+    copyLinkFrom('agentShareUrl', 'agentCopyBtn').catch(() => {});
 });
 
 let loadedScriptHash = '';
