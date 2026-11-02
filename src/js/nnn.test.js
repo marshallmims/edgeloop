@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { freshNnn, catchUpNnn, addMissedDay, clearNnn, tickNnnHold, recordNnnEdge, rollNnnOutcome, dateKey, describeNnn } from './nnn.js';
 
 describe('NNN practice', () => {
@@ -29,6 +30,23 @@ describe('NNN practice', () => {
         assert.match(describeNnn(early, new Date('2026-10-08T12:00:00')), /Starts 2026-11-01/);
         const during = catchUpNnn(freshNnn(new Date('2026-11-01T12:00:00'), { startDate: '2026-11-01', endDate: '2026-11-30' }), new Date('2026-11-01T12:00:00'));
         assert.match(describeNnn(during, new Date('2026-11-01T12:00:00')), /Day 1 of 30/);
+    });
+
+    it('starts the next day while the page is still open', () => {
+        const open = {
+            ...freshNnn(new Date('2026-11-02T22:00:00'), { dailyEdges: 3, startDate: '2026-11-01', endDate: '2026-11-30' }),
+            lastOpened: '2026-11-02',
+            edgesToday: 2
+        };
+        const rolled = catchUpNnn(open, new Date('2026-11-03T00:05:00'));
+        assert.equal(rolled.lastOpened, '2026-11-03');
+        assert.equal(rolled.edgesToday, 0);
+        assert.equal(rolled.quotaToday, 3);
+        assert.match(describeNnn(rolled, new Date('2026-11-03T00:05:00')), /Day 3 of 30/);
+        assert.match(describeNnn(rolled, new Date('2026-11-03T00:05:00')), /Today 0\/3/);
+        const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+        assert.match(app, /function rollNnnDay/);
+        assert.match(app, /rollNnnDay\(\)/);
     });
 
     it('does not punish a day you already opened', () => {
