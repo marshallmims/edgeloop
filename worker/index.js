@@ -27,7 +27,15 @@ export class AgentRoom {
         this.state = state;
         this.host = null;
         this.document = null;
+        this.telemetry = null;
+        this.controls = new Set();
         this.commands = [];
+    }
+
+    sendControl(text) {
+        for (const socket of this.controls) {
+            try { socket.send(text); } catch (e) { this.controls.delete(socket); }
+        }
     }
 
     hostOpen() {
@@ -43,10 +51,30 @@ export class AgentRoom {
 
     async fetch(request) {
         const url = new URL(request.url);
-        if (request.headers.get('Upgrade') === 'websocket' && url.pathname.endsWith('/host')) {
+        if (request.headers.get('Upgrade') === 'websocket' && (url.pathname.endsWith('/host') || url.pathname.endsWith('/control'))) {
             const pair = new WebSocketPair();
             const server = pair[1];
             server.accept();
+            if (url.pathname.endsWith('/control')) {
+                this.controls.add(server);
+                if (this.telemetry) {
+                    try { server.send(JSON.stringify({ type: 'telemetry', telemetry: this.telemetry })); } catch (e) { /* the next host push retries */ }
+                }
+                server.addEventListener('message', (event) => {
+                    let msg = null;
+                    try { msg = JSON.parse(String(event.data || '').slice(0, 32000)); } catch (e) { return; }
+                    if (!msg || msg.type !== 'command' || !msg.command || typeof msg.command !== 'object') return;
+                    if (!this.hostOpen()) return;
+                    try { this.host.send(JSON.stringify({ type: 'command', command: msg.command })); } catch (e) { /* host socket is closing */ }
+                });
+                server.addEventListener('close', () => {
+                    this.controls.delete(server);
+                    if (this.controls.size === 0 && this.hostOpen()) {
+                        try { this.host.send(JSON.stringify({ type: 'controller-left' })); } catch (e) { /* host is already gone */ }
+                    }
+                });
+                return new Response(null, { status: 101, webSocket: pair[0] });
+            }
             if (this.host) {
                 try { this.host.close(4000, 'replaced'); } catch (e) { /* the old page is already gone */ }
             }
@@ -54,11 +82,19 @@ export class AgentRoom {
             server.addEventListener('message', (event) => {
                 let msg = null;
                 try { msg = JSON.parse(event.data); } catch (e) { return; }
-                if (!msg || msg.type !== 'state' || !msg.document || typeof msg.document !== 'object') return;
-                this.document = msg.document;
+                if (!msg || typeof msg !== 'object') return;
+                if (msg.type === 'state' && msg.document && typeof msg.document === 'object') {
+                    this.document = msg.document;
+                    return;
+                }
+                if (msg.type === 'telemetry' && msg.telemetry && typeof msg.telemetry === 'object') {
+                    this.telemetry = msg.telemetry;
+                    this.sendControl(JSON.stringify({ type: 'telemetry', telemetry: msg.telemetry }));
+                }
             });
             server.addEventListener('close', () => {
                 if (this.host === server) this.host = null;
+                this.sendControl(JSON.stringify({ type: 'host-left' }));
             });
             return new Response(null, { status: 101, webSocket: pair[0] });
         }
@@ -98,7 +134,7 @@ export class AgentRoom {
 }
 
 function agentToken(pathname) {
-    const match = pathname.match(/^\/api\/agent\/([A-Za-z0-9_-]{22})(?:\/host)?$/);
+    const match = pathname.match(/^\/api\/agent\/([A-Za-z0-9_-]{22})(?:\/(?:host|control))?$/);
     return match && isAgentToken(match[1]) ? match[1] : '';
 }
 

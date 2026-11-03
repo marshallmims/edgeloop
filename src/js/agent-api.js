@@ -189,8 +189,14 @@ export function agentHttpUrl(origin, token) {
     return `${String(origin || '').replace(/\/$/, '')}/api/agent/${token}`;
 }
 
+function agentSocketBase(origin) {
+    return String(origin || '').replace(/\/$/, '').replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+}
+
 export function agentSocketUrl(origin, token) {
-    const base = String(origin || '').replace(/\/$/, '');
-    const ws = base.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
-    return `${ws}/api/agent/${token}/host`;
+    return `${agentSocketBase(origin)}/api/agent/${token}/host`;
+}
+
+export function agentControlSocketUrl(origin, token) {
+    return `${agentSocketBase(origin)}/api/agent/${token}/control`;
 }

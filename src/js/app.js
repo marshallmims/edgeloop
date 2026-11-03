@@ -182,7 +182,7 @@ import {
     getShareLinkTrace,
     routeHostCommand
 } from './webrtc.js';
-import { agentDocument, agentHttpUrl, agentSocketUrl, buildAgentState, mintAgentToken } from './agent-api.js';
+import { agentControlSocketUrl, agentDocument, agentHttpUrl, agentSocketUrl, buildAgentState, isAgentToken, mintAgentToken } from './agent-api.js';
 import {
     cancelSpeech,
     speakNow,
@@ -320,10 +320,11 @@ let funscriptSessionStart = 0;
 const urlParams = new URLSearchParams(window.location.search);
 const partnerRoom = urlParams.get('partner');
 const viewerRoom = urlParams.get('group_sub');
-// ?partner= opens a remote CONTROLLER (transport, orgasm and mode commands);
-// ?group_sub= opens a read-only VIEWER. Both render the host's telemetry and
-// run no engine, watchdog or hardware of their own.
-export const isRemoteController = Boolean(partnerRoom);
+const agentRoom = isAgentToken(urlParams.get('agent') || '') ? urlParams.get('agent') : '';
+// ?agent= is the controller link phones can open. It talks to this site
+// instead of the PeerJS room, which Android often cannot find.
+// ?partner= is the older controller link. ?group_sub= is a read-only viewer.
+export const isRemoteController = Boolean(agentRoom || partnerRoom);
 export const isRemoteViewer = !isRemoteController && Boolean(viewerRoom);
 const isRemotePage = isRemoteController || isRemoteViewer;
 const SESSION_LOG_KEY = 'edgeloop_session_log';
@@ -933,7 +934,7 @@ intensitySlider?.addEventListener('input', (e) => {
     state.intensityValue = val;
     paintIntensity(val);
     if (isRemoteController) {
-        sendPeerCommand({ type: 'INTENSITY', value: val });
+        sendControllerCommand({ type: 'INTENSITY', value: val });
         return;
     }
     if (isRemoteViewer) return;
@@ -964,7 +965,7 @@ function sendSpeedWindow() {
     let slowest = clampSpeedBound(document.getElementById('speedSlowestInput')?.value, 0);
     let fastest = clampSpeedBound(document.getElementById('speedFastestInput')?.value, 100);
     if (slowest > fastest) fastest = slowest;
-    sendPeerCommand({ type: 'SPEED_WINDOW', slowest, fastest });
+    sendControllerCommand({ type: 'SPEED_WINDOW', slowest, fastest });
 }
 
 document.getElementById('speedSlowestInput')?.addEventListener('change', () => {
@@ -3235,7 +3236,7 @@ playPauseBtn?.addEventListener('click', async () => {
         const wants = (state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED') ? 'RUNNING' : 'PAUSED';
         manualVizFrozen = wants !== 'RUNNING';
         state.sessionStatus = wants;
-        sendPeerCommand({ type: 'SESSION_STATE', status: wants });
+        sendControllerCommand({ type: 'SESSION_STATE', status: wants });
         return;
     }
     if (state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED') {
@@ -3263,7 +3264,7 @@ stopBtn?.addEventListener('click', () => {
     if (isRemoteController) {
         manualVizFrozen = true;
         state.sessionStatus = 'IDLE';
-        sendPeerCommand({ type: 'SESSION_STATE', status: 'IDLE' });
+        sendControllerCommand({ type: 'SESSION_STATE', status: 'IDLE' });
         return;
     }
     stopSession("Stopped");
@@ -3290,7 +3291,7 @@ function performEdgeMark() {
 document.getElementById('edgedBtn')?.addEventListener('click', () => {
     if (isRemoteViewer) return;
     if (isRemoteController) {
-        sendPeerCommand({ type: 'EDGE_MARK' });
+        sendControllerCommand({ type: 'EDGE_MARK' });
         return;
     }
     performEdgeMark();
@@ -3450,7 +3451,7 @@ function stopSession(outcome = "Stopped", voiceText = null) {
 resetBtn?.addEventListener('click', () => {
     if (isRemoteViewer) return;
     if (isRemoteController) {
-        sendPeerCommand({ type: 'SESSION_RESET' });
+        sendControllerCommand({ type: 'SESSION_RESET' });
         return;
     }
     clearManualLatch();
@@ -3849,7 +3850,7 @@ orgasmBtn?.addEventListener('click', () => {
     if (isRemoteViewer) return;
     if (isRemoteController) {
         // The host toggles and reports back through telemetry.
-        sendPeerCommand({ type: 'ORGASM_TOGGLE' });
+        sendControllerCommand({ type: 'ORGASM_TOGGLE' });
         return;
     }
     setOrgasmMode(!state.orgasmMode, { voice: true, settle: state.orgasmMode });
@@ -4389,7 +4390,7 @@ modeCards.forEach(card => {
         if (isRemoteController) {
             const command = { type: 'MODE_CHANGE', mode, enabled };
             if (ending) command.endgame = ending;
-            sendPeerCommand(command);
+            sendControllerCommand(command);
         } else syncTelemetry();
     });
 });
@@ -5246,7 +5247,7 @@ paramEndgameCards.forEach(card => {
         state.endgameType = card.getAttribute('data-endgame');
         highlightEndgameCard(state.endgameType);
         persistSessionLimits(true);
-        if (isRemoteController) sendPeerCommand({ type: 'ENDGAME', endgame: state.endgameType });
+        if (isRemoteController) sendControllerCommand({ type: 'ENDGAME', endgame: state.endgameType });
     });
 });
 
@@ -6984,6 +6985,82 @@ function pushAgentState() {
     } catch (e) { /* the next push retries */ }
 }
 
+function pushAgentTelemetry(telemetry) {
+    if (!agentSocket || agentSocket.readyState !== 1 || !telemetry) return;
+    try {
+        agentSocket.send(JSON.stringify({ type: 'telemetry', telemetry }));
+    } catch (e) { /* the next push retries */ }
+}
+
+let agentControlSocket = null;
+
+function sendAgentControl(cmd) {
+    if (!agentControlSocket || agentControlSocket.readyState !== 1) return false;
+    try {
+        agentControlSocket.send(JSON.stringify({ type: 'command', command: cmd }));
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function sendControllerCommand(cmd) {
+    if (sendAgentControl(cmd)) return true;
+    return sendPeerCommand(cmd);
+}
+
+function noteAgentControllerGone() {
+    if (getPeerCounts().controllers > 0) return;
+    if (manualLatch) {
+        clearManualLatch();
+        dispatchHardware(0, 0, 0, 100, true);
+        if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
+            pauseSession('Controller disconnected. Toys stopped.', 'remote');
+        }
+    }
+    setPartnerStatus('Controller disconnected', 'error');
+}
+
+function connectAgentControl(token) {
+    let socket;
+    try {
+        socket = new WebSocket(agentControlSocketUrl(window.location.origin, token));
+    } catch (e) {
+        markRemoteLinkLost('This phone could not open the controller connection.');
+        return;
+    }
+    agentControlSocket = socket;
+    socket.addEventListener('open', () => {
+        if (socket !== agentControlSocket) return;
+        remoteLinkUp = true;
+        remoteLinkLost = false;
+        lastTelemetryAt = Date.now();
+        setRemoteRoleStatus('Live');
+        hideAlertBanner('remote');
+        armManualDefault();
+        checkReadiness();
+    });
+    socket.addEventListener('message', (event) => {
+        if (socket !== agentControlSocket) return;
+        let msg = null;
+        try { msg = JSON.parse(event.data); } catch (e) { return; }
+        if (!msg) return;
+        if (msg.type === 'telemetry' && msg.telemetry && msg.telemetry.type === 'TELEMETRY') {
+            applyRemoteTelemetry(msg.telemetry);
+            return;
+        }
+        if (msg.type === 'host-left') {
+            remoteLinkUp = false;
+            markRemoteLinkLost('The host closed Share Control. Ask for a fresh link.');
+        }
+    });
+    socket.addEventListener('close', () => {
+        if (agentControlSocket !== socket) return;
+        agentControlSocket = null;
+        if (!remoteLinkLost) markRemoteLinkLost('The controller connection closed. Reload this link.');
+    });
+}
+
 function stopAgentLink() {
     const socket = agentSocket;
     agentSocket = null;
@@ -6992,6 +7069,8 @@ function stopAgentLink() {
     }
     const field = document.getElementById('agentShareUrl');
     if (field) field.value = '';
+    const controller = document.getElementById('controlleeShareUrl');
+    if (controller) controller.value = '';
 }
 
 function startAgentLink() {
@@ -7000,6 +7079,8 @@ function startAgentLink() {
     const link = agentHttpUrl(window.location.origin, token);
     const field = document.getElementById('agentShareUrl');
     if (field) field.value = link;
+    const controller = document.getElementById('controlleeShareUrl');
+    if (controller) controller.value = `${window.location.origin}${window.location.pathname}?agent=${token}`;
     let socket;
     try {
         socket = new WebSocket(agentSocketUrl(window.location.origin, token));
@@ -7007,14 +7088,23 @@ function startAgentLink() {
         return;
     }
     agentSocket = socket;
-    socket.addEventListener('open', () => pushAgentState());
+    socket.addEventListener('open', () => {
+        pushAgentState();
+        syncTelemetry();
+    });
     socket.addEventListener('message', (event) => {
         if (socket !== agentSocket) return;
         let msg = null;
         try { msg = JSON.parse(event.data); } catch (e) { return; }
-        if (!msg || msg.type !== 'command') return;
+        if (!msg) return;
+        if (msg.type === 'controller-left') {
+            noteAgentControllerGone();
+            return;
+        }
+        if (msg.type !== 'command') return;
         const routed = routeHostCommand(msg.command, 'controller');
         if (!routed) return;
+        if (getPeerCounts().controllers === 0) setPartnerStatus('A controller is connected', 'ok');
         applySharedCommand(routed.cmd);
     });
     socket.addEventListener('close', () => {
@@ -7026,19 +7116,17 @@ function setupPartnerHost() {
     enterControlleeMode();
     startAgentLink();
     if (!peerLibraryAvailable()) {
-        setPartnerStatus('Signalling library not loaded (CDN blocked or offline). Remote control is unavailable.', 'error');
-        const linkField = document.getElementById('controlleeShareUrl');
-        if (linkField) linkField.value = 'Unavailable: the PeerJS library could not be loaded';
+        setPartnerStatus('Waiting for a controller');
         return;
     }
     initHostPeer({
-        onPeerReady: (id) => {
-            const link = `${window.location.origin}${window.location.pathname}?partner=${id}`;
-            const controlleeLink = document.getElementById('controlleeShareUrl');
-            if (controlleeLink) controlleeLink.value = link;
-            // Also fires after a signalling reconnect: keep a live controller shown as such.
+        onPeerReady: () => {
+            // A phone may already be connected through the EdgeLoop relay.
             if (getPeerCounts().controllers > 0) setPartnerStatus('Controller Connected', 'ok');
-            else setPartnerStatus('Waiting for a controller');
+            else {
+                const status = document.getElementById('controlleeStatus');
+                if (!status || status.textContent !== 'A controller is connected') setPartnerStatus('Waiting for a controller');
+            }
             renderPeerCounts();
         },
         onPartnerConnected: () => {
@@ -7214,7 +7302,7 @@ function armManualDefault() {
     manualEpoch += 1;
     manualUiHoldUntil = Date.now() + 1500;
     setManualModeUi(true);
-    sendPeerCommand({ type: 'MANUAL_ARM', on: true, epoch: manualEpoch });
+    sendControllerCommand({ type: 'MANUAL_ARM', on: true, epoch: manualEpoch });
     scheduleManualFrame(true);
 }
 
@@ -7301,7 +7389,7 @@ function refreshManualHold() {
     if (!manualDriving) return;
     if (manualPatternOn) {
         if (!manualPatternCmd) return;
-        sendPeerCommand({ ...manualPatternCmd, epoch: manualEpoch, refresh: true });
+        sendControllerCommand({ ...manualPatternCmd, epoch: manualEpoch, refresh: true });
         return;
     }
     let moving = false;
@@ -7324,7 +7412,7 @@ function scheduleManualFrame(urgent = false) {
         }
         manualPatternOn = false;
         manualPatternCmd = null;
-        sendPeerCommand({
+        sendControllerCommand({
             type: 'MANUAL_FRAME',
             epoch: manualEpoch,
             urgent,
@@ -7509,7 +7597,7 @@ function pickPlayStyle(device, mode) {
     if (isRemoteViewer || !device || !device.id) return;
     deviceStyles.set(device.id, mode);
     paintManualStyleButtons();
-    if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode, enabled: true, device: device.id });
+    if (isRemoteController) sendControllerCommand({ type: 'MODE_CHANGE', mode, enabled: true, device: device.id });
     else updateEngine();
 }
 
@@ -7738,7 +7826,7 @@ function startManualPattern(id, extra = {}) {
     if (extra.tracks) manualPatternCmd.tracks = extra.tracks;
     if (extra.update) manualPatternCmd.update = true;
     if (extra.restart) manualPatternCmd.restart = extra.restart;
-    sendPeerCommand(manualPatternCmd);
+    sendControllerCommand(manualPatternCmd);
 }
 
 function publishDrawnLoops(restart) {
@@ -8509,7 +8597,7 @@ function syncTelemetry() {
     if (isRemotePage) return;
     const readiness = hardwareReadiness();
     deviceCatalog = sharedDeviceCatalog();
-    broadcastPeerTelemetry({
+    const telemetry = {
         type: 'TELEMETRY',
         hr: state.hrCurrent,
         hrSeen: Boolean(state.hrReadingSeen),
@@ -8550,7 +8638,9 @@ function syncTelemetry() {
             noContact: state.hrNoContact,
             silentMs: state.hrSignalSilentMs
         }
-    });
+    };
+    broadcastPeerTelemetry(telemetry);
+    pushAgentTelemetry(telemetry);
     pushAgentState();
 }
 
@@ -8814,7 +8904,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
             applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic');
         }
         syncFollowScript();
-        if (isRemoteController) sendPeerCommand({ type: 'MODE_CHANGE', mode: state.teaseMode, enabled: true });
+        if (isRemoteController) sendControllerCommand({ type: 'MODE_CHANGE', mode: state.teaseMode, enabled: true });
         else syncTelemetry();
     });
     function togglePlayer(force) {
@@ -9051,7 +9141,11 @@ if (isRemoteController) {
     initManualPanel();
 }
 
-if (isRemotePage && remoteRoom) {
+if (agentRoom) {
+    lockRemoteLimitInputs();
+    lockRemoteControls();
+    connectAgentControl(agentRoom);
+} else if (isRemotePage && remoteRoom) {
     lockRemoteLimitInputs();
     lockRemoteControls();
     const started = initRemotePeer(remoteRoom, isRemoteViewer ? 'viewer' : 'controller', {

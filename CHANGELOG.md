@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.31
+
+- **A phone can open the controller link.** Android was asking a public room service for the host, and that service said the room was not there. The controller link now connects through EdgeLoop itself, so a Pixel or a Galaxy can use it. Copy a new link after this update. An old link still depends on that room service.
+
 ## 1.1.5.30
 
 - **A long finger loop stays slow.** A loop was cut to 8 seconds, so a long slow stroke played back fast when the finger let go. It now keeps the time the finger took, up to 60 seconds. The shape keeps the turns, up to 64 points, and fills the time between them.

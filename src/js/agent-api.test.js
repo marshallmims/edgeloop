@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
     agentDocument,
+    agentControlSocketUrl,
     agentHttpUrl,
     agentSocketUrl,
     buildAgentState,
@@ -75,6 +76,7 @@ describe('agent link', () => {
         assert.equal(isAgentToken(token), true);
         assert.equal(agentHttpUrl('https://dev.edgeloop.app/', token), `https://dev.edgeloop.app/api/agent/${token}`);
         assert.equal(agentSocketUrl('https://dev.edgeloop.app', token), `wss://dev.edgeloop.app/api/agent/${token}/host`);
+        assert.equal(agentControlSocketUrl('https://dev.edgeloop.app', token), `wss://dev.edgeloop.app/api/agent/${token}/control`);
         assert.equal(agentSocketUrl('http://127.0.0.1:8000', token), `ws://127.0.0.1:8000/api/agent/${token}/host`);
     });
 
