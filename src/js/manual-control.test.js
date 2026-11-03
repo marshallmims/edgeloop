@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     acceptEpoch,
     clampPatternPeriod,
+    clampTrackPeriod,
     controlsForKind,
     decayFrame,
     frameFromPattern,
@@ -193,6 +194,8 @@ describe('patterns', () => {
         assert.deepEqual(controlsForKind('vibrate'), ['level']);
         assert.deepEqual(controlsForKind('stroke'), ['speed', 'strokeMin', 'strokeMax']);
         assert.equal(clampPatternPeriod(99999), 8000);
+        assert.equal(clampTrackPeriod(20000), 20000);
+        assert.equal(clampTrackPeriod(90000), 60000);
     });
 
     it('keeps one toy for the controller and leaves the other on EdgeLoop', () => {

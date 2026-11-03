@@ -883,6 +883,7 @@ function checkReadiness() {
         // state; a controller sends commands, a viewer can only watch.
         if (remoteLinkLost) renderTransportWaiting("HOST LINK LOST");
         else if (active || state.remoteHostReady) renderTransport(state.sessionStatus);
+        else if (state.remoteToyReady) renderTransportWaiting("NO HEART-RATE MONITOR. FINGER CONTROL STILL WORKS");
         else renderTransportWaiting("WAITING FOR HOST HARDWARE");
         if (isRemoteViewer) {
             playPauseBtn.disabled = true;
@@ -1557,8 +1558,14 @@ let deviceCatalog = [];
 let lastEngineInput = null;
 const deviceStyles = new Map();
 
+// Set when the host presses Stop. A loop refresh must not start the toys
+// again. The next real finger command clears it. Idle, with no heart-rate
+// monitor, is still allowed to drive: that is Share Control by hand.
+let manualHostHold = false;
+
 function manualSessionLive() {
-    return state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+    if (manualHostHold) return false;
+    return state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN' || state.sessionStatus === 'IDLE';
 }
 
 function clearManualTimers() {
@@ -2115,6 +2122,7 @@ function handleManualCommand(cmd) {
     }
     if (cmd.type === 'MANUAL_ARM') {
         if (!acceptManualCommand(cmd)) return;
+        manualHostHold = false;
         syncTelemetry();
         return;
     }
@@ -2131,6 +2139,7 @@ function handleManualCommand(cmd) {
     }
     if (!manualLatch && !acceptManualCommand(cmd)) return;
     if (manualLatch && !acceptEpoch(manualLatch.epoch, cmd.epoch)) return;
+    manualHostHold = false;
     manualLatch.epoch = cmd.epoch;
     if (cmd.type === 'MANUAL_PATTERN') {
         const now = Date.now();
@@ -3411,6 +3420,7 @@ function stopSession(outcome = "Stopped", voiceText = null) {
     state.pauseReason = '';
     state.strokerSpeed = 0;
     state.prostateSpeed = 0;
+    manualHostHold = true;
     dispatchHardware(0, 0, 0, 100, true);
     if (player && player.isPlaying()) player.pause();
     if (handyHsp && (handyHsp.owns() || handyHspReleasing)) releaseHandyHsp();
@@ -7141,11 +7151,17 @@ function checkRemoteLinkHealth(now = Date.now()) {
     }
 }
 
+function phoneLinkHint() {
+    const agent = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+    if (!/Android|iPhone|iPad|Mobile/i.test(agent)) return '';
+    return ' On a phone, open this link in Chrome on the same Wi-Fi as the computer. Samsung Internet and cellular data often cannot finish the connection. A desktop on that Wi-Fi can.';
+}
+
 function markRemoteLinkLost(message) {
     remoteLinkLost = true;
     state.remoteHostReady = false;
     setRemoteRoleStatus('Disconnected');
-    showRemoteBanner(message);
+    showRemoteBanner(`${message}${phoneLinkHint()}`);
     checkReadiness();
 }
 
@@ -8457,6 +8473,7 @@ function applyRemoteTelemetry(data) {
     updateTimerDisplay();
     redrawChart();
     if (Array.isArray(data.devices)) {
+        state.remoteToyReady = data.devices.some((item) => item && item.connected && item.kind !== 'heart' && item.role !== 'off');
         paintRemoteDevices(data.devices);
         if (isRemoteController) renderManualDevices(data.devices);
     }

@@ -18,6 +18,18 @@ import { sanitizeCommand, sanitizeTelemetry } from './peer-messages.js';
 export const PING_MS = 5000;
 export const STALE_PEER_MS = 20000;
 
+// Extra STUN servers. A phone on a different network than the computer often
+// cannot finish with only one. This is not a relay: cellular data can still fail.
+export const PEER_ICE_SERVERS = Object.freeze([
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+]);
+
+function createPeer() {
+    return new window.Peer({ config: { iceServers: PEER_ICE_SERVERS } });
+}
+
 let peer = null;
 let localRole = null;          // 'host' | 'controller' | 'viewer'
 let handlers = {};
@@ -322,7 +334,7 @@ export function initHostPeer(h) {
     controllerConn = null;
     viewerConns.clear();
     lastSeen.clear();
-    peer = new window.Peer();
+    peer = createPeer();
     wirePeerLifecycle();
     peer.on('connection', acceptHostConnection);
     return true;
@@ -403,7 +415,7 @@ export function initRemotePeer(room, role, h) {
         return false;
     }
     localRole = role === 'viewer' ? 'viewer' : 'controller';
-    peer = new window.Peer();
+    peer = createPeer();
     wirePeerLifecycle();
     peer.on('open', () => {
         if (hostConn) return;

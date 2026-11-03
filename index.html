@@ -186,6 +186,21 @@
     #manualDevices [data-toy-card][data-selected="yes"] {
       box-shadow: 0 0 0 2px #c084fc;
     }
+    /* A thumb needs a tall lane and buttons that are easy to hit. */
+    @media (max-width: 639px) {
+      body.manual-on [data-toy-lane] { min-height: 70vh; }
+      body.manual-on [data-loop-lane] { touch-action: none; }
+      body.manual-on [data-toy-mode],
+      body.manual-on [data-own] {
+        min-height: 2.75rem;
+        padding: 0.4rem 0.7rem;
+        font-size: 12px;
+      }
+      body.manual-on [data-loop-dot] {
+        height: 3.25rem;
+        width: 7rem;
+      }
+    }
     #soloModeBtn[aria-pressed="true"] {
       background: rgb(30 41 59);
       border-color: rgb(148 163 184);
@@ -1404,7 +1419,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.29</span>
+        <span id="appVersion" class="font-mono">v1.1.5.30</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>

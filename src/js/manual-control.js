@@ -31,6 +31,10 @@ export const MANUAL_LINK_MS = 1200;
 
 export const MIN_PATTERN_MS = 600;
 export const MAX_PATTERN_MS = 8000;
+// A finger loop keeps the time the finger took, up to a minute. The built-in
+// patterns stay on the shorter cap above. Cutting a long stroke down to 8 s
+// is what made a slow drag play back fast.
+export const MAX_LOOP_MS = 60000;
 export const DEFAULT_PATTERN_MS = 2000;
 
 export const MAX_DEVICES = 24;
@@ -250,7 +254,7 @@ const MIN_TRACK_MS = 120;
 export function clampTrackPeriod(value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return DEFAULT_PATTERN_MS;
-    return Math.round(clamp(n, MIN_TRACK_MS, MAX_PATTERN_MS));
+    return Math.round(clamp(n, MIN_TRACK_MS, MAX_LOOP_MS));
 }
 
 export function sanitizeManualPattern(raw) {

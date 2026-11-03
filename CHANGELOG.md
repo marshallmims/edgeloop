@@ -4,6 +4,12 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.30
+
+- **A long finger loop stays slow.** A loop was cut to 8 seconds, so a long slow stroke played back fast when the finger let go. It now keeps the time the finger took, up to 60 seconds. The shape keeps the turns, up to 64 points, and fills the time between them.
+- **Share Control works with no heart-rate monitor.** The toys still follow the finger. Start still waits for a pulse. Stop on the host stops the toys until the controller moves again.
+- **The controller page is easier to use with a thumb.** The drag lane is taller on a phone, and the buttons are larger. If a phone cannot open the live link, it says to use Chrome on the same Wi-Fi as the computer.
+
 ## 1.1.5.29
 
 - **Share Control has an agent link under the controller link.** A person still opens the controller link and uses the page. The agent link is for an AI or another app. Reading it shows the session length, play style, endgame, heart rate, and what the toys are being sent. Posting a command to that same link changes the session. The toys and the heart-rate monitor stay on your screen. Stop there still stops the toys.
