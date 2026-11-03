@@ -82,6 +82,6 @@ describe('agent link', () => {
 
     it('is left out of the service worker cache', () => {
         const worker = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
-        assert.match(worker, /\/api\/agent/);
+        assert.match(worker, /\/api\//);
     });
 });

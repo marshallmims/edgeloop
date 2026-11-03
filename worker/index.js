@@ -99,6 +99,22 @@ export class AgentRoom {
             return new Response(null, { status: 101, webSocket: pair[0] });
         }
 
+        if (url.pathname.startsWith('/api/room/')) {
+            if (request.method === 'PUT') {
+                let body = null;
+                try { body = await request.json(); } catch (e) { body = null; }
+                if (!body || !isAgentToken(body.token)) return json({ ok: false }, 400);
+                await this.state.storage.put('token', body.token);
+                return json({ ok: true });
+            }
+            if (request.method === 'GET') {
+                const token = await this.state.storage.get('token');
+                if (!isAgentToken(token)) return json({ ok: false }, 404);
+                return json({ token });
+            }
+            return json({ ok: false }, 405);
+        }
+
         if (request.method === 'OPTIONS') return json({ ok: true });
 
         if (request.method === 'GET') {
@@ -141,6 +157,12 @@ function agentToken(pathname) {
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
+        const roomName = url.pathname.match(/^\/api\/room\/([A-Za-z0-9_-]{4,64})$/);
+        if (roomName) {
+            if (!env.AGENT_ROOMS) return json({ ok: false, error: 'Agent link is not available on this server.' }, 503);
+            const room = env.AGENT_ROOMS.get(env.AGENT_ROOMS.idFromName(`peer:${roomName[1]}`));
+            return room.fetch(request);
+        }
         const token = agentToken(url.pathname);
         if (token) {
             if (!env.AGENT_ROOMS) return json({ ok: false, error: 'Agent link is not available on this server.' }, 503);
@@ -150,6 +172,11 @@ export default {
         if (url.pathname === '/api/agent' || url.pathname === '/api/agent/') {
             return json(offlineAgentDocument());
         }
-        return env.ASSETS.fetch(request);
+        const asset = await env.ASSETS.fetch(request);
+        const type = asset.headers.get('content-type') || '';
+        if (!type.includes('text/html') && !type.includes('javascript') && !url.pathname.endsWith('.js')) return asset;
+        const headers = new Headers(asset.headers);
+        headers.set('Cache-Control', 'no-cache');
+        return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
     }
 };

@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.32
+
+- **An old controller link can still reach a phone.** The address in the screenshot says ?partner=. Android asks a public room service for that, and the service says the tablet is not there. The tablet now publishes that room through EdgeLoop, and the phone follows it. The link on the tablet should say ?agent=. Reload the tablet until the footer says v1.1.5.32, then copy a new link.
+
 ## 1.1.5.31
 
 - **A phone can open the controller link.** Android was asking a public room service for the host, and that service said the room was not there. The controller link now connects through EdgeLoop itself, so a Pixel or a Galaxy can use it. Copy a new link after this update. An old link still depends on that room service.

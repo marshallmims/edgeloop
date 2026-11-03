@@ -6929,6 +6929,7 @@ function applySharedCommand(cmd) {
 }
 
 let agentSocket = null;
+let agentLinkToken = '';
 
 function agentSnapshot() {
     return buildAgentState({
@@ -7061,9 +7062,19 @@ function connectAgentControl(token) {
     });
 }
 
+function publishPeerRoom(peerId) {
+    if (!agentLinkToken || !peerId) return;
+    fetch(`/api/room/${encodeURIComponent(peerId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: agentLinkToken })
+    }).catch(() => {});
+}
+
 function stopAgentLink() {
     const socket = agentSocket;
     agentSocket = null;
+    agentLinkToken = '';
     if (socket) {
         try { socket.close(); } catch (e) { /* already closed */ }
     }
@@ -7076,6 +7087,7 @@ function stopAgentLink() {
 function startAgentLink() {
     stopAgentLink();
     const token = mintAgentToken();
+    agentLinkToken = token;
     const link = agentHttpUrl(window.location.origin, token);
     const field = document.getElementById('agentShareUrl');
     if (field) field.value = link;
@@ -7120,7 +7132,8 @@ function setupPartnerHost() {
         return;
     }
     initHostPeer({
-        onPeerReady: () => {
+        onPeerReady: (id) => {
+            publishPeerRoom(id);
             // A phone may already be connected through the EdgeLoop relay.
             if (getPeerCounts().controllers > 0) setPartnerStatus('Controller Connected', 'ok');
             else {
@@ -7249,7 +7262,8 @@ function markRemoteLinkLost(message) {
     remoteLinkLost = true;
     state.remoteHostReady = false;
     setRemoteRoleStatus('Disconnected');
-    showRemoteBanner(`${message}${phoneLinkHint()}`);
+    const hint = message.includes('?agent=') ? '' : phoneLinkHint();
+    showRemoteBanner(`${message}${hint}`);
     checkReadiness();
 }
 
@@ -9141,10 +9155,59 @@ if (isRemoteController) {
     initManualPanel();
 }
 
+function partnerFailure(message) {
+    markRemoteLinkLost(`${message} The address on this phone says ?partner=. On the tablet, reload until the footer says v1.1.5.32, turn Share Control off and on, and copy the link again. The new link says ?agent=.`);
+}
+
+async function connectFromPartnerRoom(peerId) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+        try {
+            const response = await fetch(`/api/room/${encodeURIComponent(peerId)}`, { cache: 'no-store' });
+            if (response.ok) {
+                const body = await response.json();
+                if (isAgentToken(body && body.token)) {
+                    connectAgentControl(body.token);
+                    return;
+                }
+            }
+        } catch (e) { /* the tablet may still be publishing the room */ }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    const started = initRemotePeer(peerId, 'controller', {
+        onConnected: () => {
+            remoteLinkUp = true;
+            remoteLinkLost = false;
+            lastTelemetryAt = Date.now();
+            setRemoteRoleStatus('Live');
+            hideAlertBanner('remote');
+            armManualDefault();
+        },
+        onTelemetryReceived: applyRemoteTelemetry,
+        onDisconnected: () => {
+            remoteLinkUp = false;
+            partnerFailure('Host disconnected.');
+        },
+        onSignallingLost: () => setRemoteRoleStatus(remoteLinkLost ? 'Disconnected' : 'Signalling lost'),
+        onPeerClosed: () => {
+            remoteLinkUp = false;
+            partnerFailure('The signalling connection closed.');
+        },
+        onPeerError: (message) => {
+            remoteLinkUp = false;
+            partnerFailure(`Signalling error: ${message}.`);
+        }
+    });
+    if (!started) partnerFailure('This phone could not open the live link.');
+}
+
 if (agentRoom) {
     lockRemoteLimitInputs();
     lockRemoteControls();
     connectAgentControl(agentRoom);
+} else if (partnerRoom && isRemoteController) {
+    lockRemoteLimitInputs();
+    lockRemoteControls();
+    connectFromPartnerRoom(partnerRoom);
 } else if (isRemotePage && remoteRoom) {
     lockRemoteLimitInputs();
     lockRemoteControls();
