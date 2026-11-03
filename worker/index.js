@@ -6,7 +6,7 @@
 import { isAgentToken, offlineAgentDocument } from '../src/js/agent-api.js';
 
 const MAX_BODY = 8000;
-const MAX_COMMANDS = 20;
+const MAX_COMMANDS = 400;
 const COMMAND_WINDOW_MS = 10000;
 
 function json(body, status = 200) {
@@ -117,6 +117,11 @@ export class AgentRoom {
 
         if (request.method === 'OPTIONS') return json({ ok: true });
 
+        if (request.method === 'GET' && url.pathname.endsWith('/telemetry')) {
+            if (!this.telemetry) return json({ online: this.hostOpen() });
+            return json(this.telemetry);
+        }
+
         if (request.method === 'GET') {
             const doc = this.document || offlineAgentDocument();
             return json({ ...doc, online: this.hostOpen() && Boolean(this.document) });
@@ -150,7 +155,7 @@ export class AgentRoom {
 }
 
 function agentToken(pathname) {
-    const match = pathname.match(/^\/api\/agent\/([A-Za-z0-9_-]{22})(?:\/(?:host|control))?$/);
+    const match = pathname.match(/^\/api\/agent\/([A-Za-z0-9_-]{22})(?:\/(?:host|control|telemetry))?$/);
     return match && isAgentToken(match[1]) ? match[1] : '';
 }
 

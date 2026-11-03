@@ -6994,15 +6994,52 @@ function pushAgentTelemetry(telemetry) {
 }
 
 let agentControlSocket = null;
+let agentHttpToken = '';
+let agentPollTimer = null;
 
 function sendAgentControl(cmd) {
-    if (!agentControlSocket || agentControlSocket.readyState !== 1) return false;
-    try {
-        agentControlSocket.send(JSON.stringify({ type: 'command', command: cmd }));
-        return true;
-    } catch (e) {
-        return false;
+    if (agentControlSocket && agentControlSocket.readyState === 1) {
+        try {
+            agentControlSocket.send(JSON.stringify({ type: 'command', command: cmd }));
+            return true;
+        } catch (e) { /* fall through to the plain request */ }
     }
+    if (!agentHttpToken) return false;
+    fetch(`/api/agent/${agentHttpToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cmd)
+    }).catch(() => {});
+    return true;
+}
+
+function noteAgentPoll(body) {
+    if (!body || body.type !== 'TELEMETRY') {
+        if (body && body.online === false && !remoteLinkLost) {
+            markRemoteLinkLost('The tablet is not sharing right now. Turn Share Control on there and copy a new link.');
+        }
+        return;
+    }
+    remoteLinkUp = true;
+    remoteLinkLost = false;
+    lastTelemetryAt = Date.now();
+    setRemoteRoleStatus('Live');
+    hideAlertBanner('remote');
+    applyRemoteTelemetry(body);
+    if (!manualDriving) armManualDefault();
+}
+
+function startAgentPolling(token) {
+    agentHttpToken = token;
+    const pull = () => {
+        fetch(`/api/agent/${token}/telemetry`, { cache: 'no-store' })
+            .then((response) => response.ok ? response.json() : null)
+            .then((body) => { if (body) noteAgentPoll(body); })
+            .catch(() => {});
+    };
+    pull();
+    if (agentPollTimer) clearInterval(agentPollTimer);
+    agentPollTimer = setInterval(pull, 1000);
 }
 
 function sendControllerCommand(cmd) {
@@ -7023,23 +7060,19 @@ function noteAgentControllerGone() {
 }
 
 function connectAgentControl(token) {
+    // The phone's socket to this site is closing on its own. Reading and
+    // posting still reach the tablet, so the page stays a controller.
+    startAgentPolling(token);
     let socket;
     try {
         socket = new WebSocket(agentControlSocketUrl(window.location.origin, token));
     } catch (e) {
-        markRemoteLinkLost('This phone could not open the controller connection.');
         return;
     }
     agentControlSocket = socket;
     socket.addEventListener('open', () => {
         if (socket !== agentControlSocket) return;
-        remoteLinkUp = true;
-        remoteLinkLost = false;
-        lastTelemetryAt = Date.now();
-        setRemoteRoleStatus('Live');
-        hideAlertBanner('remote');
-        armManualDefault();
-        checkReadiness();
+        if (!manualDriving) armManualDefault();
     });
     socket.addEventListener('message', (event) => {
         if (socket !== agentControlSocket) return;
@@ -7047,7 +7080,7 @@ function connectAgentControl(token) {
         try { msg = JSON.parse(event.data); } catch (e) { return; }
         if (!msg) return;
         if (msg.type === 'telemetry' && msg.telemetry && msg.telemetry.type === 'TELEMETRY') {
-            applyRemoteTelemetry(msg.telemetry);
+            noteAgentPoll(msg.telemetry);
             return;
         }
         if (msg.type === 'host-left') {
@@ -7058,7 +7091,6 @@ function connectAgentControl(token) {
     socket.addEventListener('close', () => {
         if (agentControlSocket !== socket) return;
         agentControlSocket = null;
-        if (!remoteLinkLost) markRemoteLinkLost('The controller connection closed. Reload this link.');
     });
 }
 

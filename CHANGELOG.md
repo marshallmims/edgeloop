@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.33
+
+- **The phone stays connected when its socket closes.** The Pixel opened the new ?agent= link, then the live socket closed and the page gave up. It now keeps reading the tablet with ordinary requests, so that closed socket is not the end of the link.
+
 ## 1.1.5.32
 
 - **An old controller link can still reach a phone.** The address in the screenshot says ?partner=. Android asks a public room service for that, and the service says the tablet is not there. The tablet now publishes that room through EdgeLoop, and the phone follows it. The link on the tablet should say ?agent=. Reload the tablet until the footer says v1.1.5.32, then copy a new link.
