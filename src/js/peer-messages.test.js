@@ -6,6 +6,10 @@ import { sanitizeCommand, sanitizeTelemetry, HISTORY_LENGTH } from './peer-messa
 describe('sanitizeCommand', () => {
     it('accepts the transport, orgasm and mode commands the controller UI exposes', () => {
         assert.deepEqual(sanitizeCommand({ type: 'SESSION_STATE', status: 'RUNNING' }), { type: 'SESSION_STATE', status: 'RUNNING' });
+        assert.deepEqual(
+            sanitizeCommand({ type: 'SESSION_STATE', status: 'RUNNING', withoutHr: true }),
+            { type: 'SESSION_STATE', status: 'RUNNING', withoutHr: true }
+        );
         assert.deepEqual(sanitizeCommand({ type: 'SESSION_STATE', status: 'PAUSED' }), { type: 'SESSION_STATE', status: 'PAUSED' });
         assert.deepEqual(sanitizeCommand({ type: 'SESSION_STATE', status: 'IDLE' }), { type: 'SESSION_STATE', status: 'IDLE' });
         assert.deepEqual(sanitizeCommand({ type: 'SESSION_RESET' }), { type: 'SESSION_RESET' });

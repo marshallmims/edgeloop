@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.34
+
+- **Share Control can start with no heart-rate monitor.** A button, Start without HR sensor, shows on the share screen and on the controller when a toy is connected and no monitor is. Solo still waits for a sensor. With no pulse, the toys move only when the controller moves them. Stop still stops them.
+
 ## 1.1.5.33
 
 - **The phone stays connected when its socket closes.** The Pixel opened the new ?agent= link, then the live socket closed and the page gave up. It now keeps reading the tablet with ordinary requests, so that closed socket is not the end of the link.

@@ -845,13 +845,14 @@ function pulseIsLive(now = Date.now()) {
 // remote command can never bypass what the button shows: resuming on a
 // frozen heart rate would drive the toys for a full tick (or the whole
 // signal-loss timeout) before the watchdog re-paused.
-function transportWaitingReason(now = Date.now()) {
+function transportWaitingReason(now = Date.now(), { allowWithoutHr = false } = {}) {
     const { hrReady, toyReady } = hardwareReadiness();
+    const skipHr = allowWithoutHr && sharingControl;
     if (!hrReady && !toyReady) return "WAITING FOR HR SENSOR & TOY";
-    if (!hrReady) return "WAITING FOR HR SENSOR";
+    if (!hrReady && !skipHr) return "WAITING FOR HR SENSOR";
     if (!toyReady) return "WAITING FOR TOY CONNECTION";
-    if (state.sessionStatus === 'PAUSED' && state.hrSignalPaused) return "WAITING FOR PULSE";
-    if (!pulseIsFresh(now)) return "WAITING FOR PULSE";
+    if (!skipHr && state.sessionStatus === 'PAUSED' && state.hrSignalPaused) return "WAITING FOR PULSE";
+    if (!skipHr && !pulseIsFresh(now)) return "WAITING FOR PULSE";
     if ((state.activeMode === 'script' || state.teaseMode === 'script') && !scriptFeed?.hasTrack()) return 'WAITING FOR A SCRIPT';
     const externalClock = player && typeof player.usingExternalClock === 'function' && player.usingExternalClock();
     if ((state.activeMode === 'script' || state.teaseMode === 'script') && !externalClock) {
@@ -871,9 +872,50 @@ function renderPlayerHardwareNotice() {
     el.classList.toggle('hidden', !text);
 }
 
+// Share Control only. A person on the other side can tell when someone is
+// close, so the session may run with toys and no heart-rate monitor. Solo
+// still waits for a sensor. The engine does not invent a pulse: with no
+// monitor the toys move only when the controller moves them.
+let shareWithoutHr = false;
+
+function paintShareWithoutHr() {
+    const idle = state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED';
+    const hostBtn = document.getElementById('shareStartWithoutHr');
+    const remoteBtn = document.getElementById('remoteStartWithoutHr');
+    if (hostBtn) {
+        const { hrReady, toyReady } = hardwareReadiness();
+        hostBtn.classList.toggle('hidden', !(!isRemotePage && sharingControl && idle && toyReady && !hrReady));
+    }
+    if (remoteBtn) {
+        remoteBtn.classList.toggle('hidden', !(isRemoteController && idle && state.remoteToyReady && !state.remoteHostReady && !remoteLinkLost));
+    }
+}
+
+async function startShareWithoutHr() {
+    if (isRemotePage || !sharingControl) return;
+    if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') return;
+    if (!hardwareReadiness().toyReady) return;
+    shareWithoutHr = true;
+    if (handyBeatSyncWanted()) {
+        const ready = await handyHsp.prepare(handyHspWindow());
+        if (!ready.ok) {
+            shareWithoutHr = false;
+            triggerDisconnectAlert(ready.reason || 'Beat sync could not start. Switch it off to play the script as a rhythm.', 'beat-sync');
+            checkReadiness();
+            return;
+        }
+    }
+    const started = startOrResumeSession({ allowWithoutHr: true });
+    if (!started) shareWithoutHr = false;
+    checkReadiness();
+    syncTelemetry();
+    updateEngine();
+}
+
 function checkReadiness() {
     if (!playPauseBtn) {
         renderPlayerHardwareNotice();
+        paintShareWithoutHr();
         return;
     }
 
@@ -892,12 +934,14 @@ function checkReadiness() {
             playPauseBtn.classList.add('cursor-not-allowed', 'opacity-70');
         }
         renderPlayerHardwareNotice();
+        paintShareWithoutHr();
         return;
     }
 
     if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
         playPauseBtn.disabled = false;
         renderPlayerHardwareNotice();
+        paintShareWithoutHr();
         return;
     }
 
@@ -907,6 +951,7 @@ function checkReadiness() {
     if (reason) renderTransportWaiting(reason);
     else renderTransport(state.sessionStatus === 'PAUSED' ? 'PAUSED' : 'IDLE');
     renderPlayerHardwareNotice();
+    paintShareWithoutHr();
 }
 
 // Center Intensity Slider
@@ -1468,8 +1513,9 @@ function updateEngine() {
         if (state.scriptExpand > 1) secondary = Math.min(100, Math.round(secondary * state.scriptExpand));
     }
     const motionStill = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
-    state.strokerSpeed = motionStill ? sentPrimary : 0;
-    state.prostateSpeed = motionStill ? secondary : 0;
+    const noPulse = shareWithoutHr && !isBleConnected() && !state.simEngaged;
+    state.strokerSpeed = motionStill && !noPulse ? sentPrimary : 0;
+    state.prostateSpeed = motionStill && !noPulse ? secondary : 0;
     if (strokerVal) strokerVal.textContent = `${state.strokerSpeed}%`;
     if (strokerBar) strokerBar.style.width = `${state.strokerSpeed}%`;
     if (prostateVal) prostateVal.textContent = `${state.prostateSpeed}%`;
@@ -2954,6 +3000,14 @@ function resumeAfterSignalReturn() {
 // simulator only changes when its slider moves, so it is never stale and the
 // overlay never shows for it.
 function evaluateHrWatchdog(now = Date.now()) {
+    if (shareWithoutHr && (isBleConnected() || state.simEngaged)) shareWithoutHr = false;
+    if (shareWithoutHr && !isBleConnected() && !isBleReconnecting()) {
+        state.hrSignalState = 'ok';
+        state.hrNoContact = false;
+        state.hrSignalSilentMs = 0;
+        renderHrSignal(null);
+        return;
+    }
     if (state.simEngaged) {
         state.hrSignalState = 'ok';
         state.hrNoContact = false;
@@ -3192,9 +3246,9 @@ function continueAfterVideo() {
     updateEngine();
 }
 
-function startOrResumeSession() {
+function startOrResumeSession({ allowWithoutHr = false } = {}) {
     if (state.sessionStatus !== 'IDLE' && state.sessionStatus !== 'PAUSED') return false;
-    if (transportWaitingReason()) {
+    if (transportWaitingReason(Date.now(), { allowWithoutHr })) {
         checkReadiness();
         return false;
     }
@@ -3412,6 +3466,7 @@ function showIdleTransport() {
 // more than the history label (one cue, never two back-to-back).
 function stopSession(outcome = "Stopped", voiceText = null) {
     const wasActive = state.sessionStatus !== 'IDLE';
+    shareWithoutHr = false;
     // Status and motors FIRST: nothing below (history, storage, voice) may
     // leave the session running if it throws. Manual Control stays on.
     // Stop halts the toys. It does not hand them back to EdgeLoop.
@@ -6837,6 +6892,8 @@ function exitControlleeMode() {
 }
 
 function stopSharing() {
+    const blind = shareWithoutHr && (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN');
+    shareWithoutHr = false;
     const wasManual = Boolean(manualLatch);
     clearManualLatch();
     stopAgentLink();
@@ -6844,6 +6901,7 @@ function stopSharing() {
     exitControlleeMode();
     if (wasManual) dispatchHardware(0, 0, 0, 100, true);
     updateEngine();
+    if (blind) stopSession('Share Control closed.');
 }
 
 // Header badge ("1C+2V") for whoever is connected to this room.
@@ -6863,7 +6921,10 @@ function renderPeerCounts() {
 function applySharedCommand(cmd) {
     if (cmd.type === 'SESSION_STATE') {
         const hostActive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
-        if (cmd.status === 'RUNNING' && !hostActive) playPauseBtn?.click();
+        if (cmd.status === 'RUNNING' && !hostActive) {
+            if (cmd.withoutHr && sharingControl) startShareWithoutHr();
+            else playPauseBtn?.click();
+        }
         else if (cmd.status === 'PAUSED' && hostActive) {
             pendingPauseReason = 'remote';
             playPauseBtn?.click();
@@ -8735,6 +8796,13 @@ document.getElementById('controlleeCopyBtn')?.addEventListener('click', () => {
 });
 document.getElementById('agentCopyBtn')?.addEventListener('click', () => {
     copyLinkFrom('agentShareUrl', 'agentCopyBtn').catch(() => {});
+});
+document.getElementById('shareStartWithoutHr')?.addEventListener('click', () => {
+    startShareWithoutHr();
+});
+document.getElementById('remoteStartWithoutHr')?.addEventListener('click', () => {
+    if (!isRemoteController) return;
+    sendControllerCommand({ type: 'SESSION_STATE', status: 'RUNNING', withoutHr: true });
 });
 
 let loadedScriptHash = '';

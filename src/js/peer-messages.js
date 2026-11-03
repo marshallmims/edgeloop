@@ -66,7 +66,10 @@ export function sanitizeCommand(raw, role = 'controller') {
     switch (raw.type) {
         case 'SESSION_STATE': {
             const status = oneOf(raw.status, COMMAND_STATUSES);
-            return status ? { type: 'SESSION_STATE', status } : null;
+            if (!status) return null;
+            const command = { type: 'SESSION_STATE', status };
+            if (raw.withoutHr === true) command.withoutHr = true;
+            return command;
         }
         case 'SESSION_RESET':
             return { type: 'SESSION_RESET' };
