@@ -878,17 +878,18 @@ function renderPlayerHardwareNotice() {
 // monitor the toys move only when the controller moves them.
 let shareWithoutHr = false;
 
-function paintShareWithoutHr() {
+function offerStartWithoutHr() {
     const idle = state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED';
-    const hostBtn = document.getElementById('shareStartWithoutHr');
-    const remoteBtn = document.getElementById('remoteStartWithoutHr');
-    if (hostBtn) {
-        const { hrReady, toyReady } = hardwareReadiness();
-        hostBtn.classList.toggle('hidden', !(!isRemotePage && sharingControl && idle && toyReady && !hrReady));
-    }
-    if (remoteBtn) {
-        remoteBtn.classList.toggle('hidden', !(isRemoteController && idle && state.remoteToyReady && !state.remoteHostReady && !remoteLinkLost));
-    }
+    if (!idle) return false;
+    if (isRemoteController) return Boolean(state.remoteToyReady && !state.remoteHostReady && !remoteLinkLost);
+    if (!sharingControl || isRemotePage) return false;
+    const { hrReady, toyReady } = hardwareReadiness();
+    return Boolean(toyReady && !hrReady);
+}
+
+function renderStartWithoutHr() {
+    renderTransport(state.sessionStatus === 'PAUSED' ? 'PAUSED' : 'IDLE');
+    if (state.sessionStatus === 'IDLE' && playPauseText) playPauseText.textContent = 'Start without HR sensor';
 }
 
 async function startShareWithoutHr() {
@@ -915,7 +916,6 @@ async function startShareWithoutHr() {
 function checkReadiness() {
     if (!playPauseBtn) {
         renderPlayerHardwareNotice();
-        paintShareWithoutHr();
         return;
     }
 
@@ -925,8 +925,8 @@ function checkReadiness() {
         // A remote page has no hardware of its own: it mirrors the host's
         // state; a controller sends commands, a viewer can only watch.
         if (remoteLinkLost) renderTransportWaiting("HOST LINK LOST");
+        else if (offerStartWithoutHr()) renderStartWithoutHr();
         else if (active || state.remoteHostReady) renderTransport(state.sessionStatus);
-        else if (state.remoteToyReady) renderTransportWaiting("NO HEART-RATE MONITOR. FINGER CONTROL STILL WORKS");
         else renderTransportWaiting("WAITING FOR HOST HARDWARE");
         if (isRemoteViewer) {
             playPauseBtn.disabled = true;
@@ -934,24 +934,24 @@ function checkReadiness() {
             playPauseBtn.classList.add('cursor-not-allowed', 'opacity-70');
         }
         renderPlayerHardwareNotice();
-        paintShareWithoutHr();
         return;
     }
 
     if (state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN') {
         playPauseBtn.disabled = false;
         renderPlayerHardwareNotice();
-        paintShareWithoutHr();
         return;
     }
 
     // IDLE and PAUSED alike: START / RESUME need a pulse source with a fresh
     // valid reading and a toy.
-    const reason = transportWaitingReason();
-    if (reason) renderTransportWaiting(reason);
-    else renderTransport(state.sessionStatus === 'PAUSED' ? 'PAUSED' : 'IDLE');
+    if (offerStartWithoutHr()) renderStartWithoutHr();
+    else {
+        const reason = transportWaitingReason();
+        if (reason) renderTransportWaiting(reason);
+        else renderTransport(state.sessionStatus === 'PAUSED' ? 'PAUSED' : 'IDLE');
+    }
     renderPlayerHardwareNotice();
-    paintShareWithoutHr();
 }
 
 // Center Intensity Slider
@@ -3288,9 +3288,16 @@ playPauseBtn?.addEventListener('click', async () => {
     if (isRemoteController) {
         // Ask the host; the button re-renders from the telemetry it sends back.
         const wants = (state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED') ? 'RUNNING' : 'PAUSED';
+        const withoutHr = wants === 'RUNNING' && offerStartWithoutHr();
         manualVizFrozen = wants !== 'RUNNING';
         state.sessionStatus = wants;
-        sendControllerCommand({ type: 'SESSION_STATE', status: wants });
+        const command = { type: 'SESSION_STATE', status: wants };
+        if (withoutHr) command.withoutHr = true;
+        sendControllerCommand(command);
+        return;
+    }
+    if ((state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED') && offerStartWithoutHr()) {
+        await startShareWithoutHr();
         return;
     }
     if (state.sessionStatus === 'IDLE' || state.sessionStatus === 'PAUSED') {
@@ -8796,13 +8803,6 @@ document.getElementById('controlleeCopyBtn')?.addEventListener('click', () => {
 });
 document.getElementById('agentCopyBtn')?.addEventListener('click', () => {
     copyLinkFrom('agentShareUrl', 'agentCopyBtn').catch(() => {});
-});
-document.getElementById('shareStartWithoutHr')?.addEventListener('click', () => {
-    startShareWithoutHr();
-});
-document.getElementById('remoteStartWithoutHr')?.addEventListener('click', () => {
-    if (!isRemoteController) return;
-    sendControllerCommand({ type: 'SESSION_STATE', status: 'RUNNING', withoutHr: true });
 });
 
 let loadedScriptHash = '';
