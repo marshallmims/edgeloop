@@ -4104,7 +4104,20 @@ function highlightModeCard() {
     paintManualStyleButtons();
 }
 
-function applyModeSelection(mode, enabled) {
+// Why the play style last changed. media means a funscript load or clear
+// did it. selection means a person chose it. The agent document reports this.
+let agentSelectionSource = 'selection';
+
+function noteAgentSelection(source, beforeExperience, beforeGoal) {
+    const goal = state.gameMode || 'tease';
+    if (state.teaseMode !== beforeExperience || goal !== beforeGoal) {
+        agentSelectionSource = source === 'media' ? 'media' : 'selection';
+    }
+}
+
+function applyModeSelection(mode, enabled, source) {
+    const beforeExperience = state.teaseMode;
+    const beforeGoal = state.gameMode || 'tease';
     // Calibration is armed only from its own button, which explains the
     // primary run and the later both-toys run. A mode command must not
     // skip that.
@@ -4123,6 +4136,7 @@ function applyModeSelection(mode, enabled) {
         highlightModeCard();
         renderModeDetail();
         updateEngine();
+        noteAgentSelection(source, beforeExperience, beforeGoal);
         return;
     }
     if (GAME_CARD_MODES.includes(mode)) {
@@ -4142,6 +4156,7 @@ function applyModeSelection(mode, enabled) {
         state.ruinRideSeconds = 0;
     }
     state.activeMode = state.gameMode === 'nnn' ? state.teaseMode : (state.gameMode || state.teaseMode);
+    noteAgentSelection(source, beforeExperience, beforeGoal);
     highlightModeCard();
     renderModeDetail();
     updateEngine();
@@ -7000,6 +7015,7 @@ let agentSocket = null;
 let agentLinkToken = '';
 
 function agentSnapshot() {
+    const readiness = hardwareReadiness();
     return buildAgentState({
         sessionStatus: state.sessionStatus,
         elapsedSeconds: state.sessionSeconds,
@@ -7019,7 +7035,22 @@ function agentSnapshot() {
         edges: state.edges,
         pauses: state.pauses,
         playStyle: state.teaseMode || state.activeMode,
+        activeMode: state.activeMode,
         game: state.gameMode || 'off',
+        pauseReason: state.sessionStatus === 'PAUSED' ? state.pauseReason : '',
+        selectionSource: agentSelectionSource,
+        watchdogPaused: Boolean(state.hrSignalPaused),
+        calibrationPass: state.calibrationPass,
+        links: {
+            simulated_hr: Boolean(state.simEngaged),
+            hr_ready: readiness.hrReady,
+            toy_ready: readiness.toyReady,
+            ble: isBleConnected(),
+            handy: Boolean(handyConnected),
+            intiface: isIntifaceConnected() && intifaceDevices.size > 0,
+            tcode: isTCodeConnected() && countAssignedTCodeAxes() > 0,
+            vacuglide: isVacuglideConnected()
+        },
         endgame: state.endgameType,
         intensity: state.intensityValue,
         speedSlowest: advancedSettings.speedSlowest,
@@ -7029,10 +7060,7 @@ function agentSnapshot() {
         strokeMin: state.strokeMin,
         strokeMax: state.strokeMax,
         orgasm: state.orgasmMode,
-        ready: (() => {
-            const readiness = hardwareReadiness();
-            return readiness.hrReady && readiness.toyReady;
-        })(),
+        ready: readiness.hrReady && readiness.toyReady,
         devices: sharedDeviceCatalog(),
         oracleState: state.oracleState,
         oracleTimer: state.oracleTimer,
@@ -8897,7 +8925,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 loadedClimaxMarks = climaxMarksFor(storedClimaxMarks(), script.hash);
                 player?.setClimaxMarks(loadedClimaxMarks);
                 if (state.teaseMode !== 'script') strokeBeforeScript = state.teaseMode || 'classic';
-                applyModeSelection('script');
+                applyModeSelection('script', undefined, 'media');
                 channelConfig = 'primary';
                 paintPlayerChannels();
                 checkReadiness();
@@ -8922,7 +8950,7 @@ if (!isRemotePage && scriptFeed && document.getElementById('playerVideo')) {
                 loadedClimaxMarks = [];
                 scriptFeed.setTrack(null);
                 if (state.teaseMode === 'script') {
-                    applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic');
+                    applyModeSelection(strokeBeforeScript && strokeBeforeScript !== 'script' ? strokeBeforeScript : 'classic', undefined, 'media');
                 } else syncFollowScript();
                 paintPlayerChannels();
                 checkReadiness();
