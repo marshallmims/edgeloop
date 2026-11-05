@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.37
+
+- **The agent link speaks the companion's newer names.** Bratty Tease and Script are play styles it can read and set. Script applies only when a funscript is already loaded. A pause says why it happened. Loading or clearing a funscript is marked as the file changing the play style, rather than a person choosing it. No Nut November stays a goal.
+
 ## 1.1.5.36
 
 - **An AI can hold a live socket on the agent link.** Add /session to that link and open it as a WebSocket. Each state message is the same document a GET returns, including a companion view in the names a local companion already uses. Send a command on the socket to change the session. Closing the socket does not stop the session. A person still uses the controller link.

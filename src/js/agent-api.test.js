@@ -82,6 +82,47 @@ describe('agent control document', () => {
         assert.equal(survival.intensity, 70);
     });
 
+    it('uses the companion names for bratty, script, a pause, and a funscript change', () => {
+        const doc = offlineAgentDocument();
+        assert.ok(doc.menu.playStyles.some((item) => item.id === 'bratty' && item.label === 'Bratty Tease'));
+        assert.ok(doc.menu.playStyles.some((item) => item.id === 'script' && item.label === 'Script (video player)'));
+        assert.ok(doc.menu.playStyles.some((item) => item.id === 'classic' && item.label === 'Simple Ramp'));
+        const paused = companionSnapshot(buildAgentState({
+            sessionStatus: 'PAUSED',
+            playStyle: 'bratty',
+            activeMode: 'bratty',
+            game: 'off',
+            pauseReason: 'edged',
+            selectionSource: 'media',
+            heartSeen: true,
+            bpm: 110,
+            signal: 'ok',
+            links: { hr_ready: true, ble: true, toy_ready: true, handy: true }
+        }));
+        assert.equal(paused.experience, 'bratty');
+        assert.equal(paused.active_mode, 'bratty');
+        assert.equal(paused.goal, 'tease');
+        assert.equal(paused.hr, 110);
+        assert.equal(paused.safety.signal, 'ok');
+        assert.equal(paused.safety.fault, 'none');
+        assert.equal(paused.details.pause_reason, 'edged');
+        assert.equal(paused.details.selection_source, 'media');
+        const november = companionSnapshot(buildAgentState({
+            sessionStatus: 'RUNNING',
+            playStyle: 'script',
+            game: 'nnn',
+            pauseReason: 'button',
+            links: { hr_ready: false, toy_ready: true, handy: true }
+        }));
+        assert.equal(november.experience, 'script');
+        assert.equal(november.goal, 'nnn');
+        assert.equal(november.active_mode, 'script');
+        assert.equal(november.hr, null);
+        assert.equal(november.details.pause_reason, null);
+        assert.equal(november.safety.signal, 'missing');
+        assert.equal(november.safety.fault, 'none');
+    });
+
     it('hides a heart rate until a monitor has reported one', () => {
         const state = buildAgentState({ bpm: 70, heartSeen: false });
         assert.equal(state.heart.bpm, null);
