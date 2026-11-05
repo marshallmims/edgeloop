@@ -23,6 +23,17 @@
     // creates the dev.edgeloop.app DNS record in the Cloudflare zone.
     "dev": {
       "name": "edgeloop-dev",
+      // Bindings are not inherited from the top-level worker. Without this,
+      // dev.edgeloop.app answers /api/agent with 503 and a Share Control link
+      // cannot reach a phone that is off the home network.
+      "durable_objects": {
+        "bindings": [
+          { "name": "AGENT_ROOMS", "class_name": "AgentRoom" }
+        ]
+      },
+      "migrations": [
+        { "tag": "agent-room-v1", "new_sqlite_classes": ["AgentRoom"] }
+      ],
       "routes": [
         { "pattern": "dev.edgeloop.app", "custom_domain": true }
       ]
