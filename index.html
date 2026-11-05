@@ -1419,7 +1419,7 @@
       <div class="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
         <span>© 2026 EdgeLoop.app</span>
         <span>•</span>
-        <span id="appVersion" class="font-mono">v1.1.5.36</span>
+        <span id="appVersion" class="font-mono">v1.1.5.37</span>
         <span id="devHostBadge" class="hidden font-bold text-amber-300">DEV</span>
         <span>•</span>
         <button id="footerChangelogBtn" type="button" class="hover:text-slate-300 transition underline cursor-pointer">Changelog</button>
@@ -2099,6 +2099,17 @@
           </ul>
         </div>
         <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+          <div class="font-bold text-amber-300 text-sm">Pebble Time 2</div>
+          <p class="text-slate-400 leading-relaxed"><a href="https://apps.repebble.com/can-s-hr-sender-for-pebble_8dc4a43c3b244d85aeac474b" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-200">Can's HR Sender for Pebble</a> on the watch sends the pulse to <a href="https://github.com/koprulucan/Cans_Pebbleton_HR_Bridge" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-200">Can's Pebbleton HR Bridge</a> on the Android phone. The phone broadcasts the Heart Rate service. Scan &amp; Pair that phone from EdgeLoop on a computer or another device.</p>
+          <ul class="list-disc list-inside space-y-0.5 text-slate-400 leading-relaxed">
+            <li>Pair the Pebble with the Pebble app on Android, then install the watch app from the Pebble app store.</li>
+            <li>Install the bridge on that phone. It is still in Play Store testing, so use the latest APK from the <a href="https://github.com/koprulucan/Cans_Pebbleton_HR_Bridge/releases" target="_blank" rel="noopener noreferrer" class="underline hover:text-slate-200">GitHub releases</a> until a public listing exists.</li>
+            <li>Open the bridge, confirm a heart rate, and start transmission. The phone advertises under its Bluetooth name.</li>
+            <li>A browser on the phone running the bridge will not see that broadcast. Pair from a computer, tablet, or other phone.</li>
+          </ul>
+          <p class="text-slate-400 leading-relaxed">The watch app also lists Pebble 2 and Pebble 2 Duo. The report that reached EdgeLoop was a Time 2. Toys connect the same way they do with any other monitor. The bridge only supplies the pulse.</p>
+        </div>
+        <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
           <div class="font-bold text-sky-400 text-sm">Chest straps</div>
           <ul class="list-disc list-inside space-y-0.5 text-slate-400 leading-relaxed">
             <li><strong>Polar H10, Coospo H6M, Cycplus H2 Pro, Garmin, Wahoo:</strong> pair directly; the most stable option.</li>
@@ -2135,6 +2146,7 @@
         <h3 class="text-base font-bold text-white">Connect a heart rate monitor</h3>
         <p class="text-xs text-slate-400 leading-relaxed">Tap <strong class="text-slate-200">HR Monitor</strong> and Scan &amp; Pair a BLE strap or watch. Chest straps (Polar H10, etc.) stay more stable than optical sensors. You can also use the built-in HR simulator while testing.</p>
         <p class="text-[10px] text-slate-500 leading-relaxed">Apple Watch cannot loop back on the same iPhone. Broadcast HeartCast/Echo to EdgeLoop on a PC, Mac, or tablet, or use a chest strap.</p>
+        <p class="text-[10px] text-slate-500 leading-relaxed">A Pebble Time 2 uses Can's HR Sender on the watch and Can's Pebbleton HR Bridge on the Android phone. Pair that phone from a computer. The pairing guide under HR Monitor has the steps.</p>
       </div>
 
       <div id="wizardStep1" class="wizard-pane space-y-2 text-center hidden">
