@@ -5,8 +5,12 @@ import {
     agentDocument,
     agentControlSocketUrl,
     agentHttpUrl,
+    agentRoute,
+    agentSessionSocketUrl,
+    agentSocketHello,
     agentSocketUrl,
     buildAgentState,
+    companionSnapshot,
     isAgentToken,
     mintAgentToken,
     offlineAgentDocument
@@ -62,6 +66,20 @@ describe('agent control document', () => {
         const doc = agentDocument(state, true);
         assert.equal(doc.online, true);
         assert.equal(doc.state.primaryPercent, 40);
+        const view = companionSnapshot(state);
+        assert.equal(view.experience, 'milker');
+        assert.equal(view.goal, 'tease');
+        assert.equal(view.active_mode, 'milker');
+        assert.equal(view.hr, 118);
+        assert.equal(view.intensity, 100);
+        assert.equal(view.movement.primary, 40);
+        assert.equal(view.movement.secondary, 70);
+        assert.equal(doc.companion.goal, 'tease');
+        const survival = companionSnapshot(buildAgentState({ game: 'survival', playStyle: 'classic', intensity: 20 }));
+        assert.equal(survival.goal, 'survival');
+        assert.equal(survival.experience, 'classic');
+        assert.equal(survival.active_mode, 'survival');
+        assert.equal(survival.intensity, 70);
     });
 
     it('hides a heart rate until a monitor has reported one', () => {
@@ -77,7 +95,16 @@ describe('agent link', () => {
         assert.equal(agentHttpUrl('https://dev.edgeloop.app/', token), `https://dev.edgeloop.app/api/agent/${token}`);
         assert.equal(agentSocketUrl('https://dev.edgeloop.app', token), `wss://dev.edgeloop.app/api/agent/${token}/host`);
         assert.equal(agentControlSocketUrl('https://dev.edgeloop.app', token), `wss://dev.edgeloop.app/api/agent/${token}/control`);
+        assert.equal(agentSessionSocketUrl('https://dev.edgeloop.app', token), `wss://dev.edgeloop.app/api/agent/${token}/session`);
         assert.equal(agentSocketUrl('http://127.0.0.1:8000', token), `ws://127.0.0.1:8000/api/agent/${token}/host`);
+        assert.deepEqual(agentRoute(`/api/agent/${token}/session`), { token, role: 'session' });
+        assert.deepEqual(agentRoute(`/api/agent/${token}`), { token, role: 'http' });
+        assert.equal(agentRoute('/api/agent/short'), null);
+        const hello = agentSocketHello(true);
+        assert.equal(hello.socket, 'session');
+        assert.equal(hello.online, true);
+        assert.equal(hello.command.command.type, 'SESSION_STATE');
+        assert.equal(JSON.stringify(hello).includes(token), false);
     });
 
     it('is left out of the service worker cache', () => {

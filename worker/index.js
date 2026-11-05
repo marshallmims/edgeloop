@@ -1,9 +1,10 @@
 // Agent link relay. The EdgeLoop page pushes a control document over a
-// WebSocket. An AI or another app GETs that document and POSTs one command.
+// WebSocket. An AI or another app GETs that document, POSTs one command,
+// or holds /session open and receives the document as it changes.
 // The token in the path is the only credential. This worker does not read
 // or store an address, a connection key, or a peer id.
 
-import { isAgentToken, offlineAgentDocument } from '../src/js/agent-api.js';
+import { agentRoute, agentSocketHello, isAgentToken, offlineAgentDocument } from '../src/js/agent-api.js';
 
 const MAX_BODY = 8000;
 const MAX_COMMANDS = 400;
@@ -29,12 +30,54 @@ export class AgentRoom {
         this.document = null;
         this.telemetry = null;
         this.controls = new Set();
+        this.sessions = new Set();
         this.commands = [];
     }
 
+    sendTo(sockets, text) {
+        for (const socket of sockets) {
+            try { socket.send(text); } catch (e) { sockets.delete(socket); }
+        }
+    }
+
     sendControl(text) {
-        for (const socket of this.controls) {
-            try { socket.send(text); } catch (e) { this.controls.delete(socket); }
+        this.sendTo(this.controls, text);
+    }
+
+    sendSession(text) {
+        this.sendTo(this.sessions, text);
+    }
+
+    greetSession(socket) {
+        const online = this.hostOpen();
+        try { socket.send(JSON.stringify(agentSocketHello(online))); } catch (e) { /* the next host push retries */ }
+        if (this.document) {
+            try { socket.send(JSON.stringify({ type: 'state', document: { ...this.document, online } })); } catch (e) { /* the next host push retries */ }
+        }
+    }
+
+    acceptSessionCommand(socket, msg) {
+        const command = msg && msg.command;
+        const reject = (error) => {
+            try { socket.send(JSON.stringify({ type: 'command-ack', ok: false, error })); } catch (e) { /* the caller already left */ }
+        };
+        if (!command || typeof command !== 'object' || Array.isArray(command) || typeof command.type !== 'string') {
+            reject('Command must be a JSON object with a type.');
+            return;
+        }
+        if (!this.hostOpen()) {
+            reject('The EdgeLoop page is not connected.');
+            return;
+        }
+        if (!this.allowCommand(Date.now())) {
+            reject('Too many commands. Wait a moment.');
+            return;
+        }
+        try {
+            this.host.send(JSON.stringify({ type: 'command', command }));
+            socket.send(JSON.stringify({ type: 'command-ack', ok: true }));
+        } catch (e) {
+            reject('The EdgeLoop page is not connected.');
         }
     }
 
@@ -51,10 +94,29 @@ export class AgentRoom {
 
     async fetch(request) {
         const url = new URL(request.url);
-        if (request.headers.get('Upgrade') === 'websocket' && (url.pathname.endsWith('/host') || url.pathname.endsWith('/control'))) {
+        if (request.headers.get('Upgrade') === 'websocket' && (url.pathname.endsWith('/host') || url.pathname.endsWith('/control') || url.pathname.endsWith('/session'))) {
             const pair = new WebSocketPair();
             const server = pair[1];
             server.accept();
+            if (url.pathname.endsWith('/session')) {
+                // An AI holds this socket. It is not the human controller, so
+                // closing it does not stop the toys.
+                this.sessions.add(server);
+                this.greetSession(server);
+                server.addEventListener('message', (event) => {
+                    let msg = null;
+                    try { msg = JSON.parse(String(event.data || '').slice(0, MAX_BODY)); } catch (e) {
+                        try { server.send(JSON.stringify({ type: 'command-ack', ok: false, error: 'Command must be a JSON object.' })); } catch (err) { /* already gone */ }
+                        return;
+                    }
+                    if (!msg || msg.type !== 'command') return;
+                    this.acceptSessionCommand(server, msg);
+                });
+                server.addEventListener('close', () => {
+                    this.sessions.delete(server);
+                });
+                return new Response(null, { status: 101, webSocket: pair[0] });
+            }
             if (url.pathname.endsWith('/control')) {
                 this.controls.add(server);
                 if (this.telemetry) {
@@ -85,6 +147,7 @@ export class AgentRoom {
                 if (!msg || typeof msg !== 'object') return;
                 if (msg.type === 'state' && msg.document && typeof msg.document === 'object') {
                     this.document = msg.document;
+                    this.sendSession(JSON.stringify({ type: 'state', document: msg.document }));
                     return;
                 }
                 if (msg.type === 'telemetry' && msg.telemetry && typeof msg.telemetry === 'object') {
@@ -94,7 +157,9 @@ export class AgentRoom {
             });
             server.addEventListener('close', () => {
                 if (this.host === server) this.host = null;
-                this.sendControl(JSON.stringify({ type: 'host-left' }));
+                const left = JSON.stringify({ type: 'host-left' });
+                this.sendControl(left);
+                this.sendSession(left);
             });
             return new Response(null, { status: 101, webSocket: pair[0] });
         }
@@ -155,8 +220,8 @@ export class AgentRoom {
 }
 
 function agentToken(pathname) {
-    const match = pathname.match(/^\/api\/agent\/([A-Za-z0-9_-]{22})(?:\/(?:host|control|telemetry))?$/);
-    return match && isAgentToken(match[1]) ? match[1] : '';
+    const route = agentRoute(pathname);
+    return route ? route.token : '';
 }
 
 export default {

@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.36
+
+- **An AI can hold a live socket on the agent link.** Add /session to that link and open it as a WebSocket. Each state message is the same document a GET returns, including a companion view in the names a local companion already uses. Send a command on the socket to change the session. Closing the socket does not stop the session. A person still uses the controller link.
+
 ## 1.1.5.35
 
 - **Start without HR sensor is the start button.** On the share screen, with a toy connected and no heart-rate monitor, that button says Start without HR sensor. There is no second button under the links. Solo still waits for a sensor.

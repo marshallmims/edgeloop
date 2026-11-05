@@ -42,6 +42,8 @@ export const AGENT_INSTRUCTIONS = [
     'You control an EdgeLoop session through this URL. You do not talk to the toys.',
     'GET this URL to see the menu and the live heart rate, speeds, and toys.',
     'POST one command object to this same URL to change the session.',
+    'Or open the same link as a WebSocket with /session on the end. Each state message is this document. Send {"type":"command","command":{...}} on that socket. Closing the socket does not stop the session.',
+    'companion uses the names a local companion already reads: status, experience, goal, hr, movement, and safety. goal tease means no game. intensity there is 50 plus the slider.',
     'A play style or a game keeps moving the toys from his heart rate. You do not stream slider positions.',
     'Duration changes apply only before the session starts.',
     'Heart rate is feedback. You cannot change his climax heart rate.',
@@ -156,6 +158,37 @@ export function buildAgentState(input = {}) {
     };
 }
 
+// The same facts, named the way a local companion snapshot names them.
+// goal "tease" means no game is selected. intensity is 50 plus the slider.
+// bratty and script are play styles an older companion list does not include.
+export function companionSnapshot(state) {
+    if (!state || typeof state !== 'object') return null;
+    const game = state.game === 'off' || state.game === 'goal-off' ? 'tease' : state.game;
+    const signal = state.heart && state.heart.signal;
+    return {
+        status: state.sessionStatus,
+        seconds: state.elapsedSeconds,
+        experience: state.playStyle,
+        goal: game,
+        active_mode: game === 'tease' ? state.playStyle : game,
+        hr: state.heart ? state.heart.bpm : null,
+        effective_max: state.heart ? state.heart.ceiling : null,
+        pullback: state.heart ? state.heart.pullback : null,
+        edges: state.edges,
+        intensity: Math.max(50, Math.min(150, 50 + whole(state.intensity, 50))),
+        movement: {
+            primary: state.primaryPercent,
+            secondary: state.secondaryPercent,
+            stroke_min: state.strokeMin,
+            stroke_max: state.strokeMax
+        },
+        safety: {
+            signal: signal === 'ok' || signal === 'holding' || signal === 'stale' ? signal : 'missing',
+            no_contact: Boolean(state.heart && state.heart.noContact)
+        }
+    };
+}
+
 export function agentDocument(state, online = false) {
     return {
         protocol: AGENT_PROTOCOL,
@@ -164,7 +197,20 @@ export function agentDocument(state, online = false) {
         instructions: AGENT_INSTRUCTIONS,
         menu: agentMenu(),
         commands: agentCommands(),
-        state: state || null
+        state: state || null,
+        companion: companionSnapshot(state)
+    };
+}
+
+// The first message on the session socket. The token stays in the URL.
+export function agentSocketHello(online = false) {
+    return {
+        type: 'hello',
+        protocol: AGENT_PROTOCOL,
+        version: AGENT_VERSION,
+        socket: 'session',
+        online: Boolean(online),
+        command: { type: 'command', command: { type: 'SESSION_STATE', status: 'IDLE' } }
     };
 }
 
@@ -199,4 +245,15 @@ export function agentSocketUrl(origin, token) {
 
 export function agentControlSocketUrl(origin, token) {
     return `${agentSocketBase(origin)}/api/agent/${token}/control`;
+}
+
+export function agentSessionSocketUrl(origin, token) {
+    return `${agentSocketBase(origin)}/api/agent/${token}/session`;
+}
+
+// Which agent route a path is. Null when it is not an agent link.
+export function agentRoute(pathname) {
+    const match = String(pathname || '').match(/^\/api\/agent\/([A-Za-z0-9_-]{22})(?:\/(host|control|telemetry|session))?$/);
+    if (!match || !isAgentToken(match[1])) return null;
+    return { token: match[1], role: match[2] || 'http' };
 }
