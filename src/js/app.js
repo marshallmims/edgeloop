@@ -7082,12 +7082,8 @@ function sendAgentControl(cmd) {
 }
 
 function noteAgentPoll(body) {
-    if (!body || body.type !== 'TELEMETRY') {
-        if (body && body.online === false && !remoteLinkLost) {
-            markRemoteLinkLost('The tablet is not sharing right now. Turn Share Control on there and copy a new link.');
-        }
-        return;
-    }
+    if (!body || body.type !== 'TELEMETRY') return;
+    agentMisses = 0;
     remoteLinkUp = true;
     remoteLinkLost = false;
     lastTelemetryAt = Date.now();
@@ -7097,13 +7093,43 @@ function noteAgentPoll(body) {
     if (!manualDriving) armManualDefault();
 }
 
+// A phone that opens the link a moment before the tablet's socket is up
+// used to be told the session was gone. A few quiet misses are normal.
+const AGENT_MISS_LIMIT = 8;
+let agentMisses = 0;
+
+function noteAgentMiss(offline) {
+    agentMisses += 1;
+    if (agentMisses < AGENT_MISS_LIMIT || remoteLinkUp) return;
+    if (offline) {
+        markRemoteLinkLost('The tablet is not sharing right now. Turn Share Control on there and copy a new link.');
+        return;
+    }
+    setRemoteRoleStatus('No link');
+    showRemoteBanner('This page cannot reach the tablet yet. Leave it open. If it stays here, turn Share Control off and on and open the new link.');
+}
+
 function startAgentPolling(token) {
     agentHttpToken = token;
+    agentMisses = 0;
     const pull = () => {
         fetch(`/api/agent/${token}/telemetry`, { cache: 'no-store' })
-            .then((response) => response.ok ? response.json() : null)
-            .then((body) => { if (body) noteAgentPoll(body); })
-            .catch(() => {});
+            .then((response) => {
+                if (!response.ok) {
+                    noteAgentMiss(false);
+                    return null;
+                }
+                return response.json();
+            })
+            .then((body) => {
+                if (!body) return;
+                if (body.type === 'TELEMETRY') {
+                    noteAgentPoll(body);
+                    return;
+                }
+                if (body.online === false) noteAgentMiss(true);
+            })
+            .catch(() => noteAgentMiss(false));
     };
     pull();
     if (agentPollTimer) clearInterval(agentPollTimer);
@@ -7131,10 +7157,16 @@ function connectAgentControl(token) {
     // The phone's socket to this site is closing on its own. Reading and
     // posting still reach the tablet, so the page stays a controller.
     startAgentPolling(token);
+    openAgentControl(token);
+}
+
+function openAgentControl(token) {
+    if (agentHttpToken !== token) return;
     let socket;
     try {
         socket = new WebSocket(agentControlSocketUrl(window.location.origin, token));
     } catch (e) {
+        setTimeout(() => openAgentControl(token), 2000);
         return;
     }
     agentControlSocket = socket;
@@ -7153,12 +7185,13 @@ function connectAgentControl(token) {
         }
         if (msg.type === 'host-left') {
             remoteLinkUp = false;
-            markRemoteLinkLost('The host closed Share Control. Ask for a fresh link.');
+            setRemoteRoleStatus('Connecting');
         }
     });
     socket.addEventListener('close', () => {
         if (agentControlSocket !== socket) return;
         agentControlSocket = null;
+        if (agentHttpToken === token) setTimeout(() => openAgentControl(token), 2000);
     });
 }
 
@@ -7171,7 +7204,12 @@ function publishPeerRoom(peerId) {
     }).catch(() => {});
 }
 
+// Bumped when Share Control turns off, so a socket that closes after that
+// does not open another one.
+let agentLinkGeneration = 0;
+
 function stopAgentLink() {
+    agentLinkGeneration += 1;
     const socket = agentSocket;
     agentSocket = null;
     agentLinkToken = '';
@@ -7184,31 +7222,40 @@ function stopAgentLink() {
     if (controller) controller.value = '';
 }
 
-function startAgentLink() {
-    stopAgentLink();
-    const token = mintAgentToken();
-    agentLinkToken = token;
-    const link = agentHttpUrl(window.location.origin, token);
-    const field = document.getElementById('agentShareUrl');
-    if (field) field.value = link;
-    const controller = document.getElementById('controlleeShareUrl');
-    if (controller) controller.value = `${window.location.origin}${window.location.pathname}?agent=${token}`;
+function retryAgentHost(generation) {
+    if (generation !== agentLinkGeneration || !sharingControl || !agentLinkToken) return;
+    setPartnerStatus('Reconnecting the controller link. The same address still works.', 'error');
+    setTimeout(() => openAgentHost(generation), 1500);
+}
+
+function openAgentHost(generation) {
+    if (generation !== agentLinkGeneration || !agentLinkToken) return;
     let socket;
     try {
-        socket = new WebSocket(agentSocketUrl(window.location.origin, token));
+        socket = new WebSocket(agentSocketUrl(window.location.origin, agentLinkToken));
     } catch (e) {
+        retryAgentHost(generation);
         return;
     }
     agentSocket = socket;
     socket.addEventListener('open', () => {
+        if (socket !== agentSocket) return;
         pushAgentState();
         syncTelemetry();
+        const status = document.getElementById('controlleeStatus');
+        if (status && /Reconnecting the controller link/.test(status.textContent)) {
+            setPartnerStatus('Waiting for a controller');
+        }
     });
     socket.addEventListener('message', (event) => {
         if (socket !== agentSocket) return;
         let msg = null;
         try { msg = JSON.parse(event.data); } catch (e) { return; }
         if (!msg) return;
+        if (msg.type === 'controller-joined') {
+            setPartnerStatus('A controller is connected', 'ok');
+            return;
+        }
         if (msg.type === 'controller-left') {
             noteAgentControllerGone();
             return;
@@ -7221,7 +7268,21 @@ function startAgentLink() {
     });
     socket.addEventListener('close', () => {
         if (agentSocket === socket) agentSocket = null;
+        retryAgentHost(generation);
     });
+}
+
+function startAgentLink() {
+    stopAgentLink();
+    const generation = agentLinkGeneration;
+    const token = mintAgentToken();
+    agentLinkToken = token;
+    const link = agentHttpUrl(window.location.origin, token);
+    const field = document.getElementById('agentShareUrl');
+    if (field) field.value = link;
+    const controller = document.getElementById('controlleeShareUrl');
+    if (controller) controller.value = `${window.location.origin}${window.location.pathname}?agent=${token}`;
+    openAgentHost(generation);
 }
 
 function setupPartnerHost() {
@@ -7266,12 +7327,19 @@ function setupPartnerHost() {
         },
         onViewerDisconnected: () => renderPeerCounts(),
         onCountsChanged: () => renderPeerCounts(),
-        onSignallingLost: () => setPartnerStatus('Signalling lost, reconnecting...', 'error'),
+        onSignallingLost: () => {
+            // The address on this page is the EdgeLoop link, not the old
+            // room. A PeerJS failure must not look like the phone is gone.
+            if (agentLinkToken) return;
+            setPartnerStatus('Signalling lost, reconnecting...', 'error');
+        },
         onPeerClosed: () => {
+            if (agentLinkToken) return;
             setPartnerStatus('Signalling closed. Reopen Share Control to create a new room.', 'error');
             renderPeerCounts();
         },
         onPeerError: (message) => {
+            if (agentLinkToken) return;
             setPartnerStatus(`Signalling error: ${message}`, 'error');
             renderPeerCounts();
         },

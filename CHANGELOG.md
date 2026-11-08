@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.37
+
+- **Share Control keeps the same link up.** The tablet reconnects that link if the socket drops, and the phone keeps trying instead of sitting on Connecting. The tablet says a controller is connected when the phone opens the link, before a slider moves. A PeerJS error no longer looks like the phone is gone.
+
 ## 1.1.5.36
 
 - **An AI can hold a live socket on the agent link.** Add /session to that link and open it as a WebSocket. Each state message is the same document a GET returns, including a companion view in the names a local companion already uses. Send a command on the socket to change the session. Closing the socket does not stop the session. A person still uses the controller link.

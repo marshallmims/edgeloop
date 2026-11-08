@@ -48,6 +48,15 @@ export class AgentRoom {
         this.sendTo(this.sessions, text);
     }
 
+    // The page with the toys only learns a controller is here when we say so.
+    // A slider command is not the hello.
+    tellHostAboutControllers() {
+        if (!this.hostOpen() || this.controls.size === 0) return;
+        try {
+            this.host.send(JSON.stringify({ type: 'controller-joined', count: this.controls.size }));
+        } catch (e) { /* the host socket is closing */ }
+    }
+
     greetSession(socket) {
         const online = this.hostOpen();
         try { socket.send(JSON.stringify(agentSocketHello(online))); } catch (e) { /* the next host push retries */ }
@@ -119,6 +128,7 @@ export class AgentRoom {
             }
             if (url.pathname.endsWith('/control')) {
                 this.controls.add(server);
+                this.tellHostAboutControllers();
                 if (this.telemetry) {
                     try { server.send(JSON.stringify({ type: 'telemetry', telemetry: this.telemetry })); } catch (e) { /* the next host push retries */ }
                 }
@@ -141,6 +151,7 @@ export class AgentRoom {
                 try { this.host.close(4000, 'replaced'); } catch (e) { /* the old page is already gone */ }
             }
             this.host = server;
+            this.tellHostAboutControllers();
             server.addEventListener('message', (event) => {
                 let msg = null;
                 try { msg = JSON.parse(event.data); } catch (e) { return; }
