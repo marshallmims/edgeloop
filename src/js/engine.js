@@ -196,6 +196,20 @@ function clamp(value, lo, hi) {
     return Math.max(lo, Math.min(hi, value));
 }
 
+// Shrink a captured stroke toward its middle as the landing clock runs out.
+// The pulse is not an input, so feeling better cannot open the travel.
+function landingStroke(min, max, factor, env) {
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+    const lo = clamp(Math.min(min, max), env.min, env.max);
+    const hi = clamp(Math.max(min, max), env.min, env.max);
+    const mid = (lo + hi) / 2;
+    const half = ((hi - lo) / 2) * factor;
+    let physicalMin = clamp(Math.round(mid - half), env.min, env.max);
+    let physicalMax = clamp(Math.round(mid + half), env.min, env.max);
+    if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+    return { min: physicalMin, max: physicalMax };
+}
+
 // Order, clamp and widen the hardware envelope. An inverted pair is swapped
 // (not collapsed) so a hand-edited 90/10 still yields 10-90 of travel.
 function safeEnvelope(hwMin, hwMax) {
@@ -241,6 +255,12 @@ export function calculateEngineOutputs({
     activeMode,
     sessionStatus,
     rampdownSecondsLeft,
+    // Speeds and stroke last sent when Soft Landing started. The 45 s ease
+    // decays from those numbers. Absent means the old 50% landing.
+    landingFromPrimary = null,
+    landingFromSecondary = null,
+    landingFromStrokeMin = null,
+    landingFromStrokeMax = null,
     isEdged,
     orgasmMode,
     // Seconds since Force Orgasm was armed. The ceiling already climbs 1 BPM
@@ -377,13 +397,29 @@ export function calculateEngineOutputs({
             sinceReleaseSeconds: stamp === null ? null : seconds - stamp,
             settings: sanitizeScriptSettings(scriptSettings)
         });
-        const primary = clamp(finiteOr(governed.allowance, 0), 0, 100);
+        let primary = clamp(finiteOr(governed.allowance, 0), 0, 100);
         const script = sanitizeScriptSettings(scriptSettings);
+        let secondary = clamp(finiteOr(scriptSecondary(primary, script.scriptSecondChannel), 0), 0, 100);
+        let strokeMinPercent = env.min;
+        let strokeMaxPercent = env.max;
+        // A landing that starts at 50% surges a toy that was already crawling.
+        // Decay from the speed that was actually sent, and ignore the pulse.
+        if (sessionStatus === 'RAMPDOWN' && Number.isFinite(landingFromPrimary)) {
+            const rampFactor = Math.max(0, rampLeft / 45);
+            primary = Math.round(clamp(landingFromPrimary, 0, 100) * rampFactor);
+            const fromS = Number.isFinite(landingFromSecondary) ? landingFromSecondary : primary;
+            secondary = Math.round(clamp(fromS, 0, 100) * rampFactor);
+            const stroke = landingStroke(landingFromStrokeMin, landingFromStrokeMax, rampFactor, env);
+            if (stroke) {
+                strokeMinPercent = stroke.min;
+                strokeMaxPercent = stroke.max;
+            }
+        }
         return {
             primaryPercent: primary,
-            secondaryPercent: clamp(finiteOr(scriptSecondary(primary, script.scriptSecondChannel), 0), 0, 100),
-            strokeMinPercent: env.min,
-            strokeMaxPercent: env.max,
+            secondaryPercent: secondary,
+            strokeMinPercent,
+            strokeMaxPercent,
             isEdged: nextIsEdged,
             newEdgeTriggered,
             resolvedMode: 'script',
@@ -438,9 +474,13 @@ export function calculateEngineOutputs({
     const isGame = mode === 'oracle' || mode === 'edgetrain' || isUncappedClimb(mode);
 
     if (sessionStatus === 'RAMPDOWN') {
+        // Placeholder. The landing is applied again after intensity, the
+        // speed window and the settle, so none of those can lift it.
         const rampFactor = Math.max(0, rampLeft / 45);
-        primaryPercent = Math.round(50 * rampFactor);
-        secondaryPercent = Math.round(50 * rampFactor);
+        const fromP = clamp(finiteOr(landingFromPrimary, 50), 0, 100);
+        const fromS = clamp(finiteOr(landingFromSecondary, 50), 0, 100);
+        primaryPercent = Math.round(fromP * rampFactor);
+        secondaryPercent = Math.round(fromS * rampFactor);
     } else if (mode === 'oracle') {
         const oracle = applyOracle(oracleState, climbProgress, nextIsEdged, orgasmMode, seconds, crawlPercent);
         primaryPercent = oracle.primary;
@@ -564,6 +604,24 @@ export function calculateEngineOutputs({
             physicalMin = clamp(Math.round(settleFromStrokeMin * t + physicalMin * (1 - t)), env.min, env.max);
             physicalMax = clamp(Math.round(settleFromStrokeMax * t + physicalMax * (1 - t)), env.min, env.max);
             if (physicalMax < physicalMin) [physicalMin, physicalMax] = [physicalMax, physicalMin];
+        }
+        newEdgeTriggered = false;
+    }
+
+    // Soft Landing is a one-way 45 s decay from the speed the toys were
+    // already at. A falling pulse used to open the tease curve back up,
+    // and a landing that always started at 50% surged a toy that had just
+    // crawled to a stop. Nothing after this may raise either channel.
+    if (sessionStatus === 'RAMPDOWN') {
+        const rampFactor = Math.max(0, rampLeft / 45);
+        const fromP = clamp(finiteOr(landingFromPrimary, 50), 0, 100);
+        const fromS = clamp(finiteOr(landingFromSecondary, 50), 0, 100);
+        primaryPercent = Math.round(fromP * rampFactor);
+        secondaryPercent = Math.round(fromS * rampFactor);
+        const stroke = landingStroke(landingFromStrokeMin, landingFromStrokeMax, rampFactor, env);
+        if (stroke) {
+            physicalMin = stroke.min;
+            physicalMax = stroke.max;
         }
         newEdgeTriggered = false;
     }

@@ -684,8 +684,11 @@ describe('edge training', () => {
         assert.equal(trainCompletion('rampdown').phrase, 'edges, then ease down');
         assert.equal(trainCompletion('denial').phrase, 'edges, then stop');
         assert.match(describeEdgeTraining({ endgameType: 'orgasm' }), /finishes you/);
+        assert.match(describeEdgeTraining({ endgameType: 'orgasm' }), /Finished me/);
         assert.match(describeEdgeTraining({ endgameType: 'orgasm' }), /whichever comes first/);
         assert.match(describeEdgeTraining({ endgameType: 'rampdown' }), /ease down/);
+        assert.match(describeEdgeTraining({ endgameType: 'rampdown' }), /does not speed them back up/);
+        assert.match(describeEdgeTraining({ endgameType: 'rampdown' }), /session ends/);
         assert.match(describeEdgeTraining({ endgameType: 'rampdown' }), /no finish/);
         assert.match(describeEdgeTraining({ endgameType: 'denial' }), /every toy stops/);
         assert.match(describeEdgeTraining({ endgameType: 'denial', endless: true }), /Endless waits/);

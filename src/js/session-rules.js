@@ -474,10 +474,10 @@ export function trainCompletion(endgameType) {
 // same ending. Endless has no deadline: the holds are the only way it ends.
 export function describeEdgeTraining({ endgameType = 'orgasm', endless = false } = {}) {
     const after = endgameType === 'rampdown'
-        ? 'After the last hold the toys ease down. There is no finish.'
+        ? 'After the last hold the toys ease down from the speed they are already at, for 45 seconds, and the session ends. A falling pulse does not speed them back up. There is no finish.'
         : endgameType === 'denial'
             ? 'After the last hold every toy stops and the session ends.'
-            : 'After the last hold it finishes you.';
+            : 'After the last hold it finishes you. The session ends when you tap Finished me.';
     const clock = endless
         ? 'Endless waits until those holds are done.'
         : 'A session length is the window. That ending happens when the holds are done, or when the time runs out, whichever comes first.';

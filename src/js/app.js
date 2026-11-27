@@ -1346,6 +1346,10 @@ function updateEngine() {
         activeMode: resolveEngineMode(state.activeMode),
         sessionStatus: state.sessionStatus,
         rampdownSecondsLeft: state.rampdownSecondsLeft,
+        landingFromPrimary: state.landingFromPrimary,
+        landingFromSecondary: state.landingFromSecondary,
+        landingFromStrokeMin: state.landingFromStrokeMin,
+        landingFromStrokeMax: state.landingFromStrokeMax,
         isEdged: state.isEdged,
         orgasmMode: state.orgasmMode,
         orgasmBoost: state.orgasmMode ? state.orgasmBoost : 0,
@@ -1393,7 +1397,9 @@ function updateEngine() {
     }
     let sentPrimary = result.primaryPercent;
     let climaxK = 0;
-    const climaxLive = state.sessionStatus === 'RUNNING' || state.sessionStatus === 'RAMPDOWN';
+    // A video climax mark must not lift a Soft Landing. The landing is a
+    // one-way decay; feeling better, or a mark in the file, does not speed it up.
+    const climaxLive = state.sessionStatus === 'RUNNING';
     const climaxMarks = typeof player?.climaxMarks === 'function' ? player.climaxMarks() : loadedClimaxMarks;
     if (climaxLive && climaxMarks.length > 0) {
         const peakMs = clampClimaxSeconds(advancedSettings.scriptClimaxSeconds) * 1000;
@@ -2405,16 +2411,19 @@ function updateGameNotice() {
 function renderCameEarlyButton() {
     const label = document.getElementById('cameEarlyLabel');
     if (!cameEarlyBtn || !label) return;
-    const finishing = !isRemotePage && (state.activeMode === 'survival' || state.activeMode === 'calibrate');
+    const trainingFinish = !isRemotePage && state.activeMode === 'edgetrain' && state.trainState === 'finish';
+    const finishing = !isRemotePage && (state.activeMode === 'survival' || state.activeMode === 'calibrate' || trainingFinish);
     const calibrating = state.activeMode === 'calibrate';
     label.textContent = finishing ? 'Finished me' : 'Came Early';
     cameEarlyBtn.title = calibrating
         ? (state.calibrationPass === 'dual'
             ? 'Both toys finished you. This heart rate becomes your dual-stim max.'
             : 'The primary toy finished you. This heart rate becomes your single-stim max.')
-        : finishing
-            ? 'Survival finished you. This ends the run. Your Climax HR stays as typed.'
-            : 'Log accidental release so local learning engine tightens limits next time.';
+        : trainingFinish
+            ? 'The holds are done. Finished me eases the toys down and ends the session.'
+            : finishing
+                ? 'Survival finished you. This ends the run. Your Climax HR stays as typed.'
+                : 'Log accidental release so local learning engine tightens limits next time.';
     cameEarlyBtn.classList.toggle('bg-rose-950/60', finishing);
     cameEarlyBtn.classList.toggle('hover:bg-rose-900', finishing);
     cameEarlyBtn.classList.toggle('border-rose-800', finishing);
@@ -2521,6 +2530,10 @@ function resetSessionCounters() {
     state.orgasmBoost = 0;
     clearMicBoost(state);
     state.rampdownSecondsLeft = 45;
+    state.landingFromPrimary = null;
+    state.landingFromSecondary = null;
+    state.landingFromStrokeMin = null;
+    state.landingFromStrokeMax = null;
     state.warmupOriginSeconds = 0;
     state.resumeStatus = null;
     state.pauseReason = '';
@@ -2772,6 +2785,7 @@ function tickSessionGuardsAndGames() {
                 handleTargetTimeReached();
             }
         }
+        renderCameEarlyButton();
     } else if (state.gameMode === 'nnn' && state.sessionStatus === 'RUNNING') {
         const held = tickNnnHold(nnnState, state.isEdged);
         nnnState = held.state;
@@ -3154,10 +3168,23 @@ function handleTargetTimeReached() {
     if (state.endgameType === 'orgasm') {
         if (!state.orgasmMode && orgasmBtn) orgasmBtn.click();
     } else if (state.endgameType === 'rampdown') {
+        // Snapshot the speed already on the toys before the status changes.
+        // The landing decays from that. Starting at a flat 50% used to surge
+        // a toy that had just crawled to a stop, which feels like the ease
+        // ramping back up the moment the pulse drops.
+        const sent = (value) => {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return 0;
+            return Math.max(0, Math.min(100, Math.round(n)));
+        };
+        state.landingFromPrimary = sent(state.strokerSpeed);
+        state.landingFromSecondary = sent(state.prostateSpeed);
+        state.landingFromStrokeMin = Number.isFinite(state.strokeMin) ? state.strokeMin : 0;
+        state.landingFromStrokeMax = Number.isFinite(state.strokeMax) ? state.strokeMax : 100;
         state.sessionStatus = 'RAMPDOWN';
         state.rampdownSecondsLeft = 45;
         const landing = document.getElementById('rampdownNotice');
-        if (landing) landing.textContent = 'SOFT LANDING IN PROGRESS: DECELERATING TO 0%';
+        if (landing) landing.textContent = 'SOFT LANDING: EASING DOWN, THEN THE SESSION ENDS';
         // RAMPDOWN computes both channels from the ramp factor alone and
         // never looks at the heart rate, so no boost reaches the toys. The
         // session tick that refreshes (and clears) the boost is RUNNING-only,
@@ -3853,6 +3880,16 @@ cameEarlyBtn?.addEventListener('click', () => {
         const typed = readHrLimits().maxHr;
         if (confirm(`Mark this orgasm? The toys ease down, then Survival starts again from a warm-up. The session timer keeps going. Your Climax HR stays ${typed}.`)) {
             beginSettle({ restartSurvival: true });
+        }
+        return;
+    }
+    if (state.activeMode === 'edgetrain' && state.trainState === 'finish') {
+        if (state.sessionStatus !== 'RUNNING' && state.sessionStatus !== 'PAUSED') {
+            confirm('Press play first. Finished me ends the session once the holds are done.');
+            return;
+        }
+        if (confirm('Finished? The toys ease down and the session ends.')) {
+            beginSettle({ endsSession: true, outcome: 'Finished' });
         }
         return;
     }

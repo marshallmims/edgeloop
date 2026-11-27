@@ -17,6 +17,12 @@ export const state = {
     durationMode: 'range',
     endgameType: 'orgasm',
     rampdownSecondsLeft: 45,
+    // Speeds and stroke last sent when Soft Landing started. The ease decays
+    // from these. Null until a landing is running.
+    landingFromPrimary: null,
+    landingFromSecondary: null,
+    landingFromStrokeMin: null,
+    landingFromStrokeMax: null,
     hrCurrent: 70,
     // True once a monitor or the simulator has delivered a usable reading.
     // The cockpit stays "--" until then, so the resting default is not a pulse.

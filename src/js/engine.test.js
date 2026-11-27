@@ -1165,6 +1165,47 @@ describe('engine safety guards', () => {
         assert.equal(end.newEdgeTriggered, false);
     });
 
+    it('soft landing decays from the speed already sent and ignores a falling pulse', () => {
+        const crawling = {
+            ...running,
+            sessionStatus: 'RAMPDOWN',
+            hr: 72,
+            edgeHr: 72,
+            isEdged: false,
+            landingFromPrimary: 8,
+            landingFromSecondary: 20,
+            landingFromStrokeMin: 10,
+            landingFromStrokeMax: 70,
+            intensityValue: 100
+        };
+        const start = calculateEngineOutputs({ ...crawling, rampdownSecondsLeft: 45 });
+        const rested = calculateEngineOutputs({ ...crawling, rampdownSecondsLeft: 45, hr: 70, edgeHr: 70 });
+        const halfway = calculateEngineOutputs({ ...crawling, rampdownSecondsLeft: 22.5, hr: 70, edgeHr: 70 });
+        const done = calculateEngineOutputs({ ...crawling, rampdownSecondsLeft: 0, hr: 70, edgeHr: 70 });
+        assert.equal(start.primaryPercent, 8);
+        assert.equal(start.secondaryPercent, 20);
+        assert.equal(rested.primaryPercent, start.primaryPercent);
+        assert.equal(rested.secondaryPercent, start.secondaryPercent);
+        assert.equal(rested.strokeMinPercent, start.strokeMinPercent);
+        assert.equal(rested.strokeMaxPercent, start.strokeMaxPercent);
+        assert.ok(halfway.primaryPercent < start.primaryPercent);
+        assert.ok(halfway.secondaryPercent < start.secondaryPercent);
+        assert.equal(halfway.primaryPercent, 4);
+        assert.equal(done.primaryPercent, 0);
+        assert.equal(done.secondaryPercent, 0);
+        const parked = calculateEngineOutputs({
+            ...crawling,
+            hr: 70,
+            edgeHr: 70,
+            rampdownSecondsLeft: 45,
+            landingFromPrimary: 0,
+            landingFromSecondary: 0
+        });
+        assert.equal(parked.primaryPercent, 0);
+        assert.equal(parked.secondaryPercent, 0);
+        assert.ok(halfway.strokeMaxPercent - halfway.strokeMinPercent <= start.strokeMaxPercent - start.strokeMinPercent);
+    });
+
     it('rampdown scales linearly from 50% to 0% over 45 seconds', () => {
         const full = calculateEngineOutputs({ ...running, sessionStatus: 'RAMPDOWN', rampdownSecondsLeft: 45 });
         const half = calculateEngineOutputs({ ...running, sessionStatus: 'RAMPDOWN', rampdownSecondsLeft: 22.5 });
