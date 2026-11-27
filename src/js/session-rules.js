@@ -445,7 +445,44 @@ export function calibrationReading(hr) {
 }
 
 // Edge Training: climb to the pullback mark, hold there for holdGoal
-// seconds, repeat until edgesGoal successful holds, then finish.
+// seconds, repeat until edgesGoal successful holds, then run the ending
+// the wearer picked. Climax finishes them. Soft Landing eases the toys
+// down. Strict Denial stops everything and ends the session.
+export function trainCompletion(endgameType) {
+    if (endgameType === 'rampdown') {
+        return {
+            phrase: 'edges, then ease down',
+            banner: 'EDGE TRAINING: COMPLETE — EASING DOWN',
+            cue: 'trainEase'
+        };
+    }
+    if (endgameType === 'denial') {
+        return {
+            phrase: 'edges, then stop',
+            banner: 'EDGE TRAINING: COMPLETE — STOP',
+            cue: 'trainStop'
+        };
+    }
+    return {
+        phrase: 'edges, then finish',
+        banner: 'EDGE TRAINING: COMPLETE — COME',
+        cue: 'trainFinish'
+    };
+}
+
+// What the Edge Training card says. A session length is a deadline for that
+// same ending. Endless has no deadline: the holds are the only way it ends.
+export function describeEdgeTraining({ endgameType = 'orgasm', endless = false } = {}) {
+    const after = endgameType === 'rampdown'
+        ? 'After the last hold the toys ease down. There is no finish.'
+        : endgameType === 'denial'
+            ? 'After the last hold every toy stops and the session ends.'
+            : 'After the last hold it finishes you.';
+    const clock = endless
+        ? 'Endless waits until those holds are done.'
+        : 'A session length is the window. That ending happens when the holds are done, or when the time runs out, whichever comes first.';
+    return `Hold the edge for the time you set. Drop early and it does not count. ${after} ${clock} The stroke range is the tease mode you selected.`;
+}
 export const MIN_TRAIN_HOLD_SECONDS = 5;
 export const MAX_TRAIN_HOLD_SECONDS = 90;
 export const DEFAULT_TRAIN_HOLD_SECONDS = 15;
@@ -601,6 +638,7 @@ export function describeGameNotice({
     trainEdgesDone = 0,
     trainHoldGoal,
     trainEdgesGoal,
+    endgameType = 'orgasm',
     survivalSpeedFloor = 0,
     survivalOverdrive = 0,
     calibrationPass = 'primary',
@@ -653,7 +691,7 @@ export function describeGameNotice({
         return `EDGE TRAINING: HOLD ${Math.max(0, holdGoal - held)}s — ${done}/${need} EDGES`;
     }
     if (trainState === 'recover') return `EDGE TRAINING: RECOVER — ${done}/${need} EDGES`;
-    if (trainState === 'finish') return 'EDGE TRAINING: COMPLETE — COME';
+    if (trainState === 'finish') return trainCompletion(endgameType).banner;
     return `EDGE TRAINING: CLIMB — ${done}/${need} EDGES`;
 }
 

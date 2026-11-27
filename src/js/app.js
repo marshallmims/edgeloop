@@ -43,6 +43,8 @@ import {
     oracleTiming,
     rollOracleFate,
     tickEdgeTraining,
+    trainCompletion,
+    describeEdgeTraining,
     clampTrainHoldSeconds,
     clampTrainEdges,
     survivalDrive,
@@ -2381,6 +2383,7 @@ function updateGameNotice() {
         trainEdgesDone: state.trainEdgesDone,
         trainHoldGoal: advancedSettings.trainHoldSeconds,
         trainEdgesGoal: advancedSettings.trainEdges,
+        endgameType: state.endgameType,
         survivalSpeedFloor: state.survivalSpeedFloor,
         survivalOverdrive: state.survivalOverdrive,
         calibrationPass: state.calibrationPass,
@@ -2757,8 +2760,17 @@ function tickSessionGuardsAndGames() {
         if (next.justCounted && !next.justFinished) cueVoice('trainHeld');
         if (next.justDropped) cueVoice('trainDrop');
         if (next.justFinished) {
-            if (!state.orgasmMode) setOrgasmMode(true);
-            cueVoice('trainFinish');
+            const ending = state.endgameType || 'orgasm';
+            const completion = trainCompletion(ending);
+            cueVoice(completion.cue);
+            if (ending === 'orgasm') {
+                if (!state.orgasmMode) setOrgasmMode(true);
+            } else {
+                // The set is the ending. Do not wait for the session timer,
+                // and do not finish them on a Soft Landing or a denial.
+                state.endgameFired = true;
+                handleTargetTimeReached();
+            }
         }
     } else if (state.gameMode === 'nnn' && state.sessionStatus === 'RUNNING') {
         const held = tickNnnHold(nnnState, state.isEdged);
@@ -3956,7 +3968,7 @@ const MODE_DETAILS = {
     oracle: 'Pulls you up and holds the edge, then decides how the session ends. Climax and denial wait for your Mystery minimum. The stroke range is the tease mode you selected.',
     survival: 'Each edge raises your max by 1 BPM and the speed a little. The climb takes about half an hour to get hard, and "At the ceiling" does not stop the toys or end the run. A session length does not end it either. Tap Finished me when you come: the toys ease down, then the climb and the warm-up start again. Press Stop when you are done. The pattern is the play style you picked.',
     calibrate: 'A climb of its own, separate from Survival. Edged saves the heart rate you are on and eases the toys down, before an orgasm. Finished me saves the orgasm. The first run is your primary stimulation device alone. After a rest, a run with both devices saves the dual max. You can change either number by hand. "At the ceiling" does not stop the toys or end the run.',
-    edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. After the set number of holds it offers to finish you. The stroke range is the tease mode you selected.',
+    edgetrain: 'Hold the edge for the time you set. Drop early and it does not count. The ending you picked runs when the holds are done. The stroke range is the tease mode you selected.',
     nnn: 'A daily edge quota between the start and end dates on the card. The app counts the days you did not open it and adds those edges to today. Each missed day also asks you to hold the edge longer before it counts. At the quota the toys ease down and the session ends. There is no orgasm.',
     script: 'Your video and its funscript. The session warm-up does not apply, so the file plays at once. Shorten and skip: strokes get shorter as you climb, and the toy skips them at your edge. Keep the script: strokes stay the shape in the file, and your heart rate only turns them down. The primary meter is how much of the file is allowed, and 100% is the whole file inside your travel range.',
     'goal-off': 'No game. The play style you picked runs on its own.'
@@ -4012,26 +4024,32 @@ function renderModeDetail() {
     const goalDetail = document.getElementById('endgameDetail');
     if (styleName) styleName.textContent = MODE_NAMES[style] || style;
     if (styleDetail) styleDetail.textContent = MODE_DETAILS[style] || '';
+    const trainEnding = document.getElementById('trainEdgesEnding');
+    if (trainEnding) trainEnding.textContent = trainCompletion(state.endgameType || 'orgasm').phrase;
     if (!state.gameMode) {
         const ending = state.endgameType || 'orgasm';
         if (goalName) goalName.textContent = ENDING_NAMES[ending] || ENDING_NAMES.orgasm;
         if (goalDetail) goalDetail.textContent = ENDING_DETAILS[ending] || '';
     } else {
         if (goalName) goalName.textContent = MODE_NAMES[goal] || goal;
-        if (goalDetail) goalDetail.textContent = MODE_DETAILS[goal] || '';
+        if (goalDetail) {
+            goalDetail.textContent = goal === 'edgetrain'
+                ? describeEdgeTraining({ endgameType: state.endgameType, endless: state.durationMode === 'endless' })
+                : (MODE_DETAILS[goal] || '');
+        }
     }
     document.getElementById('trainSettings')?.classList.toggle('hidden', state.gameMode !== 'edgetrain');
     document.getElementById('nnnSettings')?.classList.toggle('hidden', state.gameMode !== 'nnn');
     const choosingStyle = document.getElementById('playStyleDrawer') && !document.getElementById('playStyleDrawer').classList.contains('hidden');
     const choosingEnding = document.getElementById('endgameDrawer') && !document.getElementById('endgameDrawer').classList.contains('hidden');
     document.getElementById('playStyleDetail')?.classList.toggle('hidden', Boolean(choosingStyle));
-    const extra = state.gameMode === 'nnn' || state.gameMode === 'edgetrain';
-    document.getElementById('endgameDetail')?.classList.toggle('hidden', Boolean(choosingEnding) || extra);
+    document.getElementById('endgameDetail')?.classList.toggle('hidden', Boolean(choosingEnding) || state.gameMode === 'nnn');
     document.getElementById('endgameExtra')?.classList.toggle('hidden', Boolean(choosingEnding));
     // Climax, Soft Landing, and Strict Denial are the ending when no game is
-    // on. Edge Training still uses them when the timer runs out. Survival
-    // keeps going until Stop. The Oracle decides its own finish. NNN uses
-    // the denial percent on its own card.
+    // on. Edge Training uses that same ending when the holds are done, and
+    // again if a session length runs out first. Survival keeps going until
+    // Stop. The Oracle decides its own finish. NNN uses the denial percent
+    // on its own card.
     const timerMatters = state.gameMode === 'edgetrain';
     document.getElementById('timerEnding')?.classList.toggle('hidden', Boolean(choosingEnding) || !timerMatters);
 }
@@ -4953,6 +4971,7 @@ function setDurationMode(mode) {
     paramFixedContainer?.classList.toggle('hidden', mode !== 'fixed');
     paramRangeContainer?.classList.toggle('hidden', mode !== 'range');
     paramEndlessContainer?.classList.toggle('hidden', mode !== 'endless');
+    renderModeDetail();
     validateDurationInputs();
     updateTimerDisplay();
 }
@@ -5308,6 +5327,7 @@ paramEndgameCards.forEach(card => {
         if (isRemoteViewer) return;
         state.endgameType = card.getAttribute('data-endgame');
         highlightEndgameCard(state.endgameType);
+        renderModeDetail();
         persistSessionLimits(true);
         if (isRemoteController) sendControllerCommand({ type: 'ENDGAME', endgame: state.endgameType });
     });

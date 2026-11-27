@@ -145,11 +145,31 @@ export const VOICE_CUE_CATALOG = [
     {
         id: 'trainFinish',
         group: 'Training',
-        label: 'Edge training: complete',
+        label: 'Edge training: complete, climax',
         lines: [
             'Training complete. Come.',
             '{need} edges. You can finish.',
             'You held them. Come now.'
+        ]
+    },
+    {
+        id: 'trainEase',
+        group: 'Training',
+        label: 'Edge training: complete, soft landing',
+        lines: [
+            'Training complete. Easing down.',
+            '{need} edges. The toys tease down. No finish.',
+            'You held them. Soft landing.'
+        ]
+    },
+    {
+        id: 'trainStop',
+        group: 'Training',
+        label: 'Edge training: complete, strict denial',
+        lines: [
+            'Training complete. Everything stops.',
+            '{need} edges. Toys off. Session over.',
+            'You held them. Denied.'
         ]
     },
     {

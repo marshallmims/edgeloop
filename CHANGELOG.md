@@ -4,6 +4,10 @@ All notable changes to EdgeLoop are documented here. Entries are grouped by
 the area of the app they touch; forum reports that prompted a change are
 credited by username.
 
+## 1.1.5.38
+
+- **Edge Training follows the ending you picked.** Climax still finishes you after the holds. Soft Landing eases the toys down, and the card says so. Strict Denial stops every toy and ends the session. A session length is the window for that ending. Endless waits until the holds are done.
+
 ## 1.1.5.37
 
 - **Share Control keeps the same link up.** The tablet reconnects that link if the socket drops, and the phone keeps trying instead of sitting on Connecting. The tablet says a controller is connected when the phone opens the link, before a slider moves. A PeerJS error no longer looks like the phone is gone.

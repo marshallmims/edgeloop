@@ -11,6 +11,8 @@ import {
     oracleTiming,
     rollOracleFate,
     tickEdgeTraining,
+    trainCompletion,
+    describeEdgeTraining,
     clampTrainHoldSeconds,
     clampTrainEdges,
     DEFAULT_TRAIN_HOLD_SECONDS,
@@ -677,6 +679,19 @@ describe('edge training', () => {
         assert.equal(t.justFinished, true);
     });
 
+    it('names the ending the wearer picked', () => {
+        assert.equal(trainCompletion('orgasm').phrase, 'edges, then finish');
+        assert.equal(trainCompletion('rampdown').phrase, 'edges, then ease down');
+        assert.equal(trainCompletion('denial').phrase, 'edges, then stop');
+        assert.match(describeEdgeTraining({ endgameType: 'orgasm' }), /finishes you/);
+        assert.match(describeEdgeTraining({ endgameType: 'orgasm' }), /whichever comes first/);
+        assert.match(describeEdgeTraining({ endgameType: 'rampdown' }), /ease down/);
+        assert.match(describeEdgeTraining({ endgameType: 'rampdown' }), /no finish/);
+        assert.match(describeEdgeTraining({ endgameType: 'denial' }), /every toy stops/);
+        assert.match(describeEdgeTraining({ endgameType: 'denial', endless: true }), /Endless waits/);
+        assert.doesNotMatch(describeEdgeTraining({ endgameType: 'denial', endless: true }), /whichever comes first/);
+    });
+
     it('a dropped hold does not count', () => {
         let t = tickEdgeTraining({ state: 'climb' }, { isEdged: true, holdGoal: 8, edgesGoal: 3 });
         t = tickEdgeTraining(t, { isEdged: true, holdGoal: 8, edgesGoal: 3 });
@@ -748,7 +763,9 @@ describe('the cockpit game banner', () => {
             'EDGE TRAINING: HOLD 11s — 2/5 EDGES'
         );
         assert.match(describeGameNotice({ ...train, trainState: 'recover', trainEdgesDone: 2, trainEdgesGoal: 5 }), /RECOVER — 2\/5/);
-        assert.match(describeGameNotice({ ...train, trainState: 'finish' }), /COMPLETE/);
+        assert.match(describeGameNotice({ ...train, trainState: 'finish' }), /COMPLETE — COME/);
+        assert.match(describeGameNotice({ ...train, trainState: 'finish', endgameType: 'rampdown' }), /EASING DOWN/);
+        assert.match(describeGameNotice({ ...train, trainState: 'finish', endgameType: 'denial' }), /STOP/);
         assert.match(describeGameNotice({ ...train, trainState: 'climb', trainEdgesGoal: 5 }), /CLIMB — 0\/5/);
         assert.match(
             describeGameNotice({ activeMode: 'survival', sessionStatus: 'RUNNING', survivalSpeedFloor: 42.4 }),
